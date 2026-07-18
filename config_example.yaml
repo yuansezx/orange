@@ -1,0 +1,6 @@
+
+app_name: orange
+app_version: example
+debug: false
+# 日志存放位置，默认是项目根目录下的logs目录
+logs_dir: ./logs

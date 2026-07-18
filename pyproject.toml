@@ -1,0 +1,13 @@
+[project]
+name = "orange"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.136.3",
+    "future-uuid>=1.0.0",
+    "loguru>=0.7.3",
+    "pydantic-settings>=2.14.1",
+    "uvicorn>=0.48.0",
+]
