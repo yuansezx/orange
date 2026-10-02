@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class DataScope(str, Enum):
+class DataScopeEnum(str, Enum):
     ALL = "all"
     DEPT = "dept"
     DEPT_AND_CHILD = "dept_and_child"

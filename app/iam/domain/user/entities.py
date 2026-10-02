@@ -1,11 +1,11 @@
 from datetime import datetime, UTC
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.user.enums import UserType
-from app.iam.domain.shared.enums import Status
+from app.iam.domain.user.enums import UserTypeEnum
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 from app.iam.domain.user.exceptions import PasswordPolicyViolationException, UserUpdateForbiddenException
-from app.iam.domain.user.ports import PasswordHasher
+from app.iam.domain.user.ports import PasswordHasherPort
 
 
 class User(AuditableEntity[UserId]):
@@ -15,20 +15,20 @@ class User(AuditableEntity[UserId]):
     password_hash: str
     email: Email | None = None  # 确保唯一性
     phone: Phone | None = None  # 确保唯一性
-    user_type: UserType
-    status: Status
+    user_type: UserTypeEnum
+    status: StatusEnum
     need_change_password: bool  # 这两行密码相关的记录主要是为了`首次登录要修改`，`长时间没改密码提示更改`，`管理员给用户重置密码后，用户登录修改`
     password_updated_at: datetime | None = None
     remark: str | None = None
     dept_id: DeptId | None = None
 
     def can_update(self) -> bool:
-        return self.user_type not in {UserType.SYSTEM}
+        return self.user_type not in {UserTypeEnum.SYSTEM}
 
     def can_delete(self) -> bool:
-        return self.user_type not in {UserType.SYSTEM, UserType.SUPER_ADMIN}
+        return self.user_type not in {UserTypeEnum.SYSTEM, UserTypeEnum.SUPER_ADMIN}
 
-    def change_password(self, new_password: str, password_hasher: PasswordHasher):
+    def change_password(self, new_password: str, password_hasher: PasswordHasherPort):
         """
         更改密码
         Args:
@@ -56,7 +56,7 @@ class User(AuditableEntity[UserId]):
         self.updated_by = operator_id
         self.updated_at = datetime.now(UTC)
 
-    def change_status(self, status: Status, update_by: UserId):
+    def change_status(self, status: StatusEnum, update_by: UserId):
         if not self.can_update():
             raise UserUpdateForbiddenException('用户不可更改')
         self.status = status

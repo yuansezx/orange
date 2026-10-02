@@ -7,3 +7,13 @@ class IAMApplicationBaseException(ApplicationBaseException):
 
 class PermissionDeniedException(IAMApplicationBaseException):
     pass
+
+class OperationNotAllowedException(IAMApplicationBaseException):
+    pass
+
+class AuthenticationException(IAMApplicationBaseException):
+    pass
+
+class InvalidTokenException(AuthenticationException):
+    pass
+

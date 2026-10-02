@@ -6,10 +6,10 @@ from pydantic import BaseModel
 from app.core.domain.repositories import BaseRepository
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.shared.enums import Status
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Phone, Email, UserId, DeptId
 from app.iam.domain.user.entities import User
-from app.iam.domain.user.enums import UserType
+from app.iam.domain.user.enums import UserTypeEnum
 
 
 class SearchUser(BaseModel):
@@ -17,8 +17,8 @@ class SearchUser(BaseModel):
     nickname: str | None
     email: str | None = None
     phone: Phone | None = None
-    user_type: UserType | None = None
-    status: Status | None = None
+    user_type: UserTypeEnum | None = None
+    status: StatusEnum | None = None
     need_change_password: bool | None = None
     password_updated_at_between: tuple[datetime, datetime] | None = None
     remark: str | None = None

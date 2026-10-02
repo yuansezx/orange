@@ -5,7 +5,7 @@ from app.core.domain.ports import EventIdProvider
 from app.core.domain.value_objects import EventId
 
 
-class EventIdProviderUUID7Impl(EventIdProvider):
+class EventIdProviderUUID7Adapter(EventIdProvider):
     def generate(self) -> EventId:
         return EventId(value=str(uuid.uuid7()))
 

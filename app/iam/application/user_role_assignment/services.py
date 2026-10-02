@@ -2,19 +2,19 @@ from datetime import datetime, UTC
 
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.shared.enums import Status
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.role.services import RoleAccessService
-from app.iam.domain.shared.units_of_work import InTransactionType
+from app.core.domain.units_of_work import InTransactionType
 from app.iam.domain.shared.value_objects import UserId, RoleId
 from app.iam.domain.user_role_assignment.entities import UserRoleAssignment
-from app.iam.domain.user_role_assignment.ports import UserRoleIdProvider
+from app.iam.domain.user_role_assignment.ports import UserRoleIdProviderPort
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
 
 class UserRoleApplicationService:
     def __init__(self, in_transaction: InTransactionType, user_role_repo: UserRoleRepository,
                  role_access_service: RoleAccessService,
-                 id_provider: UserRoleIdProvider) -> None:
+                 id_provider: UserRoleIdProviderPort) -> None:
         self.in_transaction = in_transaction
         self.user_role_repo = user_role_repo
 
@@ -28,6 +28,7 @@ class UserRoleApplicationService:
         await self._assign_roles_to_user(user_id, role_ids, current_user.user_id)
 
     async def set_user_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId], current_user:CurrentUser) -> None:
+        """设置用户的角色，包含对能否访问目标角色的检查"""
         if not isinstance(role_ids, set):
             role_ids = set(role_ids)
         current_assignments = await self.user_role_repo.get_by_user_id(user_id)
@@ -53,10 +54,11 @@ class UserRoleApplicationService:
 
     """---内部方法---"""
     async def _assign_roles_to_user(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId], operator_id: UserId) -> None:
+        """将角色赋予用户的内部方法"""
         user_role_assignments = [UserRoleAssignment(id=self.id_provider.generate(),
                                                     user_id=user_id,
                                                     role_id=role_id,
-                                                    status=Status.ACTIVE,
+                                                    status=StatusEnum.ACTIVE,
                                                     created_at=datetime.now(UTC),
                                                     created_by=operator_id) for role_id in role_ids]
 

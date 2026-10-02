@@ -5,13 +5,13 @@ from app.core.domain.ports import EventIdProvider
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.user.enums import UserType
-from app.iam.domain.user.ports import UserIdProvider, PasswordHasher
+from app.iam.domain.user.enums import UserTypeEnum
+from app.iam.domain.user.ports import UserIdProviderPort, PasswordHasherPort
 from app.iam.application.common.exceptions import PermissionDeniedException
-from app.iam.application.user.exceptions import UserExistsException, UserNotExistException
+from app.iam.application.user.exceptions import UserExistsException
 from app.iam.application.user.dto import CreateUserIn, UpdateUserIn, GetUsersIn
 from app.iam.domain.dept.services import DeptAccessService
-from app.iam.domain.shared.units_of_work import InTransactionType
+from app.core.domain.units_of_work import InTransactionType
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.repositories import UserRepository, SearchUser
 from app.iam.domain.user.services import CheckUserUniqueService, UserAccessService
@@ -23,8 +23,8 @@ class UserApplicationService:
                  user_repo: UserRepository,
                  user_access_service: UserAccessService,
                  dept_access_service: DeptAccessService,
-                 user_id_provider: UserIdProvider,
-                 password_hasher: PasswordHasher,
+                 user_id_provider: UserIdProviderPort,
+                 password_hasher: PasswordHasherPort,
                  event_bus: EventBus,
                  event_id_provider: EventIdProvider):
 
@@ -64,7 +64,7 @@ class UserApplicationService:
             # 创建用户
             user = await self.user_repo.create(User(id=self.user_id_provider.generate(),
                                                     password_hash=self.password_hasher.hash_password(data.password),
-                                                    user_type=UserType.ADMIN_CREATED,
+                                                    user_type=UserTypeEnum.ADMIN_CREATED,
                                                     need_change_password=True,
                                                     created_by=current_user.user_id,
                                                     created_at=datetime.now(UTC),
@@ -98,3 +98,6 @@ class UserApplicationService:
             # 设置角色
             if data.role_ids:
                 await user_role_app_service.set_user_roles(user.id, data.role_ids, current_user)
+
+    # async def delete_users(self,user_ids: list[int], current_user: CurrentUser) -> None:
+

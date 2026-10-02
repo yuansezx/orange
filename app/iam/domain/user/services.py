@@ -2,7 +2,7 @@ from app.core.utils.type_utils import to_set
 from app.core.utils.validators import check_unique
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import Phone, Email, UserId
-from app.iam.domain.user.enums import UserType
+from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.user.repositories import UserRepository
 
 
@@ -33,7 +33,7 @@ class UserAccessService:
         self.user_repo = user_repo
 
     async def can_access(self, user_ids: UserId | list[UserId] | set[UserId], current_user: CurrentUser) -> bool:
-        if current_user.user_type == UserType.SUPER_ADMIN:
+        if current_user.user_type == UserTypeEnum.SUPER_ADMIN:
             return True
         allowed = await self.user_repo.get_allowed_user_ids(current_user)
         return to_set(user_ids).issubset(allowed)

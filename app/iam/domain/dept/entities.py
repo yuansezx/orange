@@ -1,5 +1,5 @@
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.shared.enums import Status
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 
 
@@ -10,5 +10,5 @@ class Dept(AuditableEntity):
     leader_id: UserId | None = None
     email: Email | None = None
     phone: Phone | None = None
-    status: Status
+    status: StatusEnum
     remark: str | None = None

@@ -29,6 +29,15 @@ class AppBaseSettings(BaseSettings):
 
 
 class CoreSettings(AppBaseSettings):
+    model_config = SettingsConfigDict(
+        yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],
+        yaml_config_section='core',
+        yaml_file_encoding='utf-8',
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore'
+    )
+
     app_name: str = 'orange'
     app_version: str = 'nightly'
     debug: bool = False

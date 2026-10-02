@@ -9,5 +9,7 @@ dependencies = [
     "future-uuid>=1.0.0",
     "loguru>=0.7.3",
     "pydantic-settings>=2.14.1",
+    "pyjwt>=2.13.0",
+    "redis>=8.0.1",
     "uvicorn>=0.48.0",
 ]

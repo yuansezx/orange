@@ -3,11 +3,11 @@ from datetime import datetime, UTC
 import future_uuid as uuid
 
 from app.core.domain.value_objects import BaseEntityId
-from app.iam.domain.dept.ports import DeptIdProvider
-from app.iam.domain.role.ports import RoleIdProvider
-from app.iam.domain.user.ports import UserIdProvider
+from app.iam.domain.dept.ports import DeptIdProviderPort
+from app.iam.domain.role.ports import RoleIdProviderPort
+from app.iam.domain.user.ports import UserIdProviderPort
 from app.iam.domain.shared.value_objects import RoleId, DeptId, UserId, UserRoleId
-from app.iam.domain.user_role_assignment.ports import UserRoleIdProvider
+from app.iam.domain.user_role_assignment.ports import UserRoleIdProviderPort
 
 
 def _extract_uuid7_datetime(entity_id: BaseEntityId) -> datetime:
@@ -16,7 +16,7 @@ def _extract_uuid7_datetime(entity_id: BaseEntityId) -> datetime:
     return datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
 
 
-class UserIdProviderUUID7Impl(UserIdProvider):
+class UserIdProviderUUID7Adapter(UserIdProviderPort):
     def generate(self) -> UserId:
         return UserId(value=str(uuid.uuid7()))
 
@@ -24,7 +24,7 @@ class UserIdProviderUUID7Impl(UserIdProvider):
         return _extract_uuid7_datetime(entity_id)
 
 
-class RoleIdProviderUUID7Impl(RoleIdProvider):
+class RoleIdProviderUUID7Adapter(RoleIdProviderPort):
     def generate(self) -> RoleId:
         return RoleId(value=str(uuid.uuid7()))
 
@@ -32,7 +32,7 @@ class RoleIdProviderUUID7Impl(RoleIdProvider):
         return _extract_uuid7_datetime(entity_id)
 
 
-class DeptIdProviderUUID7Impl(DeptIdProvider):
+class DeptIdProviderUUID7Adapter(DeptIdProviderPort):
     def generate(self) -> DeptId:
         return DeptId(value=str(uuid.uuid7()))
 
@@ -40,7 +40,7 @@ class DeptIdProviderUUID7Impl(DeptIdProvider):
         return _extract_uuid7_datetime(entity_id)
 
 
-class UserRoleIdProviderUUID7Impl(UserRoleIdProvider):
+class UserRoleIdProviderUUID7Adapter(UserRoleIdProviderPort):
     def generate(self) -> UserRoleId:
         return UserRoleId(value=str(uuid.uuid7()))
 

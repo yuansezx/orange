@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from app.iam.domain.shared.enums import Status
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, RoleId, DeptId, UserId
 
 
@@ -13,7 +13,7 @@ class GetUsersIn(BaseModel):
     nickname: str | None = None
     email: str | None = None
     phone: str | None = None
-    status: Status | None = None
+    status: StatusEnum | None = None
     remark: str | None = None
     dept_id: DeptId | None = None
     created_at_between: tuple[datetime, datetime] | None = None
@@ -24,7 +24,7 @@ class CreateUserIn(BaseModel):
     password: str
     email: Email | None = None
     phone: Phone | None = None
-    status: Status
+    status: StatusEnum
     remark: str | None = None
     role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None
@@ -34,7 +34,7 @@ class UpdateUserIn(BaseModel):
     nickname: str
     email: Email | None = None
     phone: Phone | None = None
-    status: Status
+    status: StatusEnum
     remark: str | None = None
     role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None

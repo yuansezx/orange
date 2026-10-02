@@ -1,5 +1,5 @@
-from app.core.infrastructure.adapters.id_provider_impl import EventIdProviderUUID7Impl
+from app.core.infrastructure.adapters.id_provider_adapter import EventIdProviderUUID7Adapter
 
 
 def get_event_id_provider():
-    return EventIdProviderUUID7Impl()
+    return EventIdProviderUUID7Adapter()
