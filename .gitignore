@@ -13,3 +13,7 @@ wheels/
 config.yaml
 config_dev.yaml
 config_prod.yaml
+.env.*
+
+/docker/docker-compose-base-dev.yaml
+/docker/postgres/init_dev.sql

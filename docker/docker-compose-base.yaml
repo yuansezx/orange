@@ -1,0 +1,45 @@
+name: orange
+
+services:
+  redis:
+    image: redis:8.2.4
+    container_name: orange-redis
+    restart: unless-stopped
+    #    ports:
+    #      - "6379:6379"
+    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD:-redis}" ]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis}", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 2s
+
+  postgres:
+    image: postgres:17.10
+    container_name: orange-postgres
+    restart: unless-stopped
+#    ports:
+#      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 2s
+
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redis_data:
