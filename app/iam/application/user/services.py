@@ -1,12 +1,12 @@
 from datetime import datetime, UTC
 
 from app.core.domain.event_bus import EventBus
-from app.core.domain.ports import EventIdProvider
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.enums import UserTypeEnum
-from app.iam.domain.user.ports import UserIdProviderPort, PasswordHasherPort
+from app.iam.domain.user.ports import PasswordHasherPort
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.user.exceptions import UserExistsException
 from app.iam.application.user.dto import CreateUserIn, UpdateUserIn, GetUsersIn
@@ -23,21 +23,17 @@ class UserApplicationService:
                  user_repo: UserRepository,
                  user_access_service: UserAccessService,
                  dept_access_service: DeptAccessService,
-                 user_id_provider: UserIdProviderPort,
                  password_hasher: PasswordHasherPort,
-                 event_bus: EventBus,
-                 event_id_provider: EventIdProvider):
+                 event_bus: EventBus):
 
         self.in_transaction = in_transaction
         self.user_repo = user_repo
 
         self.user_access_service = user_access_service
         self.dept_access_service = dept_access_service
-        self.user_id_provider = user_id_provider
         self.password_hasher = password_hasher
 
         self.event_bus = event_bus
-        self.event_id_provider = event_id_provider
 
     async def get_users(self, data:GetUsersIn,current_user: CurrentUser) -> PageResult[User]:
         return await self.user_repo.search(SearchUser(**data.model_dump()),data.page_size,data.page,current_user)
@@ -62,7 +58,7 @@ class UserApplicationService:
 
         async with self.in_transaction():
             # 创建用户
-            user = await self.user_repo.create(User(id=self.user_id_provider.generate(),
+            user = await self.user_repo.create(User(id=UserId.new(),
                                                     password_hash=self.password_hasher.hash_password(data.password),
                                                     user_type=UserTypeEnum.ADMIN_CREATED,
                                                     need_change_password=True,

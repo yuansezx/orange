@@ -5,22 +5,18 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.role.services import RoleAccessService
 from app.core.domain.units_of_work import InTransactionType
-from app.iam.domain.shared.value_objects import UserId, RoleId
+from app.iam.domain.shared.value_objects import UserId, RoleId, UserRoleId
 from app.iam.domain.user_role_assignment.entities import UserRoleAssignment
-from app.iam.domain.user_role_assignment.ports import UserRoleIdProviderPort
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
 
 class UserRoleApplicationService:
     def __init__(self, in_transaction: InTransactionType, user_role_repo: UserRoleRepository,
-                 role_access_service: RoleAccessService,
-                 id_provider: UserRoleIdProviderPort) -> None:
+                 role_access_service: RoleAccessService) -> None:
         self.in_transaction = in_transaction
         self.user_role_repo = user_role_repo
 
         self.role_access_service = role_access_service
-
-        self.id_provider = id_provider
 
     async def assign_roles_to_user(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId], current_user:CurrentUser) -> None:
         if not await self.role_access_service.can_access(role_ids, current_user):
@@ -55,7 +51,7 @@ class UserRoleApplicationService:
     """---内部方法---"""
     async def _assign_roles_to_user(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId], operator_id: UserId) -> None:
         """将角色赋予用户的内部方法"""
-        user_role_assignments = [UserRoleAssignment(id=self.id_provider.generate(),
+        user_role_assignments = [UserRoleAssignment(id=UserRoleId.new(),
                                                     user_id=user_id,
                                                     role_id=role_id,
                                                     status=StatusEnum.ACTIVE,

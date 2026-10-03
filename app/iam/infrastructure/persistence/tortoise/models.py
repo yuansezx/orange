@@ -1,3 +1,4 @@
+from future_uuid import uuid7
 from tortoise import fields
 from tortoise.models import Model
 
@@ -8,7 +9,7 @@ from app.iam.domain.user.enums import UserTypeEnum
 class UserModel(Model):
     """user 聚合的表模型（与领域实体 app.iam.domain.user.entities.User 分离）。"""
 
-    id = fields.CharField(max_length=36, primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     username = fields.CharField(max_length=64, unique=True)
     nickname = fields.CharField(max_length=64)
     password_hash = fields.CharField(max_length=255)
@@ -19,14 +20,14 @@ class UserModel(Model):
     need_change_password = fields.BooleanField(default=True)
     password_updated_at = fields.DatetimeField(null=True)
     remark = fields.CharField(max_length=255, null=True)
-    dept_id = fields.CharField(max_length=36, null=True)
+    dept_id = fields.UUIDField(null=True)
 
     created_at = fields.DatetimeField()
-    created_by = fields.CharField(max_length=36)
+    created_by = fields.UUIDField()
     updated_at = fields.DatetimeField(null=True)
-    updated_by = fields.CharField(max_length=36, null=True)
+    updated_by = fields.UUIDField(null=True)
     deleted_at = fields.DatetimeField(null=True)
-    deleted_by = fields.CharField(max_length=36, null=True)
+    deleted_by = fields.UUIDField(null=True)
 
     class Meta:
         table = 'iam_user'
