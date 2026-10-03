@@ -4,6 +4,7 @@ from app.core.domain.event_bus import EventBus
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.password_hash import hash_password
@@ -32,6 +33,28 @@ class UserApplicationService:
         self.dept_access_service = dept_access_service
 
         self.event_bus = event_bus
+
+    async def initialize_super_admin(self, username: str, password: str, nickname: str) -> None:
+        """初始化首个超管（逃生舱）。
+
+        仅当库中尚无 SUPER_ADMIN 时创建；首个用户无创建者，created_by 取自身 id。
+        """
+        if await self.user_repo.exists_by_user_type(UserTypeEnum.SUPER_ADMIN):
+            return
+
+        user_id = UserId.new()
+        user = User(id=user_id,
+                    username=username,
+                    nickname=nickname,
+                    password_hash=hash_password(password),
+                    user_type=UserTypeEnum.SUPER_ADMIN,
+                    status=StatusEnum.ACTIVE,
+                    need_change_password=True,
+                    created_by=user_id,
+                    created_at=datetime.now(UTC),
+                    remark='系统初始化')
+        async with self.in_transaction():
+            await self.user_repo.create(user)
 
     async def get_users(self, data:GetUsersIn,current_user: CurrentUser) -> PageResult[User]:
         return await self.user_repo.search(SearchUser(**data.model_dump()),data.page_size,data.page,current_user)
@@ -92,6 +115,7 @@ class UserApplicationService:
             # 设置角色
             if data.role_ids:
                 await user_role_app_service.set_user_roles(user.id, data.role_ids, current_user)
+
 
     # async def delete_users(self,user_ids: list[int], current_user: CurrentUser) -> None:
 

@@ -42,6 +42,9 @@ class UserRepository(BaseRepository[UserId, User]):
     async def get_id_by_email(self, email: Email) -> UserId | None: ...
 
     @abstractmethod
+    async def exists_by_user_type(self, user_type: UserTypeEnum) -> bool: ...
+
+    @abstractmethod
     async def get_allowed_user_ids(self, current_user: CurrentUser) -> set[UserId]: ...
 
     @abstractmethod
