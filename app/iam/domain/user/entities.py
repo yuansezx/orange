@@ -5,7 +5,7 @@ from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 from app.iam.domain.user.exceptions import PasswordPolicyViolationException, UserUpdateForbiddenException
-from app.iam.domain.user.ports import PasswordHasherPort
+from app.core.utils.password_hash import hash_password, verify_password
 
 
 class User(AuditableEntity[UserId]):
@@ -28,21 +28,16 @@ class User(AuditableEntity[UserId]):
     def can_delete(self) -> bool:
         return self.user_type not in {UserTypeEnum.SYSTEM, UserTypeEnum.SUPER_ADMIN}
 
-    def change_password(self, new_password: str, password_hasher: PasswordHasherPort):
+    def change_password(self, new_password: str):
         """
         更改密码
-        Args:
-            new_password: 新密码
-            password_hasher: 密码加密实现
-
-        Returns:
 
         Raises:
             PasswordPolicyViolationException: 违反密码策略
         """
-        if password_hasher.verify_password(new_password, self.password_hash):
+        if verify_password(new_password, self.password_hash):
             raise PasswordPolicyViolationException('新密码不可与旧密码相同')
-        self.password_hash = password_hasher.hash_password(new_password)
+        self.password_hash = hash_password(new_password)
 
     def change_profile(self, nickname: str, email: Email | None, phone: Phone | None, remark: str | None,
                        dept_id: DeptId | None, operator_id: UserId):

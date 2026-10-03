@@ -6,7 +6,7 @@ from app.iam.application.user_role_assignment.services import UserRoleApplicatio
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.enums import UserTypeEnum
-from app.iam.domain.user.ports import PasswordHasherPort
+from app.core.utils.password_hash import hash_password
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.user.exceptions import UserExistsException
 from app.iam.application.user.dto import CreateUserIn, UpdateUserIn, GetUsersIn
@@ -23,7 +23,6 @@ class UserApplicationService:
                  user_repo: UserRepository,
                  user_access_service: UserAccessService,
                  dept_access_service: DeptAccessService,
-                 password_hasher: PasswordHasherPort,
                  event_bus: EventBus):
 
         self.in_transaction = in_transaction
@@ -31,7 +30,6 @@ class UserApplicationService:
 
         self.user_access_service = user_access_service
         self.dept_access_service = dept_access_service
-        self.password_hasher = password_hasher
 
         self.event_bus = event_bus
 
@@ -59,7 +57,7 @@ class UserApplicationService:
         async with self.in_transaction():
             # 创建用户
             user = await self.user_repo.create(User(id=UserId.new(),
-                                                    password_hash=self.password_hasher.hash_password(data.password),
+                                                    password_hash=hash_password(data.password),
                                                     user_type=UserTypeEnum.ADMIN_CREATED,
                                                     need_change_password=True,
                                                     created_by=current_user.user_id,
