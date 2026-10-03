@@ -5,8 +5,28 @@ core:
   debug: false
   # 日志存放位置，默认是项目根目录下的logs目录
   logs_dir: ./logs
+  # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{后端}.models 汇总模型）
+  modules:
+    - iam
+  # 持久化（数据库）配置
+  persistence:
+    # 选择 ORM 后端
+    backend: tortoise
+    # 后端专属配置，core 原样透传、不解释
+    options:
+      use_tz: true
+      timezone: Asia/Shanghai
+      connections:
+        default:
+          engine: tortoise.backends.asyncpg
+          credentials:
+            host: 127.0.0.1
+            port: 5432
+            user: orange
+            password: orange
+            database: orange
 
 iam:
   jwt_config:
     secret_key:
-    algorithm:
+    algorithm: HS256

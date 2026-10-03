@@ -9,12 +9,11 @@ from app.core.exceptions import global_exception_handler
 # fastapi 生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # await core.start()
-    core.start()
+    await core.start()
 
     yield
 
-    # await core.stop()
+    await core.stop()
 
 
 def create_app():

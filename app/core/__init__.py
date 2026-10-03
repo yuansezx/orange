@@ -4,6 +4,7 @@ from loguru import logger
 
 from app.core.domain.event_bus import EventBus
 from app.core.infrastructure.event_bus_impl import EventBusMemoryImpl
+from app.core.infrastructure.persistence import start_persistence, stop_persistence
 from app.core.infrastructure.settings import CORE_SETTINGS
 
 
@@ -38,5 +39,12 @@ def get_event_bus() -> EventBus:
         _event_bus = EventBusMemoryImpl()
     return _event_bus
 
-def start():
+async def start():
+    """应用启动：日志 → 持久化（迁移 + ORM 初始化）。"""
     init_logger()
+    await start_persistence()
+
+
+async def stop():
+    """应用关闭：释放持久化资源。"""
+    await stop_persistence()

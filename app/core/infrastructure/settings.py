@@ -2,6 +2,7 @@
 # import secrets
 from pathlib import Path
 
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
 
 
@@ -26,6 +27,16 @@ class AppBaseSettings(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         yaml_settings = YamlConfigSettingsSource(settings_cls)
         return dotenv_settings, yaml_settings, init_settings, env_settings, file_secret_settings
+
+
+class PersistenceConfig(BaseModel):
+    """持久化配置（core 段内的嵌套 schema）。
+
+    backend：选择 ORM 后端（对应 persistence/{backend}_backend.py）；
+    options：后端专属配置，core 原样透传、不解释其内容（由对应后端模块自行读取）。
+    """
+    backend: str
+    options: dict = {}
 
 
 class CoreSettings(AppBaseSettings):
@@ -58,6 +69,12 @@ class CoreSettings(AppBaseSettings):
     #
     # log文件位置
     logs_dir: Path = Path('./logs')
+
+    # 启用的业务模块（core 按约定汇总各模块的模型/路由等装配）
+    modules: list[str] = []
+
+    # 持久化（数据库）配置
+    persistence: PersistenceConfig | None = None
     #
     # # orm配置
     # tortoise_orm_config: dict | None = None
