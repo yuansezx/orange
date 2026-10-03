@@ -12,6 +12,8 @@ core:
   persistence:
     # 选择 ORM 后端
     backend: tortoise
+    # 启动时是否自动迁移；关闭则改为手动运行 migrate.py
+    auto_migrate: true
     # 后端专属配置，core 原样透传、不解释
     options:
       use_tz: true

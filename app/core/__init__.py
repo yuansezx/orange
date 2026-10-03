@@ -10,21 +10,21 @@ from app.core.infrastructure.settings import CORE_SETTINGS
 
 # 初始化loguru
 def init_logger():
-    CORE_SETTINGS.logs_path.mkdir(parents=True, exist_ok=True)
+    CORE_SETTINGS.logs_dir.mkdir(parents=True, exist_ok=True)
     # 移除原生控制台输出
     logger.remove()
     # 添加控制台输出
     logger.add(sys.stderr, colorize=True, level="INFO",
                format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}  - {message}")
     # 所有模块的log写入app.log
-    logger.add(CORE_SETTINGS.logs_path / 'app.log',
+    logger.add(CORE_SETTINGS.logs_dir / 'app.log',
                level='INFO',
                format='{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}  - {message}',
                encoding='utf-8',
                enqueue=True  # 异步
                )
     # error级别log单独写入error.log
-    logger.add(CORE_SETTINGS.logs_path / 'error.log',
+    logger.add(CORE_SETTINGS.logs_dir / 'error.log',
                level='ERROR',
                format='{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}  - {message}',
                encoding='utf-8',

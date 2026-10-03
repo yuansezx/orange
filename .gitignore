@@ -17,3 +17,5 @@ config_prod.yaml
 
 /docker/docker-compose-base-dev.yaml
 /docker/postgres/init_dev.sql
+/migrations
+/logs

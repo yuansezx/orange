@@ -1,12 +1,12 @@
 from future_uuid import uuid7
 from tortoise import fields
-from tortoise.models import Model
 
+from app.core.infrastructure.persistence.tortoise.models import AuditableModel
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.user.enums import UserTypeEnum
 
 
-class UserModel(Model):
+class UserModel(AuditableModel):
     """user 聚合的表模型（与领域实体 app.iam.domain.user.entities.User 分离）。"""
 
     id = fields.UUIDField(primary_key=True, default=uuid7)
@@ -21,13 +21,6 @@ class UserModel(Model):
     password_updated_at = fields.DatetimeField(null=True)
     remark = fields.CharField(max_length=255, null=True)
     dept_id = fields.UUIDField(null=True)
-
-    created_at = fields.DatetimeField()
-    created_by = fields.UUIDField()
-    updated_at = fields.DatetimeField(null=True)
-    updated_by = fields.UUIDField(null=True)
-    deleted_at = fields.DatetimeField(null=True)
-    deleted_by = fields.UUIDField(null=True)
 
     class Meta:
         table = 'iam_user'

@@ -32,10 +32,12 @@ class AppBaseSettings(BaseSettings):
 class PersistenceConfig(BaseModel):
     """持久化配置（core 段内的嵌套 schema）。
 
-    backend：选择 ORM 后端（对应 persistence/{backend}_backend.py）；
+    backend：选择 ORM 后端（对应 persistence/{backend}/{backend}_backend.py）；
+    auto_migrate：启动时是否自动执行迁移；关闭则跳过，改为手动触发（migrate.py）；
     options：后端专属配置，core 原样透传、不解释其内容（由对应后端模块自行读取）。
     """
     backend: str
+    auto_migrate: bool = True
     options: dict = {}
 
 
