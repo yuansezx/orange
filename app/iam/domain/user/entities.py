@@ -57,3 +57,14 @@ class User(AuditableEntity[UserId]):
         self.status = status
         self.updated_by = update_by
         self.updated_at = datetime.now(UTC)
+
+    def delete(self, operator_id: UserId) -> None:
+        """软删除：只置 status=DELETED 并记录删除人/时间，不物理删除。
+
+        物理删除另行处理（见 StatusEnum.DELETED 的说明）。
+        """
+        if not self.can_delete():
+            raise UserUpdateForbiddenException('用户不可删除')
+        self.status = StatusEnum.DELETED
+        self.deleted_by = operator_id
+        self.deleted_at = datetime.now(UTC)

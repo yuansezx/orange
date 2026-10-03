@@ -16,5 +16,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "redis>=8.0.1",
     "tortoise-orm>=1.1.8",
+    # Windows 无系统时区库，zoneinfo / tortoise 解析时区（如 Asia/Shanghai）依赖 tzdata
+    "tzdata>=2026.4",
     "uvicorn>=0.48.0",
 ]

@@ -13,6 +13,7 @@ from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
+from app.iam.infrastructure.persistence.tortoise.repositories import UserRepositoryTortoiseImpl
 
 
 def get_in_transaction() -> InTransactionType:
@@ -21,8 +22,7 @@ def get_in_transaction() -> InTransactionType:
 
 
 def get_user_repo() -> UserRepository:
-    # TODO: 待 UserRepositoryTortoiseImpl（含 领域 User ↔ UserModel 映射）
-    raise NotImplementedError('用户仓储实现待补')
+    return UserRepositoryTortoiseImpl()
 
 
 def get_dept_repo() -> DeptRepository:
