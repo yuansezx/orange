@@ -10,6 +10,7 @@ class JWTConfig(BaseModel):
     secret_key: str
     algorithm: str
 
+
 class IAMSettings(AppBaseSettings):
     model_config = SettingsConfigDict(
         yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],

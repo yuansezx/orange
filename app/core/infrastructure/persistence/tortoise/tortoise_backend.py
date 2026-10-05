@@ -1,7 +1,9 @@
 from aerich import Command
 from loguru import logger
 from tortoise import Tortoise
+from tortoise.transactions import in_transaction
 
+from app.core.domain.units_of_work import InTransactionType, TransactionContext
 from app.core.infrastructure.settings import CORE_SETTINGS
 
 MIGRATIONS_DIR = './migrations'
@@ -61,3 +63,25 @@ async def run_migrations() -> None:
                     logger.info('[{}] 数据库表已是最新', app_label)
         finally:
             await command.aclose()
+
+
+class TortoiseTransactionContext(TransactionContext):
+    """把 tortoise 的 in_transaction() 适配成领域侧的事务上下文。
+
+    tortoise 的事务连接按 task 的 ContextVar 自动绑定，事务内的查询无需显式传连接。
+    """
+
+    def __init__(self) -> None:
+        self._cm = None
+
+    async def __aenter__(self):
+        # 进入时才创建，避免在构造期触碰连接/上下文
+        self._cm = in_transaction()
+        return await self._cm.__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return await self._cm.__aexit__(exc_type, exc_val, exc_tb)
+
+
+# 后端提供的事务工厂（InTransactionType = Callable[[], TransactionContext]）
+IN_TRANSACTION: InTransactionType = TortoiseTransactionContext

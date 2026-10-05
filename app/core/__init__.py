@@ -1,4 +1,5 @@
 import sys
+from importlib import import_module
 
 from loguru import logger
 
@@ -40,11 +41,32 @@ def get_event_bus() -> EventBus:
     return _event_bus
 
 async def start():
-    """应用启动：日志 → 持久化（迁移 + ORM 初始化）。"""
+    """应用启动：日志 → 持久化（迁移 + ORM 初始化）→ 各模块启动钩子。"""
     init_logger()
     await start_persistence()
+    await _run_module_bootstraps()
 
 
 async def stop():
     """应用关闭：释放持久化资源。"""
     await stop_persistence()
+
+
+async def _run_module_bootstraps() -> None:
+    """按 core.modules 依次调用各模块的 `app.{模块}.bootstrap()`。
+
+    模块未提供 bootstrap 模块则跳过（钩子可选）。core 只认约定，不认识具体模块。
+    """
+    for name in CORE_SETTINGS.modules:
+        path = f'app.{name}.bootstrap'
+        try:
+            module = import_module(path)
+        except ModuleNotFoundError as e:
+            if e.name == path:
+                logger.debug('模块 {} 未提供 bootstrap，跳过', name)
+                continue
+            raise
+        hook = getattr(module, 'bootstrap', None)
+        if hook is not None:
+            logger.info('运行模块启动钩子：{}', path)
+            await hook()

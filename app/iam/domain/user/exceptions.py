@@ -6,3 +6,6 @@ class PasswordPolicyViolationException(IAMDomainBaseException):
 
 class UserUpdateForbiddenException(IAMDomainBaseException):
     pass
+
+class ReservedUsernameException(IAMDomainBaseException):
+    pass

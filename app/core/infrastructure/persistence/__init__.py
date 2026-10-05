@@ -7,6 +7,7 @@ from importlib import import_module
 
 from loguru import logger
 
+from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure.settings import CORE_SETTINGS
 
 
@@ -35,3 +36,8 @@ async def stop_persistence() -> None:
 async def run_persistence_migrations() -> None:
     """手动触发一次迁移（auto_migrate 关闭、或需单独迁移时用）。"""
     await _load_backend().run_migrations()
+
+
+def get_in_transaction() -> InTransactionType:
+    """事务上下文工厂（由后端提供），供应用层注入使用。"""
+    return _load_backend().IN_TRANSACTION

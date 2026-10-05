@@ -1,17 +1,24 @@
 from datetime import datetime, UTC
 
+from pydantic import model_validator
+
 from app.core.domain.entities import AuditableEntity
 from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
-from app.iam.domain.user.exceptions import PasswordPolicyViolationException, UserUpdateForbiddenException
+from app.iam.domain.user.exceptions import PasswordPolicyViolationException, ReservedUsernameException, UserUpdateForbiddenException
 from app.core.utils.password_hash import hash_password, verify_password
+
+
+# 保留用户名：仅供超管（逃生舱）使用，普通用户不得占用
+SUPER_ADMIN_USERNAME = 'admin'
+RESERVED_USERNAMES: frozenset[str] = frozenset({SUPER_ADMIN_USERNAME})
 
 
 class User(AuditableEntity[UserId]):
     id: UserId
     username: str  # 确保唯一性 # 用户名更改单独关联权限，独立于update权限
-    nickname: str
+    nickname: str | None = None  # 未配置则与 username 相同（见 _default_nickname）
     password_hash: str
     email: Email | None = None  # 确保唯一性
     phone: Phone | None = None  # 确保唯一性
@@ -21,6 +28,20 @@ class User(AuditableEntity[UserId]):
     password_updated_at: datetime | None = None
     remark: str | None = None
     dept_id: DeptId | None = None
+
+    @model_validator(mode='after')
+    def _default_nickname(self):
+        """nickname 未配置则与 username 相同。规则只在此处落地，避免多处漂移。"""
+        if not self.nickname:
+            self.nickname = self.username
+        return self
+
+    @model_validator(mode='after')
+    def _check_reserved_username(self):
+        """保留用户名仅超管可用（普通用户不得占用 admin 之类）。"""
+        if self.username in RESERVED_USERNAMES and self.user_type is not UserTypeEnum.SUPER_ADMIN:
+            raise ReservedUsernameException(f'用户名 {self.username!r} 为保留用户名')
+        return self
 
     def can_update(self) -> bool:
         return self.user_type not in {UserTypeEnum.SYSTEM}

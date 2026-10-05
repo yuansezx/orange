@@ -8,17 +8,17 @@ per-request 缓存兜住）。所以被装配的实现应是**无状态**的。
 """
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
+from app.core.infrastructure import persistence
 from app.iam.application.user.services import UserApplicationService
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
-from app.iam.infrastructure.persistence.tortoise.repositories import UserRepositoryTortoiseImpl
+from app.iam.infrastructure.persistence.tortoise.repositories import DeptRepositoryTortoiseImpl, UserRepositoryTortoiseImpl
 
 
 def get_in_transaction() -> InTransactionType:
-    # TODO: 由持久化后端提供事务工厂（TransactionContext 实现尚未落）
-    raise NotImplementedError('事务实现待补')
+    return persistence.get_in_transaction()
 
 
 def get_user_repo() -> UserRepository:
@@ -26,8 +26,7 @@ def get_user_repo() -> UserRepository:
 
 
 def get_dept_repo() -> DeptRepository:
-    # TODO: 待 DeptRepositoryTortoiseImpl
-    raise NotImplementedError('部门仓储实现待补')
+    return DeptRepositoryTortoiseImpl()
 
 
 def get_user_access_service() -> UserAccessService:
