@@ -1,138 +1,126 @@
 # Orange 项目指南
 
 ## 项目概述
-基于 FastAPI 的 DDD 分层项目，采用四层架构（domain → application → infrastructure → interface）。
 
-当前仅有一个业务模块：**iam**（Identity and Access Management，身份与访问管理）。
+**单 FastAPI app + 多模块**的平台。当前仅有一个业务模块：**iam**（Identity and Access Management）。
+多 app（一个进程挂多个 FastAPI 实例）的场景另起项目，不并入本仓库。
+
+架构底色是**六边形（ports/adapters）+ 分层**；DDD 按模块分级使用（默认轻量），iam 是学习载体。
 
 ## 技术栈
-- Python 3.13+
-- FastAPI（生命周期管理 + 全局异常处理）
-- pydantic / pydantic-settings（分节 YAML（core / iam）+ .env 配置，`YamlConfigSettingsSource`）
-- loguru（异步日志，分级输出到文件）
-- future-uuid（UUIDv7 生成）
-- pyjwt（JWT 签发与校验）、redis（redis-py 异步客户端，用于令牌存储）
-- 包管理: uv
+
+- Python 3.13+ / 包管理 `uv`
+- FastAPI（lifespan + 全局异常处理）；`app:create_app` 工厂 + uvicorn `factory=True`
+- pydantic / pydantic-settings（分节 YAML（`core` / `iam`）+ `.env`，`YamlConfigSettingsSource`）
+- Tortoise-ORM（`asyncpg` 驱动）+ **aerich**（迁移）；**tzdata**（Windows 无系统时区库）
+- loguru（异步日志，分级输出）；future-uuid（UUIDv7）；bcrypt（密码哈希）；pyjwt + redis（令牌，待补全）
 
 ## 项目结构
+
 ```
 app/
-├── __init__.py                    # FastAPI 应用工厂 create_app() + lifespan
-├── core/                          # 全局共享基础设施
-│   ├── __init__.py                # init_logger() 日志初始化 + get_event_bus() + start()
-│   ├── domain/                    # DDD 领域抽象（无业务语义）
-│   │   ├── entities.py            #   AuditableEntity[IdType] 审计基类（泛型，含软删除字段）
-│   │   ├── events.py              #   BaseEvent 领域事件基类
-│   │   ├── event_bus.py           #   EventBus, EventHandler 抽象
-│   │   ├── ports.py               #   IdProviderPort[IdType], EventIdProvider
-│   │   ├── repositories.py        #   BaseRepository[IdType, EntityType] 仓储接口基类
-│   │   ├── units_of_work.py       #   TransactionContext, InTransactionType
-│   │   └── value_objects.py       #   BaseEntityId, EventId（@dataclass frozen，字段 value: str）
+├── __init__.py                    # FastAPI 应用工厂 create_app() + lifespan（无模块级副作用）
+├── core/                          # 全局共享基础设施（无业务语义）
+│   ├── __init__.py                #   init_logger() / get_event_bus() / start()（含模块 bootstrap 编排）/ stop()
+│   ├── domain/                    #   DDD 领域抽象
+│   │   ├── entities.py            #     AuditableEntity[IdType]（含软删除字段）
+│   │   ├── events.py              #     BaseEvent
+│   │   ├── event_bus.py           #     EventBus / EventHandler
+│   │   ├── repositories.py        #     BaseRepository：get/create/bulk_create/update/hard_delete
+│   │   ├── units_of_work.py       #     TransactionContext / InTransactionType
+│   │   └── value_objects.py       #     BaseEntityId（value: uuid.UUID + new()）/ EventId
 │   ├── infrastructure/
-│   │   ├── settings.py            #   AppBaseSettings / CoreSettings / CORE_SETTINGS
-│   │   ├── event_bus_impl.py      #   EventBusMemoryImpl（DDD 原生抽象 → Impl 命名）
-│   │   └── adapters/
-│   │       └── id_provider_adapter.py  # EventIdProviderUUID7Adapter（端口实现 → Adapter 命名）
-│   ├── interface/
-│   │   └── dependences.py         #   get_event_id_provider()
-│   ├── exceptions.py              #   global_exception_handler + DomainBaseException/ApplicationBaseException
-│   └── utils/
-│       ├── schemas.py             #   PageResult[DataType] 通用分页结果
-│       ├── validators.py          #   check_unique, check_data_scope 通用工具
-│       ├── type_utils.py          #   to_set
-│       └── jwt_util.py            #   JWTUtil（encode/decode，基于 pyjwt）
+│   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS
+│   │   ├── event_bus_impl.py      #     EventBusMemoryImpl
+│   │   └── persistence/           #     持久化（后端中立门面 + 具体后端）
+│   │       ├── __init__.py        #       start/stop_persistence、run_persistence_migrations、get_in_transaction
+│   │       └── tortoise/
+│   │           ├── tortoise_backend.py  # init / close / run_migrations + TortoiseTransactionContext
+│   │           └── models.py            # AuditableModel（ORM 审计基类，abstract）
+│   ├── exceptions.py              #     global_exception_handler + DomainBaseException/ApplicationBaseException
+│   └── utils/                     #     schemas(PageResult) / validators / type_utils / jwt_util / password_hash
 ├── iam/                           # 身份与访问管理模块
-│   ├── domain/                    # 领域层
-│   │   ├── shared/                #   共享值对象、枚举、异常
-│   │   │   ├── enums.py           #     StatusEnum(ACTIVE/DISABLED/DELETED, str Enum)
-│   │   │   ├── value_objects.py   #     Phone, Email（校验 + masked）, UserId, RoleId, DeptId, UserRoleId
-│   │   │   └── exceptions.py      #     IAMDomainBaseException
-│   │   ├── user/                  #   用户子域
-│   │   │   ├── entities.py        #     User(AuditableEntity[UserId])，含 can_update/can_delete
-│   │   │   ├── enums.py           #     UserTypeEnum(str Enum，含 SUPER_ADMIN/SYSTEM)
-│   │   │   ├── ports.py           #     PasswordHasherPort, UserIdProviderPort（领域端口）
-│   │   │   ├── repositories.py    #     UserRepository, SearchUser
-│   │   │   ├── services.py        #     CheckUserUniqueService, UserAccessService
-│   │   │   └── exceptions.py      #     PasswordPolicyViolationException 等
-│   │   ├── role/                  #   角色子域
-│   │   │   ├── entities.py        #     Role(AuditableEntity), RoleFilter
-│   │   │   ├── enums.py           #     DataScopeEnum(str Enum)
-│   │   │   ├── ports.py           #     RoleIdProviderPort
-│   │   │   ├── repositories.py    #     RoleRepository
-│   │   │   └── services.py        #     RoleAccessService（数据权限校验）
-│   │   ├── dept/                  #   部门子域
-│   │   │   ├── entities.py        #     Dept(AuditableEntity)
-│   │   │   ├── ports.py           #     DeptIdProviderPort
-│   │   │   ├── repositories.py    #     DeptRepository
-│   │   │   └── services.py        #     DeptAccessService（数据权限校验）
-│   │   ├── user_role_assignment/  #   用户-角色分配子域
-│   │   │   ├── entities.py        #     UserRoleAssignment(AuditableEntity)
-│   │   │   ├── ports.py           #     UserRoleIdProviderPort
-│   │   │   └── repositories.py    #     UserRoleRepository
-│   │   ├── login_log/             #   登录日志子域
-│   │   │   └── entities.py        #     LoginLog(BaseModel)
-│   │   └── current_user/          #   当前用户上下文
-│   │       ├── entities.py        #     CurrentUser(BaseModel)
-│   │       └── repositories.py    #     CurrentUserRepository（当前用户缓存读写）
-│   ├── application/               # 应用层
-│   │   ├── common/
-│   │   │   └── exceptions.py      #     IAMApplicationBaseException, PermissionDeniedException,
-│   │   │                          #     OperationNotAllowedException, AuthenticationException, InvalidTokenException
-│   │   ├── current_user/
-│   │   │   ├── ports.py           #     TokenManagerPort（令牌管理端口：authenticate/create/revoke/revoke_all）
-│   │   │   └── event_handlers.py  #     clear_current_users_cache（事件处理器）
-│   │   ├── user/
-│   │   │   ├── dto.py             #     CreateUserIn, UpdateUserIn, GetUsersIn
-│   │   │   ├── services.py        #     UserApplicationService（含 create/update）
-│   │   │   └── exceptions.py      #     UserExistsException, UserNotExistException
-│   │   └── user_role_assignment/
-│   │       └── services.py        #     UserRoleApplicationService
-│   ├── infrastructure/            # 基础设施实现
+│   ├── bootstrap.py               #   模块启动钩子：初始化首个超管（core 按约定调用）
+│   ├── domain/
+│   │   ├── shared/                #     enums.py / value_objects.py / exceptions.py
+│   │   ├── user/                  #     entities.py / enums.py / repositories.py / services.py / exceptions.py
+│   │   ├── role/                  #     entities.py / enums.py / repositories.py / services.py
+│   │   ├── dept/                  #     entities.py / repositories.py / services.py
+│   │   ├── user_role_assignment/  #     entities.py / repositories.py
+│   │   ├── login_log/             #     entities.py
+│   │   └── current_user/          #     entities.py / repositories.py（当前用户缓存）
+│   ├── application/
+│   │   ├── common/exceptions.py
+│   │   ├── current_user/          #     ports.py（TokenManagerPort）/ event_handlers.py
+│   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
+│   │   └── user_role_assignment/  #     services.py
+│   ├── infrastructure/
 │   │   ├── settings.py            #   IAMSettings / JWTConfig / IAM_SETTINGS
-│   │   └── adapters/
-│   │       ├── id_provider_adapter.py    # UserIdProviderUUID7Adapter 等 UUIDv7 实现
-│   │       └── token_manager_adapter.py  # TokenManagerJWTRedisAdapter（骨架，待补全）
-│   └── interface/                 # 接口适配层
-│       └── http/user/
-│           ├── api.py             #     用户 API 路由
-│           └── schemas.py         #     接口层 schema（复用 domain 值对象）
-├── run.py                         # 启动入口（uvicorn）
-├── pyproject.toml                 # 项目依赖
+│   │   ├── adapters/              #   端口实现：token_manager_adapter.py（骨架）
+│   │   └── persistence/tortoise/  #   每实体一文件（模型 + 仓储）
+│   │       ├── models/            #     __init__.py / user.py / dept.py
+│   │       └── repositories/      #     __init__.py / user.py / dept.py（含 领域↔表 映射）
+│   └── interface/
+│       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
+│       └── http/user/             #   api.py / schemas.py
+├── run.py                         # 启动入口（uvicorn 工厂 + 读配置）
+├── scripts/migrate.py             # 手动迁移入口（uv run python -m scripts.migrate）
+├── pyproject.toml
 ├── config_example.yaml            # 配置示例（core / iam 分节）
-└── CLAUDE.md                      # 本文件
+└── CLAUDE.md
 ```
 
 ## 架构规范
-- **DDD 四层结构**: domain → application → infrastructure → interface
-- **层依赖方向**: interface → application → domain, infrastructure → domain
-- **core 层不依赖任何业务模块**
-- **业务模块之间平级**，允许因业务需要引用（如 order 依赖 iam 的 User）
-- 配置采用 **分节 YAML（`core` / `iam`）+ .env**，通过 `yaml_config_section` 指定各自 section；优先级: dotenv > yaml > init > env > file_secret
-- 实体用 `pydantic BaseModel`，值对象用 `@dataclass(frozen=True)`（带 `__post_init__` 校验 + property 脱敏方法）
-- **实体 ID** 使用继承 `BaseEntityId` 的冻结 dataclass 值对象（如 `UserId`, `RoleId`, `DeptId`），通过 `IdProviderPort[IdType]` 接口生成（UUIDv7）
-- 审计基类 `AuditableEntity[IdType]` 用泛型，各模块自行决定 IdType，含 deleted_at/deleted_by 软删除字段
-- 仓储接口继承 `BaseRepository[IdType, EntityType](ABC)`，提供 get/create/bulk_create/update/delete 抽象方法
-- 每个子域提供 `ports.py` 定义领域层抽象（如 `PasswordHasherPort`、`UserIdProviderPort`），基础设施层 `adapters/` 负责实现
-- 枚举统一使用 `str, Enum`，并以 `Enum` 结尾（如 `StatusEnum`、`UserTypeEnum`），允许序列化和数据库存储
-- 全局异常通过 `app.core.exceptions.global_exception_handler` 捕获，异常分 Domain 和 Application 两条层级
-- 应用层异常按子域拆分（如 `app.iam.application.user.exceptions`），common 只放跨域共用异常
-- 通用分页结果使用 `PageResult[DataType]`（含 computed_field total_pages），位于 `app/core/utils/schemas.py`
-- 通用唯一性校验使用 `app.core.utils.validators.check_unique`，数据权限校验使用 `check_data_scope`
-- **interface/schemas** 可直接引用 domain 值对象作为字段类型，pydantic 自动调用 `__post_init__` 校验
-- 应用服务接收 DTO（如 `CreateUserIn`）并调用领域服务完成业务逻辑
-- 事务通过 `TransactionContext`（抽象异步上下文管理器）+ `InTransactionType`（可调用别名）实现 DI，定义在 `app/core/domain/units_of_work.py`
-- 领域事件经 `EventBus`/`EventHandler` 抽象分发，`BaseEvent` 定义在 `app/core/domain/events.py`
-- **当前用户与令牌**: `CurrentUser`（`iam/domain/current_user`）承载登录上下文，经 `CurrentUserRepository` 缓存；令牌签发/校验由 `TokenManagerPort`（`iam/application/current_user/ports.py`）定义，`TokenManagerJWTRedisAdapter`（JWT + Redis）为当前骨架实现，`create/revoke/revoke_all` 待补全
+
+- **层依赖方向**：`interface → application → domain`；`infrastructure → domain`。`core` 不依赖任何业务模块。
+- **配置**：分节 YAML（`core` / `iam`）+ `.env`；优先级 **`init > env > dotenv > yaml > secret`**（env 高于文件，容器里可用环境变量覆盖）。
+  - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、**`modules`**（启用模块清单）、`persistence`
+  - `persistence`：`backend`（选择持久化后端）+ `auto_migrate` + `options`（后端专属，core 原样透传、不解释）
+- 实体用 pydantic `BaseModel`；值对象用 `@dataclass(frozen=True)`（带 `__post_init__` 校验 + 脱敏 property）。
+- **实体 ID**：`BaseEntityId`（持有 `uuid.UUID`）及其子类 `UserId`/`RoleId`/`DeptId`/`UserRoleId`/`EventId`；用 `XxxId.new()` 生成（UUIDv7）。**不设 IdProvider 端口**。
+- `AuditableEntity[IdType]` 泛型审计基类（created/updated/deleted 的 at/by）。
+- 仓储继承 `BaseRepository`：`get / create / bulk_create / update / hard_delete`。
+- **删除语义统一**：`delete` = **软删**（实体方法，置 `status=DELETED`+`deleted_at/by`）；`hard_delete` = **物理删**（仓储）；`evict` = 缓存淘汰。**裸 `delete` 绝不表示物理删除。**
+- 枚举统一 `str, Enum` 且以 `Enum` 结尾（`StatusEnum`、`UserTypeEnum`、`DataScopeEnum`）。
+- 异常分 Domain / Application 两条层级；按子域拆分，common 只放跨域共用；由 `core.exceptions.global_exception_handler` 兜底（**领域/应用→HTTP 状态码的映射尚未实现**）。
+- `PageResult[DataType]`（`core/utils/schemas.py`）；`check_unique` / `check_data_scope`（`core/utils/validators.py`）。
+- interface/schemas 可直接引用 domain 值对象作字段类型（pydantic 自动走 `__post_init__`）。
+- 应用服务接 DTO（`CreateUserIn` 等）并调用领域服务完成业务逻辑。
+- **事务**：`TransactionContext` + `InTransactionType`（DI）；实现由持久化后端提供，经 `core.infrastructure.persistence.get_in_transaction()` 取用；应用层 `async with in_transaction():`（tortoise 事务连接按 task ContextVar 自动绑定）。
+- **领域事件**：`EventBus` / `EventHandler` 抽象，`BaseEvent` 在 `core/domain/events.py`。
+- **持久化（后端中立）**：只有 `infrastructure/persistence/` 内允许 import 具体 ORM；core 只通过门面访问。
+  - 抽象层：`core/infrastructure/persistence/__init__.py`（`start/stop_persistence`、`get_in_transaction`）
+  - 具体后端：`core/infrastructure/persistence/{backend}/{backend}_backend.py`
+  - 模型路径约定：`app.{模块}.infrastructure.persistence.{backend}.models`（**拆包后必须在 `models/__init__.py` 汇总导出**，否则 Tortoise 发现不到模型）
+  - 迁移：aerich，`migrations/` **不入库**（版本账本在数据库 `aerich` 表）；`auto_migrate` 控制启动期是否迁移
+- **模块 bootstrap**：`core.start()` 按 `core.modules` 动态 import `app.{模块}.bootstrap` 并调用其 `bootstrap()`（钩子可选）。core 只认约定，不认识具体模块。
+- **组合根**：`app/{模块}/interface/dependences.py` 提供 `get_*`，由 http（FastAPI `Depends`）、bootstrap、python api 共用。
+- **抽象取舍判据**：Port 只在「**触碰外部（IO/第三方）**」或「**测试要替换**」时才抽；纯计算/纯数据**不抽**（直接函数/值对象）。
+- **包 `__init__` 不放重副作用**：模块启动钩子独立成 `bootstrap.py`、FastAPI app 用工厂而非模块级实例。
+- **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）。
 
 ### 命名约定
-- **自定义 / 第三方依赖的抽象**：接口用 `XxxPort`（文件 `ports.py`），实现用 `XxxAdapter`（文件 `adapters/xxx_adapter.py`），对应六边形架构的 Port/Adapter
-- **DDD 原生抽象**（`Repository` / `EventBus` / `UnitOfWork`）：沿用 DDD 词汇命名接口，实现以 `XxxImpl` 结尾（如 `EventBusMemoryImpl`、`UserRepositoryXxxImpl`）
-- 枚举统一 `XxxEnum`，且 `str, Enum`
+
+- **自定义 / 第三方依赖的抽象**：接口用 `XxxPort`（`ports.py`），实现用 `XxxAdapter`（`adapters/xxx_adapter.py`）——对应六边形 Port/Adapter。
+- **DDD 原生抽象**（`Repository` / `EventBus` / `UnitOfWork`）：沿用 DDD 词汇命名接口，实现以 `XxxImpl` 结尾（如 `EventBusMemoryImpl`、`UserRepositoryTortoiseImpl`）。
+- **纯计算工具**：直接放 `core/utils/`（函数或简单类，如 `password_hash`、`JWTUtil`），**不套 Port**。
+- 枚举统一 `XxxEnum`，且 `str, Enum`。
 
 ## 运行
+
 ```bash
-uv run python run.py
+# 起库（dev：暴露端口、独立口令与卷；base 版封在容器网段）
+docker compose -f docker/docker-compose-base-dev.yaml --env-file docker/.env.dev up -d
+
+uv run run.py                         # 起服务
+uv run python -m scripts.migrate      # 手动迁移（auto_migrate 关闭时用）
 ```
 
+**首个超管**：由 `iam/bootstrap.py` 硬编码初始化（`admin` / `admin123`，`need_change_password=True`，幂等——库中已有超管则跳过）。
+
 ## 命令/工具习惯
-- 所有运行命令使用 `uv run python ...`，不直接用 `python`
+
+- 所有命令经 `uv` 执行，**不直接用 `python`**：
+  - **根目录脚本**：`uv run <script>.py`（如 `uv run run.py`）
+  - **子目录脚本**：`uv run python -m <包>.<模块>`（如 `uv run python -m scripts.migrate`）
+    —— `sys.path[0]` 是脚本所在目录，子目录里直接跑会 `import app` 失败
