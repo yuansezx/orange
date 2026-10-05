@@ -29,6 +29,3 @@ def create_app():
 
 
     return app
-
-
-main_app = create_app()

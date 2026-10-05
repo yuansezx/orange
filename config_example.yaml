@@ -3,6 +3,9 @@ core:
   app_name: orange
   app_version: example
   debug: false
+  # 服务监听地址（容器内需改为 0.0.0.0）
+  host: 0.0.0.0
+  port: 8100
   # 日志存放位置，默认是项目根目录下的logs目录
   logs_dir: ./logs
   # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{后端}.models 汇总模型）

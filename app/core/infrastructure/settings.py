@@ -26,7 +26,9 @@ class AppBaseSettings(BaseSettings):
             file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         yaml_settings = YamlConfigSettingsSource(settings_cls)
-        return dotenv_settings, yaml_settings, init_settings, env_settings, file_secret_settings
+        # 优先级（靠前更高）：显式参数 > 进程环境变量 > .env > YAML > secrets
+        # 关键：env 高于 yaml，容器里才能用环境变量覆盖配置文件
+        return init_settings, env_settings, dotenv_settings, yaml_settings, file_secret_settings
 
 
 class PersistenceConfig(BaseModel):
@@ -54,6 +56,10 @@ class CoreSettings(AppBaseSettings):
     app_name: str = 'orange'
     app_version: str = 'nightly'
     debug: bool = False
+
+    # 服务监听地址（容器内需绑 0.0.0.0）
+    host: str = '127.0.0.1'
+    port: int = 8500
     # # docs url
     # docs_url : str = None
     # redoc_url : str = None
