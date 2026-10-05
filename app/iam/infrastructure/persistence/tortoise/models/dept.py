@@ -17,8 +17,9 @@ class DeptModel(AuditableModel):
     leader_id = fields.UUIDField(null=True)
     email = fields.CharField(max_length=255, null=True)
     phone = fields.CharField(max_length=20, null=True)
-    status = fields.CharEnumField(StatusEnum, max_length=16)
-    remark = fields.CharField(max_length=255, null=True)
+    # 枚举列长度给足余量（PG varchar 只存实际长度）
+    status = fields.CharEnumField(StatusEnum, max_length=50)
+    remark = fields.TextField(null=True)
 
     class Meta:
         table = 'iam_dept'

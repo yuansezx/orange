@@ -15,11 +15,12 @@ class UserModel(AuditableModel):
     password_hash = fields.CharField(max_length=255)
     email = fields.CharField(max_length=255, null=True, unique=True)
     phone = fields.CharField(max_length=20, null=True, unique=True)
-    user_type = fields.CharEnumField(UserTypeEnum, max_length=32)
-    status = fields.CharEnumField(StatusEnum, max_length=16)
+    # 枚举列长度给足余量：PG 的 varchar 只存实际长度、不浪费空间，给足可免将来加枚举值时的迁移
+    user_type = fields.CharEnumField(UserTypeEnum, max_length=50)
+    status = fields.CharEnumField(StatusEnum, max_length=50)
     need_change_password = fields.BooleanField(default=True)
     password_updated_at = fields.DatetimeField(null=True)
-    remark = fields.CharField(max_length=255, null=True)
+    remark = fields.TextField(null=True)
     dept_id = fields.UUIDField(null=True)
 
     class Meta:
