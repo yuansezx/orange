@@ -11,6 +11,7 @@ from .role import RoleModel
 from .role_dept import RoleDeptModel
 from .role_permission import RolePermissionModel
 from .user import UserModel
+from .user_role_assignment import UserRoleAssignmentModel
 
 __all__ = [
     'DeptModel',
@@ -20,4 +21,5 @@ __all__ = [
     'RoleDeptModel',
     'RolePermissionModel',
     'UserModel',
+    'UserRoleAssignmentModel',
 ]

@@ -12,6 +12,7 @@ from app.core.infrastructure import persistence
 from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user.services import UserApplicationService
+from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
 from app.iam.domain.permission.repositories import PermissionRepository
@@ -20,12 +21,14 @@ from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
+from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 from app.iam.infrastructure.persistence.tortoise.repositories import (
     DeptRepositoryTortoiseImpl,
     PermissionRepositoryTortoiseImpl,
     ResourceRepositoryTortoiseImpl,
     RoleRepositoryTortoiseImpl,
     UserRepositoryTortoiseImpl,
+    UserRoleRepositoryTortoiseImpl,
 )
 
 
@@ -88,5 +91,17 @@ def get_role_app_service() -> RoleApplicationService:
         in_transaction=get_in_transaction(),
         role_repo=get_role_repo(),
         permission_repo=get_permission_repo(),
+        role_access_service=get_role_access_service(),
+    )
+
+
+def get_user_role_repo() -> UserRoleRepository:
+    return UserRoleRepositoryTortoiseImpl()
+
+
+def get_user_role_app_service() -> UserRoleApplicationService:
+    return UserRoleApplicationService(
+        in_transaction=get_in_transaction(),
+        user_role_repo=get_user_role_repo(),
         role_access_service=get_role_access_service(),
     )

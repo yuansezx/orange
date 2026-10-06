@@ -4,6 +4,7 @@ from .permission import PermissionRepositoryTortoiseImpl
 from .resource import ResourceRepositoryTortoiseImpl
 from .role import RoleRepositoryTortoiseImpl
 from .user import UserRepositoryTortoiseImpl
+from .user_role_assignment import UserRoleRepositoryTortoiseImpl
 
 __all__ = [
     'DeptRepositoryTortoiseImpl',
@@ -11,4 +12,5 @@ __all__ = [
     'ResourceRepositoryTortoiseImpl',
     'RoleRepositoryTortoiseImpl',
     'UserRepositoryTortoiseImpl',
+    'UserRoleRepositoryTortoiseImpl',
 ]
