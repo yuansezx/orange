@@ -40,12 +40,14 @@ app/
 │   ├── exceptions.py              #     global_exception_handler + DomainBaseException/ApplicationBaseException
 │   └── utils/                     #     schemas(PageResult) / validators / type_utils / jwt_util / password_hash
 ├── iam/                           # 身份与访问管理模块
-│   ├── bootstrap.py               #   模块启动钩子：初始化首个超管（core 按约定调用）
+│   ├── bootstrap.py               #   模块启动钩子：超管种子 + 资源/权限目录声明（core 按约定调用）
 │   ├── domain/
 │   │   ├── shared/                #     enums.py / value_objects.py / exceptions.py
 │   │   ├── user/                  #     entities.py / enums.py / repositories.py / services.py / exceptions.py
 │   │   ├── role/                  #     entities.py / enums.py / repositories.py / services.py
 │   │   ├── dept/                  #     entities.py / repositories.py / services.py
+│   │   ├── resource/              #     entities.py / repositories.py / exceptions.py
+│   │   ├── permission/            #     entities.py / repositories.py / exceptions.py
 │   │   ├── user_role_assignment/  #     entities.py / repositories.py
 │   │   ├── login_log/             #     entities.py
 │   │   └── current_user/          #     entities.py / repositories.py（当前用户缓存）
@@ -53,13 +55,14 @@ app/
 │   │   ├── common/exceptions.py
 │   │   ├── current_user/          #     ports.py（TokenManagerPort）/ event_handlers.py
 │   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
+│   │   ├── resource/              #     dto.py / services.py（ResourceApplicationService）/ exceptions.py
 │   │   └── user_role_assignment/  #     services.py
 │   ├── infrastructure/
 │   │   ├── settings.py            #   IAMSettings / JWTConfig / IAM_SETTINGS
 │   │   ├── adapters/              #   端口实现：token_manager_adapter.py（骨架）
 │   │   └── persistence/tortoise/  #   每实体一文件（模型 + 仓储）
-│   │       ├── models/            #     __init__.py / user.py / dept.py
-│   │       └── repositories/      #     __init__.py / user.py / dept.py（含 领域↔表 映射）
+│   │       ├── models/            #     __init__.py / user.py / dept.py / resource.py / permission.py
+│   │       └── repositories/      #     __init__.py / user.py / dept.py / resource.py / permission.py（含 领域↔表 映射）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
 │       └── http/user/             #   api.py / schemas.py
@@ -77,7 +80,7 @@ app/
   - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、**`modules`**（启用模块清单）、`persistence`
   - `persistence`：`backend`（选择持久化后端）+ `auto_migrate` + `options`（后端专属，core 原样透传、不解释）
 - 实体用 pydantic `BaseModel`；值对象用 `@dataclass(frozen=True)`（带 `__post_init__` 校验 + 脱敏 property）。
-- **实体 ID**：`BaseEntityId`（持有 `uuid.UUID`）及其子类 `UserId`/`RoleId`/`DeptId`/`UserRoleId`/`EventId`；用 `XxxId.new()` 生成（UUIDv7）。**不设 IdProvider 端口**。
+- **实体 ID**：`BaseEntityId`（持有 `uuid.UUID`）及其子类 `UserId`/`RoleId`/`DeptId`/`UserRoleId`/`ResourceId`/`PermissionId`/`EventId`；用 `XxxId.new()` 生成（UUIDv7）。**不设 IdProvider 端口**。
 - `AuditableEntity[IdType]` 泛型审计基类（created/updated/deleted 的 at/by）。
 - 仓储继承 `BaseRepository`：`get / create / bulk_create / update / hard_delete`。
 - **删除语义统一**：`delete` = **软删**（实体方法，置 `status=DELETED`+`deleted_at/by`）；`hard_delete` = **物理删**（仓储）；`evict` = 缓存淘汰。**裸 `delete` 绝不表示物理删除。**
@@ -94,10 +97,12 @@ app/
   - 模型路径约定：`app.{模块}.infrastructure.persistence.{backend}.models`（**拆包后必须在 `models/__init__.py` 汇总导出**，否则 Tortoise 发现不到模型）
   - 迁移：aerich，`migrations/` **不入库**（版本账本在数据库 `aerich` 表）；`auto_migrate` 控制启动期是否迁移
 - **模块 bootstrap**：`core.start()` 按 `core.modules` 动态 import `app.{模块}.bootstrap` 并调用其 `bootstrap()`（钩子可选）。core 只认约定，不认识具体模块。
+  - **资源/权限目录声明固定放各模块自己的 `bootstrap.py`**（如 `IAM_RESOURCE_DECLARATIONS`），启动时幂等注册；不塞进包 `__init__`，也不散落在子包里。
 - **组合根**：`app/{模块}/interface/dependences.py` 提供 `get_*`，由 http（FastAPI `Depends`）、bootstrap、python api 共用。
 - **抽象取舍判据**：Port 只在「**触碰外部（IO/第三方）**」或「**测试要替换**」时才抽；纯计算/纯数据**不抽**（直接函数/值对象）。
 - **包 `__init__` 不放重副作用**：模块启动钩子独立成 `bootstrap.py`、FastAPI app 用工厂而非模块级实例。
 - **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）。
+- **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。
 
 ### 命名约定
 

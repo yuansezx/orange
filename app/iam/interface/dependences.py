@@ -9,12 +9,20 @@ per-request 缓存兜住）。所以被装配的实现应是**无状态**的。
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure import persistence
+from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.user.services import UserApplicationService
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
+from app.iam.domain.permission.repositories import PermissionRepository
+from app.iam.domain.resource.repositories import ResourceRepository
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
-from app.iam.infrastructure.persistence.tortoise.repositories import DeptRepositoryTortoiseImpl, UserRepositoryTortoiseImpl
+from app.iam.infrastructure.persistence.tortoise.repositories import (
+    DeptRepositoryTortoiseImpl,
+    PermissionRepositoryTortoiseImpl,
+    ResourceRepositoryTortoiseImpl,
+    UserRepositoryTortoiseImpl,
+)
 
 
 def get_in_transaction() -> InTransactionType:
@@ -27,6 +35,14 @@ def get_user_repo() -> UserRepository:
 
 def get_dept_repo() -> DeptRepository:
     return DeptRepositoryTortoiseImpl()
+
+
+def get_resource_repo() -> ResourceRepository:
+    return ResourceRepositoryTortoiseImpl()
+
+
+def get_permission_repo() -> PermissionRepository:
+    return PermissionRepositoryTortoiseImpl()
 
 
 def get_user_access_service() -> UserAccessService:
@@ -44,4 +60,12 @@ def get_user_app_service() -> UserApplicationService:
         user_access_service=get_user_access_service(),
         dept_access_service=get_dept_access_service(),
         event_bus=get_event_bus(),
+    )
+
+
+def get_resource_app_service() -> ResourceApplicationService:
+    return ResourceApplicationService(
+        in_transaction=get_in_transaction(),
+        resource_repo=get_resource_repo(),
+        permission_repo=get_permission_repo(),
     )

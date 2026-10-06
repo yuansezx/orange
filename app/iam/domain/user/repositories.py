@@ -21,7 +21,7 @@ class SearchUser(BaseModel):
     status: StatusEnum | None = None
     need_change_password: bool | None = None
     password_updated_at_between: tuple[datetime, datetime] | None = None
-    remark: str | None = None
+    description: str | None = None
     dept_id: DeptId | None = None
     created_at_between: tuple[datetime, datetime] | None = None
 

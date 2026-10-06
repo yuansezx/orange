@@ -18,4 +18,4 @@ class Role(AuditableEntity):
     data_scope: DataScopeEnum
     custom_dept_ids: list[DeptId]
     status: StatusEnum
-    remark: str | None = None
+    description: str | None = None

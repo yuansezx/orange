@@ -5,6 +5,8 @@
 新增实体时，记得在这里补一行导出。
 """
 from .dept import DeptModel
+from .permission import PermissionModel
+from .resource import ResourceModel
 from .user import UserModel
 
-__all__ = ['DeptModel', 'UserModel']
+__all__ = ['DeptModel', 'PermissionModel', 'ResourceModel', 'UserModel']

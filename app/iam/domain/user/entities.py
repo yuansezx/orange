@@ -26,7 +26,7 @@ class User(AuditableEntity[UserId]):
     status: StatusEnum
     need_change_password: bool  # 这两行密码相关的记录主要是为了`首次登录要修改`，`长时间没改密码提示更改`，`管理员给用户重置密码后，用户登录修改`
     password_updated_at: datetime | None = None
-    remark: str | None = None
+    description: str | None = None
     dept_id: DeptId | None = None
 
     @model_validator(mode='after')
@@ -60,14 +60,14 @@ class User(AuditableEntity[UserId]):
             raise PasswordPolicyViolationException('新密码不可与旧密码相同')
         self.password_hash = hash_password(new_password)
 
-    def change_profile(self, nickname: str, email: Email | None, phone: Phone | None, remark: str | None,
+    def change_profile(self, nickname: str, email: Email | None, phone: Phone | None, description: str | None,
                        dept_id: DeptId | None, operator_id: UserId):
         if not self.can_update():
             raise UserUpdateForbiddenException('用户不可更改')
         self.nickname = nickname
         self.email = email
         self.phone = phone
-        self.remark = remark
+        self.description = description
         self.dept_id = dept_id
         self.updated_by = operator_id
         self.updated_at = datetime.now(UTC)

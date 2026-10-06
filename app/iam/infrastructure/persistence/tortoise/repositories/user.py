@@ -23,7 +23,7 @@ def to_domain(m: UserModel) -> User:
         status=m.status,
         need_change_password=m.need_change_password,
         password_updated_at=m.password_updated_at,
-        remark=m.remark,
+        description=m.description,
         dept_id=DeptId(m.dept_id) if m.dept_id else None,
         created_at=m.created_at,
         created_by=UserId(m.created_by),
@@ -47,7 +47,7 @@ def to_model_fields(u: User) -> dict:
         status=u.status,
         need_change_password=u.need_change_password,
         password_updated_at=u.password_updated_at,
-        remark=u.remark,
+        description=u.description,
         dept_id=u.dept_id.value if u.dept_id else None,
         created_at=u.created_at,
         created_by=u.created_by.value,
@@ -89,16 +89,16 @@ class UserRepositoryTortoiseImpl(UserRepository):
         return to_domain(m) if m else None
 
     async def get_id_by_username(self, username: str) -> UserId | None:
-        uid = await UserModel.filter(username=username).values_list('id', flat=True).first()
-        return UserId(uid) if uid else None
+        ids = await UserModel.filter(username=username).values_list('id', flat=True)
+        return UserId(ids[0]) if ids else None
 
     async def get_id_by_phone(self, phone: Phone) -> UserId | None:
-        uid = await UserModel.filter(phone=phone.value).values_list('id', flat=True).first()
-        return UserId(uid) if uid else None
+        ids = await UserModel.filter(phone=phone.value).values_list('id', flat=True)
+        return UserId(ids[0]) if ids else None
 
     async def get_id_by_email(self, email: Email) -> UserId | None:
-        uid = await UserModel.filter(email=email.value).values_list('id', flat=True).first()
-        return UserId(uid) if uid else None
+        ids = await UserModel.filter(email=email.value).values_list('id', flat=True)
+        return UserId(ids[0]) if ids else None
 
     async def exists_by_user_type(self, user_type: UserTypeEnum) -> bool:
         return await UserModel.filter(user_type=user_type).exists()

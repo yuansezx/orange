@@ -20,7 +20,7 @@ class UserModel(AuditableModel):
     status = fields.CharEnumField(StatusEnum, max_length=50)
     need_change_password = fields.BooleanField(default=True)
     password_updated_at = fields.DatetimeField(null=True)
-    remark = fields.TextField(null=True)
+    description = fields.TextField(null=True)
     dept_id = fields.UUIDField(null=True)
 
     class Meta:

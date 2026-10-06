@@ -52,7 +52,7 @@ class UserApplicationService:
                     need_change_password=True,
                     created_by=user_id,
                     created_at=datetime.now(UTC),
-                    remark='系统初始化')
+                    description='系统初始化')
         async with self.in_transaction():
             await self.user_repo.create(user)
 
@@ -106,7 +106,7 @@ class UserApplicationService:
 
         # 调用实体方法更改
         user.change_profile(nickname=data.nickname, email=data.email, phone=data.phone,
-                            remark=data.remark, dept_id=data.dept_id, operator_id=current_user.user_id)
+                            description=data.description, dept_id=data.dept_id, operator_id=current_user.user_id)
         user.change_status(data.status, current_user.user_id)
 
         async with self.in_transaction():

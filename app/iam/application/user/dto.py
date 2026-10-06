@@ -14,7 +14,7 @@ class GetUsersIn(BaseModel):
     email: str | None = None
     phone: str | None = None
     status: StatusEnum | None = None
-    remark: str | None = None
+    description: str | None = None
     dept_id: DeptId | None = None
     created_at_between: tuple[datetime, datetime] | None = None
 
@@ -25,7 +25,7 @@ class CreateUserIn(BaseModel):
     email: Email | None = None
     phone: Phone | None = None
     status: StatusEnum
-    remark: str | None = None
+    description: str | None = None
     role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None
 
@@ -35,6 +35,6 @@ class UpdateUserIn(BaseModel):
     email: Email | None = None
     phone: Phone | None = None
     status: StatusEnum
-    remark: str | None = None
+    description: str | None = None
     role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None

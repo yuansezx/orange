@@ -11,4 +11,4 @@ class Dept(AuditableEntity):
     email: Email | None = None
     phone: Phone | None = None
     status: StatusEnum
-    remark: str | None = None
+    description: str | None = None

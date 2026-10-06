@@ -52,3 +52,13 @@ class DeptId(BaseEntityId):
 @dataclass(frozen=True)
 class UserRoleId(BaseEntityId):
     pass
+
+
+@dataclass(frozen=True)
+class ResourceId(BaseEntityId):
+    pass
+
+
+@dataclass(frozen=True)
+class PermissionId(BaseEntityId):
+    pass

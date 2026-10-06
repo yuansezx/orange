@@ -19,7 +19,7 @@ class DeptModel(AuditableModel):
     phone = fields.CharField(max_length=20, null=True)
     # 枚举列长度给足余量（PG varchar 只存实际长度）
     status = fields.CharEnumField(StatusEnum, max_length=50)
-    remark = fields.TextField(null=True)
+    description = fields.TextField(null=True)
 
     class Meta:
         table = 'iam_dept'
