@@ -10,17 +10,21 @@ from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure import persistence
 from app.iam.application.resource.services import ResourceApplicationService
+from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user.services import UserApplicationService
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
 from app.iam.domain.permission.repositories import PermissionRepository
 from app.iam.domain.resource.repositories import ResourceRepository
+from app.iam.domain.role.repositories import RoleRepository
+from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.infrastructure.persistence.tortoise.repositories import (
     DeptRepositoryTortoiseImpl,
     PermissionRepositoryTortoiseImpl,
     ResourceRepositoryTortoiseImpl,
+    RoleRepositoryTortoiseImpl,
     UserRepositoryTortoiseImpl,
 )
 
@@ -68,4 +72,21 @@ def get_resource_app_service() -> ResourceApplicationService:
         in_transaction=get_in_transaction(),
         resource_repo=get_resource_repo(),
         permission_repo=get_permission_repo(),
+    )
+
+
+def get_role_repo() -> RoleRepository:
+    return RoleRepositoryTortoiseImpl()
+
+
+def get_role_access_service() -> RoleAccessService:
+    return RoleAccessService(get_role_repo())
+
+
+def get_role_app_service() -> RoleApplicationService:
+    return RoleApplicationService(
+        in_transaction=get_in_transaction(),
+        role_repo=get_role_repo(),
+        permission_repo=get_permission_repo(),
+        role_access_service=get_role_access_service(),
     )

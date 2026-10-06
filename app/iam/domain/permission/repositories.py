@@ -12,3 +12,6 @@ class PermissionRepository(BaseRepository[PermissionId, Permission]):
 
     @abstractmethod
     async def get_by_resource_ids(self, resource_ids: list[ResourceId]) -> list[Permission]: ...
+
+    @abstractmethod
+    async def get_by_ids(self, permission_ids: list[PermissionId]) -> list[Permission]: ...

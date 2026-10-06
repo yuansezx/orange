@@ -74,3 +74,8 @@ class PermissionRepositoryTortoiseImpl(PermissionRepository):
         ids = [r.value for r in resource_ids]
         models = await PermissionModel.filter(resource_id__in=ids, status__not=StatusEnum.DELETED)
         return [to_domain(m) for m in models]
+
+    async def get_by_ids(self, permission_ids: list[PermissionId]) -> list[Permission]:
+        ids = [p.value for p in permission_ids]
+        models = await PermissionModel.filter(id__in=ids, status__not=StatusEnum.DELETED)
+        return [to_domain(m) for m in models]

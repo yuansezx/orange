@@ -44,7 +44,7 @@ app/
 │   ├── domain/
 │   │   ├── shared/                #     enums.py / value_objects.py / exceptions.py
 │   │   ├── user/                  #     entities.py / enums.py / repositories.py / services.py / exceptions.py
-│   │   ├── role/                  #     entities.py / enums.py / repositories.py / services.py
+│   │   ├── role/                  #     entities.py / enums.py / repositories.py / services.py / exceptions.py
 │   │   ├── dept/                  #     entities.py / repositories.py / services.py
 │   │   ├── resource/              #     entities.py / repositories.py / exceptions.py
 │   │   ├── permission/            #     entities.py / repositories.py / exceptions.py
@@ -56,13 +56,14 @@ app/
 │   │   ├── current_user/          #     ports.py（TokenManagerPort）/ event_handlers.py
 │   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
 │   │   ├── resource/              #     dto.py / services.py（ResourceApplicationService）/ exceptions.py
+│   │   ├── role/                  #     dto.py / services.py（RoleApplicationService）/ exceptions.py
 │   │   └── user_role_assignment/  #     services.py
 │   ├── infrastructure/
 │   │   ├── settings.py            #   IAMSettings / JWTConfig / IAM_SETTINGS
 │   │   ├── adapters/              #   端口实现：token_manager_adapter.py（骨架）
 │   │   └── persistence/tortoise/  #   每实体一文件（模型 + 仓储）
-│   │       ├── models/            #     __init__.py / user.py / dept.py / resource.py / permission.py
-│   │       └── repositories/      #     __init__.py / user.py / dept.py / resource.py / permission.py（含 领域↔表 映射）
+│   │       ├── models/            #     __init__.py / user.py / dept.py / resource.py / permission.py / role.py / role_permission.py / role_dept.py
+│   │       └── repositories/      #     __init__.py / user.py / dept.py / resource.py / permission.py / role.py（含 领域↔表 映射）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
 │       └── http/user/             #   api.py / schemas.py
@@ -103,6 +104,7 @@ app/
 - **包 `__init__` 不放重副作用**：模块启动钩子独立成 `bootstrap.py`、FastAPI app 用工厂而非模块级实例。
 - **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）。
 - **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。
+- **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**，由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**，一致性靠读路径按 ACTIVE 过滤。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它）。
 
 ### 命名约定
 

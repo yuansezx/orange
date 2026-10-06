@@ -7,6 +7,17 @@
 from .dept import DeptModel
 from .permission import PermissionModel
 from .resource import ResourceModel
+from .role import RoleModel
+from .role_dept import RoleDeptModel
+from .role_permission import RolePermissionModel
 from .user import UserModel
 
-__all__ = ['DeptModel', 'PermissionModel', 'ResourceModel', 'UserModel']
+__all__ = [
+    'DeptModel',
+    'PermissionModel',
+    'ResourceModel',
+    'RoleModel',
+    'RoleDeptModel',
+    'RolePermissionModel',
+    'UserModel',
+]

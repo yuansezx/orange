@@ -2,11 +2,13 @@
 from .dept import DeptRepositoryTortoiseImpl
 from .permission import PermissionRepositoryTortoiseImpl
 from .resource import ResourceRepositoryTortoiseImpl
+from .role import RoleRepositoryTortoiseImpl
 from .user import UserRepositoryTortoiseImpl
 
 __all__ = [
     'DeptRepositoryTortoiseImpl',
     'PermissionRepositoryTortoiseImpl',
     'ResourceRepositoryTortoiseImpl',
+    'RoleRepositoryTortoiseImpl',
     'UserRepositoryTortoiseImpl',
 ]
