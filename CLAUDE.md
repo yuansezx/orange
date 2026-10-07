@@ -34,15 +34,17 @@ app/
 │   │   ├── event_bus_impl.py      #     EventBusMemoryImpl
 │   │   ├── persistence/           #     持久化（后端中立门面 + 具体后端）
 │   │   │   ├── __init__.py        #       start/stop_persistence、run_persistence_migrations、get_in_transaction
-│   │   │   └── tortoise/
+│   │   │   └── tortoise/          #     ORM 后端
 │   │   │       ├── tortoise_backend.py  # init / close / run_migrations + TortoiseTransactionContext
-│   │   │       └── models.py            # AuditableModel（ORM 审计基类，abstract）
+│   │   │       ├── models.py            # AuditableModel（ORM 审计基类，abstract）
+│   │   │       └── postgres/postgres_backend.py  # DB 方言层（{dialect}/）：build_connection 补 engine
 │   │   └── cache/                 #     缓存（与 persistence 同构的门面：cache/{backend}/{backend}_backend）
 │   │       ├── __init__.py        #       start_cache / stop_cache / get_cache
 │   │       └── redis/redis_backend.py
 │   ├── exceptions.py              #     global_exception_handler + DomainBaseException/ApplicationBaseException
 │   └── utils/                     #     schemas(PageResult) / validators / type_utils / jwt_util / password_hash
 ├── iam/                           # 身份与访问管理模块
+│   ├── __init__.py                #   DB_CONNECTION = 'default'（本模块用的逻辑连接名，core 按约定读）
 │   ├── bootstrap.py               #   模块启动钩子：超管种子 + 资源/权限目录声明（core 按约定调用）
 │   ├── domain/
 │   │   ├── shared/                #     enums.py / value_objects.py / exceptions.py
@@ -84,7 +86,7 @@ app/
 - **层依赖方向**：`interface → application → domain`；`infrastructure → domain`。`core` 不依赖任何业务模块。
 - **配置**：分节 YAML（`core` / `iam`）+ `.env`；优先级 **`init > env > dotenv > yaml > secret`**（env 高于文件，容器里可用环境变量覆盖）。
   - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、**`modules`**（启用模块清单）、`persistence`
-  - `persistence`：`backend`（选择持久化后端）+ `auto_migrate` + `options`（后端专属，core 原样透传、不解释）
+  - `persistence`：`backend`（ORM）+ `auto_migrate` + `use_tz`/`timezone` + `options`（**连接映射** `{连接名: {dialect, credentials}}`；每个连接**自带引擎** `dialect`，`engine` 由方言层补、不写进配置）
 - 实体用 pydantic `BaseModel`；值对象用 `@dataclass(frozen=True)`（带 `__post_init__` 校验 + 脱敏 property）。
 - **实体 ID**：`BaseEntityId`（持有 `uuid.UUID`）及其子类 `UserId`/`RoleId`/`DeptId`/`UserRoleId`/`ResourceId`/`PermissionId`/`EventId`；用 `XxxId.new()` 生成（UUIDv7）。**不设 IdProvider 端口**。
 - `AuditableEntity[IdType]` 泛型审计基类（created/updated/deleted 的 at/by）。
@@ -100,13 +102,15 @@ app/
 - **持久化（后端中立）**：只有 `infrastructure/persistence/` 内允许 import 具体 ORM；core 只通过门面访问。
   - 抽象层：`core/infrastructure/persistence/__init__.py`（`start/stop_persistence`、`get_in_transaction`）
   - 具体后端：`core/infrastructure/persistence/{backend}/{backend}_backend.py`
+  - DB 方言：`core/infrastructure/persistence/{backend}/{dialect}/{dialect}_backend.py`（由**连接的 `dialect`** 选；把连接拼成 ORM 认的连接，补 `engine`）——**不同连接可用不同引擎**
+  - **每模块连接**：模块在自己 `__init__.py` 声明 `DB_CONNECTION`（缺省 `'default'`），core 读取作该模块 app 的 `default_connection`；连接名→物理库由 config 的 `options` 绑定（**连接名 = dev 与 ops 的契约**）
   - 模型路径约定：`app.{模块}.infrastructure.persistence.{backend}.models`（**拆包后必须在 `models/__init__.py` 汇总导出**，否则 Tortoise 发现不到模型）
   - 迁移：aerich，`migrations/` **不入库**（版本账本在数据库 `aerich` 表）；`auto_migrate` 控制启动期是否迁移
 - **模块 bootstrap**：`core.start()` 按 `core.modules` 动态 import `app.{模块}.bootstrap` 并调用其 `bootstrap()`（钩子可选）。core 只认约定，不认识具体模块。
   - **资源/权限目录声明固定放各模块自己的 `bootstrap.py`**（如 `IAM_RESOURCE_DECLARATIONS`），启动时幂等注册；不塞进包 `__init__`，也不散落在子包里。
 - **组合根**：`app/{模块}/interface/dependences.py` 提供 `get_*`，由 http（FastAPI `Depends`）、bootstrap、python api 共用。
 - **抽象取舍判据**：Port 只在「**触碰外部（IO/第三方）**」或「**测试要替换**」时才抽；纯计算/纯数据**不抽**（直接函数/值对象）。
-- **包 `__init__` 不放重副作用**：模块启动钩子独立成 `bootstrap.py`、FastAPI app 用工厂而非模块级实例。
+- **包 `__init__` 不放重副作用、也不放会拖入其它层的 import**（判据是"导入的耦合/成本"，非"有无副作用"）：模块启动钩子（有副作用）独立成 `bootstrap.py`；依赖其它层类型的声明（如资源目录，依赖 application DTO）也放 `bootstrap.py`（否则 `import app.{模块}.domain.*` 会连带拖入 application/循环导入）；**纯常量**（如 `DB_CONNECTION`，零依赖零副作用）可放 `__init__`。FastAPI app 用工厂而非模块级实例。
 - **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）。
 - **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。
 - **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**，由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**，一致性靠读路径按 ACTIVE 过滤。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活已删行、不新插**。

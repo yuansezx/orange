@@ -1,3 +1,5 @@
+from importlib import import_module
+
 from aerich import Command
 from loguru import logger
 from tortoise import Tortoise
@@ -9,27 +11,45 @@ from app.core.infrastructure.settings import CORE_SETTINGS
 MIGRATIONS_DIR = './migrations'
 
 
+def _load_dialect(dialect: str):
+    """按连接声明的 dialect 加载 DB 方言层（把连接配置拼成 tortoise 认的连接）。"""
+    return import_module(
+        f'app.core.infrastructure.persistence.tortoise.{dialect}.{dialect}_backend')
+
+
 def _build_apps() -> dict:
     """按约定 app.{模块}.infrastructure.persistence.{后端}.models 汇总各模块的模型。
+
+    每个模块用哪个连接，由模块自己的 `DB_CONNECTION` 声明（缺省 'default'）；
+    连接名→物理库由 config 的 `persistence.options` 绑定。
 
     aerich.models（迁移追踪表）在每个模块里都列一份：tortoise 内部按 _meta.app 去重，
     只会归给第一个认领它的 label，因此重复列是安全的。
     """
     backend = CORE_SETTINGS.persistence.backend
-    return {
-        m: {
+    apps = {}
+    for m in CORE_SETTINGS.modules:
+        connection = getattr(import_module(f'app.{m}'), 'DB_CONNECTION', 'default')
+        apps[m] = {
             'models': [f'app.{m}.infrastructure.persistence.{backend}.models', 'aerich.models'],
-            'default_connection': 'default',
+            'default_connection': connection,
         }
-        for m in CORE_SETTINGS.modules
-    }
+    return apps
 
 
 def build_tortoise_config() -> dict:
     """把 core 配置装配成 tortoise 认的完整配置（运行时与 aerich 共用同一份）。"""
-    config = dict(CORE_SETTINGS.persistence.options)
-    config['apps'] = _build_apps()
-    return config
+    persistence = CORE_SETTINGS.persistence
+    connections = {
+        name: _load_dialect(spec['dialect']).build_connection(spec)
+        for name, spec in persistence.options.items()
+    }
+    return {
+        'connections': connections,
+        'apps': _build_apps(),
+        'use_tz': persistence.use_tz,
+        'timezone': persistence.timezone,
+    }
 
 
 async def init() -> None:
