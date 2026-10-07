@@ -8,7 +8,7 @@ from app.iam.domain.shared.value_objects import Email, Phone, UserId, DeptId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.user.repositories import SearchUser, UserRepository
-from app.iam.infrastructure.persistence.tortoise.models import UserModel
+from app.iam.infrastructure.persistence.tortoise.postgres.models import UserModel
 
 
 def to_domain(m: UserModel) -> User:

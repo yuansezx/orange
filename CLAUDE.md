@@ -67,9 +67,9 @@ app/
 │   │   ├── settings.py            #   IAMSettings / JWTConfig / CurrentUserConfig / IAM_SETTINGS
 │   │   ├── adapters/              #   端口实现：token_manager_adapter.py（JWT + Redis 白名单）
 │   │   ├── cache/                 #   current_user_repo.py（CurrentUserRepositoryRedisImpl）
-│   │   └── persistence/tortoise/  #   每实体一文件（模型 + 仓储）
-│   │       ├── models/            #     __init__.py / user.py / dept.py / resource.py / permission.py / role.py / role_permission.py / role_dept.py / user_role_assignment.py
-│   │       ├── repositories/      #     __init__.py / user.py / dept.py / resource.py / permission.py / role.py / user_role_assignment.py（聚合仓储，含 领域↔表 映射）
+│   │   └── persistence/tortoise/{dialect}/  # 按方言分目录（后端解耦）
+│   │       ├── models/            #     __init__.py / user.py / dept.py / ...（每实体一文件）
+│   │       ├── repositories/      #     __init__.py / user.py / ...（聚合仓储，含 领域↔表 映射）
 │   │       └── queries/           #     effective_permission.py（EffectivePermissionQueryTortoiseImpl，CQRS 读侧查询）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
@@ -104,7 +104,8 @@ app/
   - 具体后端：`core/infrastructure/persistence/{backend}/{backend}_backend.py`
   - DB 方言：`core/infrastructure/persistence/{backend}/{dialect}/{dialect}_backend.py`（由**连接的 `dialect`** 选；把连接拼成 ORM 认的连接，补 `engine`）——**不同连接可用不同引擎**
   - **每模块连接**：模块在自己 `__init__.py` 声明 `DB_CONNECTION`（缺省 `'default'`），core 读取作该模块 app 的 `default_connection`；连接名→物理库由 config 的 `options` 绑定（**连接名 = dev 与 ops 的契约**）
-  - 模型路径约定：`app.{模块}.infrastructure.persistence.{backend}.models`（**拆包后必须在 `models/__init__.py` 汇总导出**，否则 Tortoise 发现不到模型）
+  - **模块基础设施按方言分目录**：`app.{模块}.infrastructure.persistence.{backend}.{dialect}/{models,repositories,queries}`；`{dialect}` 由该模块连接的 `dialect` 决定（**models/queries/repositories 都按方言拆开**）。模型须在 `{dialect}/models/__init__.py` 汇总导出（否则 Tortoise 发现不到）
+  - 组合根取方言实现：`core.infrastructure.persistence.module_infra(模块, 子模块)`（按模块的连接解析方言、动态导入）；组合根**不硬编码方言**
   - 迁移：aerich，`migrations/` **不入库**（版本账本在数据库 `aerich` 表）；`auto_migrate` 控制启动期是否迁移
 - **模块 bootstrap**：`core.start()` 按 `core.modules` 动态 import `app.{模块}.bootstrap` 并调用其 `bootstrap()`（钩子可选）。core 只认约定，不认识具体模块。
   - **资源/权限目录声明固定放各模块自己的 `bootstrap.py`**（如 `IAM_RESOURCE_DECLARATIONS`），启动时幂等注册；不塞进包 `__init__`，也不散落在子包里。

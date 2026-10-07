@@ -3,7 +3,7 @@ from app.iam.domain.permission.entities import Permission
 from app.iam.domain.permission.repositories import PermissionRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import PermissionId, ResourceId, UserId
-from app.iam.infrastructure.persistence.tortoise.models import PermissionModel
+from app.iam.infrastructure.persistence.tortoise.postgres.models import PermissionModel
 
 
 def to_domain(m: PermissionModel) -> Permission:

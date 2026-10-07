@@ -7,7 +7,7 @@ from app.iam.application.common.dto import EffectivePermissions
 from app.iam.application.common.queries import EffectivePermissionQuery
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId, RoleSummary, UserId
-from app.iam.infrastructure.persistence.tortoise.models import (
+from app.iam.infrastructure.persistence.tortoise.postgres.models import (
     PermissionModel,
     ResourceModel,
     RoleModel,

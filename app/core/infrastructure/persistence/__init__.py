@@ -41,3 +41,11 @@ async def run_persistence_migrations() -> None:
 def get_in_transaction() -> InTransactionType:
     """事务上下文工厂（由后端提供），供应用层注入使用。"""
     return _load_backend().IN_TRANSACTION
+
+
+def module_infra(module: str, sub: str):
+    """按约定导入某模块的方言基础设施子模块（models / repositories / queries）。
+
+    组合根用它取方言实现而不硬编码方言（方言由模块的连接决定）。
+    """
+    return _load_backend().infra_module(module, sub)

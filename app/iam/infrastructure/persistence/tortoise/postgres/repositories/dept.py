@@ -3,7 +3,7 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.entities import Dept
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
-from app.iam.infrastructure.persistence.tortoise.models import DeptModel
+from app.iam.infrastructure.persistence.tortoise.postgres.models import DeptModel
 
 
 def to_domain(m: DeptModel) -> Dept:

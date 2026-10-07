@@ -8,7 +8,7 @@ from app.iam.domain.role.entities import Role
 from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
-from app.iam.infrastructure.persistence.tortoise.models import (
+from app.iam.infrastructure.persistence.tortoise.postgres.models import (
     RoleDeptModel,
     RoleModel,
     RolePermissionModel,

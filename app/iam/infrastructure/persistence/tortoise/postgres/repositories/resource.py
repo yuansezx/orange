@@ -3,7 +3,7 @@ from app.iam.domain.resource.entities import Resource
 from app.iam.domain.resource.repositories import ResourceRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import ResourceId, UserId
-from app.iam.infrastructure.persistence.tortoise.models import ResourceModel
+from app.iam.infrastructure.persistence.tortoise.postgres.models import ResourceModel
 
 
 def to_domain(m: ResourceModel) -> Resource:

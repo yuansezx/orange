@@ -3,7 +3,7 @@ from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId, UserId, UserRoleId
 from app.iam.domain.user_role_assignment.entities import UserRoleAssignment
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
-from app.iam.infrastructure.persistence.tortoise.models import UserRoleAssignmentModel
+from app.iam.infrastructure.persistence.tortoise.postgres.models import UserRoleAssignmentModel
 
 
 def to_domain(m: UserRoleAssignmentModel) -> UserRoleAssignment:

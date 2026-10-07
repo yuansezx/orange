@@ -5,6 +5,9 @@
 
 注意：这里没有容器，每次 `get_*` 都会 new 出新实例（HTTP 侧由 Depends 的
 per-request 缓存兜住）。所以被装配的实现应是**无状态**的。
+
+方言实现经 `persistence.module_infra(模块, 子模块)` 取：方言由模块的连接决定，
+组合根**不硬编码方言**（返回的是模块，属性即实现类）。
 """
 from redis.asyncio import Redis
 
@@ -30,17 +33,10 @@ from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 from app.iam.infrastructure.adapters.token_manager_adapter import TokenManagerJWTRedisAdapter
 from app.iam.infrastructure.cache.current_user_repo import CurrentUserRepositoryRedisImpl
-from app.iam.infrastructure.persistence.tortoise.queries.effective_permission import (
-    EffectivePermissionQueryTortoiseImpl,
-)
-from app.iam.infrastructure.persistence.tortoise.repositories import (
-    DeptRepositoryTortoiseImpl,
-    PermissionRepositoryTortoiseImpl,
-    ResourceRepositoryTortoiseImpl,
-    RoleRepositoryTortoiseImpl,
-    UserRepositoryTortoiseImpl,
-    UserRoleRepositoryTortoiseImpl,
-)
+
+# 按当前连接的方言解析 iam 的基础设施实现（models / repositories / queries）
+_repos = persistence.module_infra('iam', 'repositories')
+_queries = persistence.module_infra('iam', 'queries')
 
 
 def get_in_transaction() -> InTransactionType:
@@ -48,19 +44,19 @@ def get_in_transaction() -> InTransactionType:
 
 
 def get_user_repo() -> UserRepository:
-    return UserRepositoryTortoiseImpl()
+    return _repos.UserRepositoryTortoiseImpl()
 
 
 def get_dept_repo() -> DeptRepository:
-    return DeptRepositoryTortoiseImpl()
+    return _repos.DeptRepositoryTortoiseImpl()
 
 
 def get_resource_repo() -> ResourceRepository:
-    return ResourceRepositoryTortoiseImpl()
+    return _repos.ResourceRepositoryTortoiseImpl()
 
 
 def get_permission_repo() -> PermissionRepository:
-    return PermissionRepositoryTortoiseImpl()
+    return _repos.PermissionRepositoryTortoiseImpl()
 
 
 def get_user_access_service() -> UserAccessService:
@@ -90,7 +86,7 @@ def get_resource_app_service() -> ResourceApplicationService:
 
 
 def get_role_repo() -> RoleRepository:
-    return RoleRepositoryTortoiseImpl()
+    return _repos.RoleRepositoryTortoiseImpl()
 
 
 def get_role_access_service() -> RoleAccessService:
@@ -107,7 +103,7 @@ def get_role_app_service() -> RoleApplicationService:
 
 
 def get_user_role_repo() -> UserRoleRepository:
-    return UserRoleRepositoryTortoiseImpl()
+    return _repos.UserRoleRepositoryTortoiseImpl()
 
 
 def get_user_role_app_service() -> UserRoleApplicationService:
@@ -127,7 +123,7 @@ def get_current_user_repo() -> CurrentUserRepository:
 
 
 def get_effective_permission_query() -> EffectivePermissionQuery:
-    return EffectivePermissionQueryTortoiseImpl()
+    return _queries.EffectivePermissionQueryTortoiseImpl()
 
 
 def get_token_manager() -> TokenManagerPort:
