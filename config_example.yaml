@@ -30,6 +30,14 @@ core:
             user: orange
             password: orange
             database: orange
+  # 缓存配置（可选；不配则 core 不启动缓存）
+  cache:
+    backend: redis
+    options:
+      host: 127.0.0.1
+      port: 6379
+      password: redis
+      db: 0
 
 iam:
   jwt_config:

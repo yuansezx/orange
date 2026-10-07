@@ -9,6 +9,12 @@ from app.core.infrastructure.settings import AppBaseSettings
 class JWTConfig(BaseModel):
     secret_key: str
     algorithm: str
+    expire_minutes: int = 30
+
+
+class CurrentUserConfig(BaseModel):
+    # CurrentUser 快照缓存 TTL（秒）；短于令牌有效期，权限陈旧窗口受此约束
+    snapshot_ttl_seconds: int = 300
 
 
 class IAMSettings(AppBaseSettings):
@@ -20,12 +26,14 @@ class IAMSettings(AppBaseSettings):
         env_file_encoding='utf-8',
         extra='ignore'
     )
-    jwt_config : JWTConfig | None = None
+    jwt_config: JWTConfig | None = None
+    current_user_config: CurrentUserConfig = CurrentUserConfig()
 
     def __init__(self):
         super().__init__()
         if not self.jwt_config:
             # 默认随机secret_key
             self.jwt_config = JWTConfig(secret_key=secrets.token_hex(32), algorithm='HS256')
+
 
 IAM_SETTINGS = IAMSettings()

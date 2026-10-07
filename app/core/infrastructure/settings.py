@@ -43,6 +43,17 @@ class PersistenceConfig(BaseModel):
     options: dict = {}
 
 
+class CacheConfig(BaseModel):
+    """缓存配置（core 段内的嵌套 schema）。
+
+    backend：选择缓存后端（对应 cache/{backend}/{backend}_backend.py）；
+    options：后端专属配置，core 原样透传、不解释（如 redis 的 host/port/password/db）。
+    未配置则 core 不启动缓存。
+    """
+    backend: str = 'redis'
+    options: dict = {}
+
+
 class CoreSettings(AppBaseSettings):
     model_config = SettingsConfigDict(
         yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],
@@ -83,14 +94,9 @@ class CoreSettings(AppBaseSettings):
 
     # 持久化（数据库）配置
     persistence: PersistenceConfig | None = None
-    #
-    # # orm配置
-    # tortoise_orm_config: dict | None = None
-    #
-    # # redis配置
-    # redis_config: dict | None = None
-    # # redis中token键值的过期时间 秒
-    # redis_key_token_ex: int | None = None
+
+    # 缓存配置（可选；未配置则 core 不启动缓存，用到时才报错）
+    cache: CacheConfig | None = None
 
     # def __init__(self):
     #     super().__init__()

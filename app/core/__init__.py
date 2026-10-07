@@ -5,6 +5,7 @@ from loguru import logger
 
 from app.core.domain.event_bus import EventBus
 from app.core.infrastructure.event_bus_impl import EventBusMemoryImpl
+from app.core.infrastructure.cache import start_cache, stop_cache
 from app.core.infrastructure.persistence import start_persistence, stop_persistence
 from app.core.infrastructure.settings import CORE_SETTINGS
 
@@ -41,14 +42,16 @@ def get_event_bus() -> EventBus:
     return _event_bus
 
 async def start():
-    """应用启动：日志 → 持久化（迁移 + ORM 初始化）→ 各模块启动钩子。"""
+    """应用启动：日志 → 持久化（迁移 + ORM 初始化）→ 缓存 → 各模块启动钩子。"""
     init_logger()
     await start_persistence()
+    await start_cache()
     await _run_module_bootstraps()
 
 
 async def stop():
-    """应用关闭：释放持久化资源。"""
+    """应用关闭：释放缓存与持久化资源。"""
+    await stop_cache()
     await stop_persistence()
 
 

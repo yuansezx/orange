@@ -6,13 +6,19 @@
 注意：这里没有容器，每次 `get_*` 都会 new 出新实例（HTTP 侧由 Depends 的
 per-request 缓存兜住）。所以被装配的实现应是**无状态**的。
 """
+from redis.asyncio import Redis
+
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
-from app.core.infrastructure import persistence
+from app.core.infrastructure import cache, persistence
+from app.iam.application.common.queries import EffectivePermissionQuery
+from app.iam.application.current_user.ports import TokenManagerPort
+from app.iam.application.current_user.services import CurrentUserApplicationService
 from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user.services import UserApplicationService
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
+from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
 from app.iam.domain.permission.repositories import PermissionRepository
@@ -22,6 +28,11 @@ from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
+from app.iam.infrastructure.adapters.token_manager_adapter import TokenManagerJWTRedisAdapter
+from app.iam.infrastructure.cache.current_user_repo import CurrentUserRepositoryRedisImpl
+from app.iam.infrastructure.persistence.tortoise.queries.effective_permission import (
+    EffectivePermissionQueryTortoiseImpl,
+)
 from app.iam.infrastructure.persistence.tortoise.repositories import (
     DeptRepositoryTortoiseImpl,
     PermissionRepositoryTortoiseImpl,
@@ -104,4 +115,29 @@ def get_user_role_app_service() -> UserRoleApplicationService:
         in_transaction=get_in_transaction(),
         user_role_repo=get_user_role_repo(),
         role_access_service=get_role_access_service(),
+    )
+
+
+def get_cache_client() -> Redis:
+    return cache.get_cache()
+
+
+def get_current_user_repo() -> CurrentUserRepository:
+    return CurrentUserRepositoryRedisImpl(get_cache_client())
+
+
+def get_effective_permission_query() -> EffectivePermissionQuery:
+    return EffectivePermissionQueryTortoiseImpl()
+
+
+def get_token_manager() -> TokenManagerPort:
+    return TokenManagerJWTRedisAdapter(get_cache_client())
+
+
+def get_current_user_app_service() -> CurrentUserApplicationService:
+    return CurrentUserApplicationService(
+        user_repo=get_user_repo(),
+        current_user_repo=get_current_user_repo(),
+        effective_permission_query=get_effective_permission_query(),
+        token_manager=get_token_manager(),
     )

@@ -30,13 +30,16 @@ app/
 │   │   ├── units_of_work.py       #     TransactionContext / InTransactionType
 │   │   └── value_objects.py       #     BaseEntityId（value: uuid.UUID + new()）/ EventId
 │   ├── infrastructure/
-│   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS
+│   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS（含 persistence / cache 段）
 │   │   ├── event_bus_impl.py      #     EventBusMemoryImpl
-│   │   └── persistence/           #     持久化（后端中立门面 + 具体后端）
-│   │       ├── __init__.py        #       start/stop_persistence、run_persistence_migrations、get_in_transaction
-│   │       └── tortoise/
-│   │           ├── tortoise_backend.py  # init / close / run_migrations + TortoiseTransactionContext
-│   │           └── models.py            # AuditableModel（ORM 审计基类，abstract）
+│   │   ├── persistence/           #     持久化（后端中立门面 + 具体后端）
+│   │   │   ├── __init__.py        #       start/stop_persistence、run_persistence_migrations、get_in_transaction
+│   │   │   └── tortoise/
+│   │   │       ├── tortoise_backend.py  # init / close / run_migrations + TortoiseTransactionContext
+│   │   │       └── models.py            # AuditableModel（ORM 审计基类，abstract）
+│   │   └── cache/                 #     缓存（与 persistence 同构的门面：cache/{backend}/{backend}_backend）
+│   │       ├── __init__.py        #       start_cache / stop_cache / get_cache
+│   │       └── redis/redis_backend.py
 │   ├── exceptions.py              #     global_exception_handler + DomainBaseException/ApplicationBaseException
 │   └── utils/                     #     schemas(PageResult) / validators / type_utils / jwt_util / password_hash
 ├── iam/                           # 身份与访问管理模块
@@ -52,18 +55,20 @@ app/
 │   │   ├── login_log/             #     entities.py
 │   │   └── current_user/          #     entities.py / repositories.py（当前用户缓存）
 │   ├── application/
-│   │   ├── common/exceptions.py
-│   │   ├── current_user/          #     ports.py（TokenManagerPort）/ event_handlers.py
+│   │   ├── common/               #     exceptions.py / dto.py（EffectivePermissions）/ queries.py（EffectivePermissionQuery，CQRS 读侧）
+│   │   ├── current_user/          #     dto.py / services.py（CurrentUserApplicationService）/ ports.py（TokenManagerPort）/ event_handlers.py
 │   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
 │   │   ├── resource/              #     dto.py / services.py（ResourceApplicationService）/ exceptions.py
 │   │   ├── role/                  #     dto.py / services.py（RoleApplicationService）/ exceptions.py
 │   │   └── user_role_assignment/  #     services.py
 │   ├── infrastructure/
-│   │   ├── settings.py            #   IAMSettings / JWTConfig / IAM_SETTINGS
-│   │   ├── adapters/              #   端口实现：token_manager_adapter.py（骨架）
+│   │   ├── settings.py            #   IAMSettings / JWTConfig / CurrentUserConfig / IAM_SETTINGS
+│   │   ├── adapters/              #   端口实现：token_manager_adapter.py（JWT + Redis 白名单）
+│   │   ├── cache/                 #   current_user_repo.py（CurrentUserRepositoryRedisImpl）
 │   │   └── persistence/tortoise/  #   每实体一文件（模型 + 仓储）
 │   │       ├── models/            #     __init__.py / user.py / dept.py / resource.py / permission.py / role.py / role_permission.py / role_dept.py / user_role_assignment.py
-│   │       └── repositories/      #     __init__.py / user.py / dept.py / resource.py / permission.py / role.py / user_role_assignment.py（含 领域↔表 映射）
+│   │       ├── repositories/      #     __init__.py / user.py / dept.py / resource.py / permission.py / role.py / user_role_assignment.py（聚合仓储，含 领域↔表 映射）
+│   │       └── queries/           #     effective_permission.py（EffectivePermissionQueryTortoiseImpl，CQRS 读侧查询）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
 │       └── http/user/             #   api.py / schemas.py
@@ -105,12 +110,15 @@ app/
 - **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）。
 - **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。
 - **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**，由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**，一致性靠读路径按 ACTIVE 过滤。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活已删行、不新插**。
+- **鉴权/令牌（iam）**：令牌 = JWT（自包含 `exp`）+ Redis **白名单** `iam:user_tokens:{uid}`（hash：token→⊥，**HEXPIRE** 每 field 独立 TTL）；多端=多 field，单端 `HDEL`、全端 `DEL`。CurrentUser **快照** `iam:current_user:{uid}`（独立短 TTL）：权限变更只清快照、会话不掉线，快照缺失则重解析回填。有效权限由 `EffectivePermissionQuery.resolve`（**应用层 common 的查询**，非聚合仓储）**唯一收口**（逐级按 ACTIVE 过滤）。Redis 由 **core 门面** 管理（`core.cache`，同 persistence；未配置则不启动）。
 
 ### 命名约定
 
 - **自定义 / 第三方依赖的抽象**：接口用 `XxxPort`（`ports.py`），实现用 `XxxAdapter`（`adapters/xxx_adapter.py`）——对应六边形 Port/Adapter。
 - **DDD 原生抽象**（`Repository` / `EventBus` / `UnitOfWork`）：沿用 DDD 词汇命名接口，实现以 `XxxImpl` 结尾（如 `EventBusMemoryImpl`、`UserRepositoryTortoiseImpl`）。
 - **纯计算工具**：直接放 `core/utils/`（函数或简单类，如 `password_hash`、`JWTUtil`），**不套 Port**。
+- **数据类型的归属按语义定**（不按谁先用）：领域概念 → domain（entity / 值对象）；应用层通用数据（含查询结果）→ `dto.py`；端口私有契约类型 → 与端口同处 `ports.py`（过长时拆 `ports/` 包，一端口一文件）。
+- **查询（CQRS 读侧）不与聚合仓储混放**：跨聚合只读查询放**应用层**（接口 `common/queries.py`，实现 `infrastructure/persistence/tortoise/queries/`）；`repositories/` 只留聚合仓储（entity ↔ 表）。
 - 枚举统一 `XxxEnum`，且 `str, Enum`。
 
 ## 运行

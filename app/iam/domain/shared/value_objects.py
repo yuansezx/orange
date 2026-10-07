@@ -62,3 +62,11 @@ class ResourceId(BaseEntityId):
 @dataclass(frozen=True)
 class PermissionId(BaseEntityId):
     pass
+
+
+@dataclass(frozen=True)
+class RoleSummary:
+    """角色的精简视图（供 CurrentUser 缓存展示 / 可选角色码检查；非完整聚合）。"""
+    id: RoleId
+    code: str
+    name: str
