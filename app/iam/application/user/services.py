@@ -8,6 +8,7 @@ from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.password_hash import hash_password
+from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.user.exceptions import UserExistsException
 from app.iam.application.user.dto import CreateUserIn, UpdateUserIn, GetUsersIn
@@ -59,6 +60,7 @@ class UserApplicationService:
     async def get_users(self, data:GetUsersIn,current_user: CurrentUser) -> PageResult[User]:
         return await self.user_repo.search(SearchUser(**data.model_dump()),data.page_size,data.page,current_user)
 
+    @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,
                                    user_role_app_service: UserRoleApplicationService) -> None:
         # 用户唯一性检验
