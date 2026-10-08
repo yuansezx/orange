@@ -9,8 +9,7 @@ from datetime import datetime, timedelta, UTC
 import jwt
 from redis.asyncio import Redis
 
-from app.iam.application.common.exceptions import InvalidTokenException
-from app.iam.application.current_user.ports import TokenManagerPort
+from app.iam.application.current_user.ports import TokenManagerPort, TokenVerificationException
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.infrastructure.settings import IAM_SETTINGS
 
@@ -41,10 +40,10 @@ class TokenManagerJWTRedisAdapter(TokenManagerPort):
             # jwt.decode 默认校验 signature + exp
             payload = jwt.decode(token, self.jwt_secret_key, [self.jwt_algorithm])
         except jwt.exceptions.InvalidTokenError:
-            raise InvalidTokenException('无效 token')
+            raise TokenVerificationException('无效 token')
         user_id = UserId(value=payload['user_id'])
         if not await self.redis_conn.hexists(self._key(user_id), token):
-            raise InvalidTokenException('token 已失效')
+            raise TokenVerificationException('token 已失效')
         return user_id
 
     async def revoke(self, token: str) -> None:
@@ -53,7 +52,7 @@ class TokenManagerJWTRedisAdapter(TokenManagerPort):
             payload = jwt.decode(token, self.jwt_secret_key, [self.jwt_algorithm],
                                  options={'verify_exp': False})
         except jwt.exceptions.InvalidTokenError:
-            raise InvalidTokenException('无效 token')
+            raise TokenVerificationException('无效 token')
         user_id = UserId(value=payload['user_id'])
         await self.redis_conn.hdel(self._key(user_id), token)
 

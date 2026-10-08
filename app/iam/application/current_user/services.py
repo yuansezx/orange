@@ -2,7 +2,7 @@ from app.core.utils.password_hash import verify_password
 from app.iam.application.common.exceptions import AuthenticationException, InvalidTokenException
 from app.iam.application.common.queries import EffectivePermissionQuery
 from app.iam.application.current_user.dto import LoginIn, LoginOut
-from app.iam.application.current_user.ports import TokenManagerPort
+from app.iam.application.current_user.ports import TokenManagerPort, TokenVerificationException
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import StatusEnum
@@ -48,7 +48,10 @@ class CurrentUserApplicationService:
         )
 
     async def get_current_user(self, token: str) -> CurrentUser:
-        user_id = await self.token_manager.authenticate(token)
+        try:
+            user_id = await self.token_manager.authenticate(token)
+        except TokenVerificationException:
+            raise InvalidTokenException('无效令牌')
         current_user = await self.current_user_repo.get(user_id)
         if current_user is not None:
             return current_user
@@ -61,7 +64,10 @@ class CurrentUserApplicationService:
         return current_user
 
     async def logout(self, token: str) -> None:
-        await self.token_manager.revoke(token)
+        try:
+            await self.token_manager.revoke(token)
+        except TokenVerificationException:
+            raise InvalidTokenException('无效令牌')
 
     async def logout_all(self, user_id: UserId) -> None:
         await self.token_manager.revoke_all(user_id)

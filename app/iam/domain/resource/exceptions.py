@@ -1,5 +1,7 @@
-from app.iam.domain.shared.exceptions import IAMDomainBaseException
+from app.core.exceptions import ErrorKindEnum
+from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
-class InvalidResourceCodeException(IAMDomainBaseException):
-    pass
+class InvalidResourceCodeException(IAMBusinessBaseException):
+    code = 'IAM_INVALID_RESOURCE_CODE'
+    kind = ErrorKindEnum.VALIDATION

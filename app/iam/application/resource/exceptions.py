@@ -1,17 +1,22 @@
-from app.iam.application.common.exceptions import IAMApplicationBaseException
+from app.core.exceptions import ErrorKindEnum
+from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
-class ResourceNotFoundException(IAMApplicationBaseException):
-    pass
+class ResourceNotFoundException(IAMBusinessBaseException):
+    code = 'IAM_RESOURCE_NOT_FOUND'
+    kind = ErrorKindEnum.NOT_FOUND
 
 
-class PermissionNotFoundException(IAMApplicationBaseException):
-    pass
+class PermissionNotFoundException(IAMBusinessBaseException):
+    code = 'IAM_PERMISSION_NOT_FOUND'
+    kind = ErrorKindEnum.NOT_FOUND
 
 
-class ResourceCodeConflictException(IAMApplicationBaseException):
-    pass
+class ResourceCodeConflictException(IAMBusinessBaseException):
+    code = 'IAM_RESOURCE_CODE_CONFLICT'
+    kind = ErrorKindEnum.CONFLICT
 
 
-class PermissionActionConflictException(IAMApplicationBaseException):
-    pass
+class PermissionActionConflictException(IAMBusinessBaseException):
+    code = 'IAM_PERMISSION_ACTION_CONFLICT'
+    kind = ErrorKindEnum.CONFLICT

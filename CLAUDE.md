@@ -41,7 +41,7 @@ app/
 │   │   └── cache/                 #     缓存（与 persistence 同构的门面：cache/{backend}/{backend}_backend）
 │   │       ├── __init__.py        #       start_cache / stop_cache / get_cache
 │   │       └── redis/redis_backend.py
-│   ├── exceptions.py              #     global_exception_handler + DomainBaseException/ApplicationBaseException
+│   ├── exceptions.py              #     异常两根 + ErrorKindEnum（纯定义，不依赖 fastapi）
 │   └── utils/                     #     schemas(PageResult) / validators / type_utils / jwt_util / password_hash
 ├── iam/                           # 身份与访问管理模块
 │   ├── __init__.py                #   DB_CONNECTION = 'default'（本模块用的逻辑连接名，core 按约定读）
@@ -74,6 +74,8 @@ app/
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
 │       └── http/user/             #   api.py / schemas.py
+├── interface/                     # app 级接口层（HTTP 边界；app 全局，非模块级）
+│   └── http/exception_handlers.py #   异常→HTTP 映射 + 统一错误体
 ├── run.py                         # 启动入口（uvicorn 工厂 + 读配置）
 ├── scripts/migrate.py             # 手动迁移入口（uv run python -m scripts.migrate）
 ├── pyproject.toml
@@ -93,7 +95,7 @@ app/
 - 仓储继承 `BaseRepository`：`get / create / bulk_create / update / hard_delete`。
 - **删除语义统一**：`delete` = **软删**（实体方法，置 `status=DELETED`+`deleted_at/by`）；`hard_delete` = **物理删**（仓储）；`evict` = 缓存淘汰。**裸 `delete` 绝不表示物理删除。**
 - 枚举统一 `str, Enum` 且以 `Enum` 结尾（`StatusEnum`、`UserTypeEnum`、`DataScopeEnum`）。
-- 异常分 Domain / Application 两条层级；按子域拆分，common 只放跨域共用；由 `core.exceptions.global_exception_handler` 兜底（**领域/应用→HTTP 状态码的映射尚未实现**）。
+- **异常与响应**：两条根（`core.exceptions`：`InfrastructureBaseException` 技术中立 / `BusinessBaseException` 业务合一）+ 统一错误体 `{code,message,details}`；HTTP 映射见 `app/interface/http/exception_handlers.py`。详见「异常与 HTTP 响应」。
 - `PageResult[DataType]`（`core/utils/schemas.py`）；`check_unique` / `check_data_scope`（`core/utils/validators.py`）。
 - interface/schemas 可直接引用 domain 值对象作字段类型（pydantic 自动走 `__post_init__`）。
 - 应用服务接 DTO（`CreateUserIn` 等）并调用领域服务完成业务逻辑。
@@ -125,6 +127,22 @@ app/
 - **数据类型的归属按语义定**（不按谁先用）：领域概念 → domain（entity / 值对象）；应用层通用数据（含查询结果）→ `dto.py`；端口私有契约类型 → 与端口同处 `ports.py`（过长时拆 `ports/` 包，一端口一文件）。
 - **查询（CQRS 读侧）不与聚合仓储混放**：跨聚合只读查询放**应用层**（接口 `common/queries.py`，实现 `infrastructure/persistence/tortoise/queries/`）；`repositories/` 只留聚合仓储（entity ↔ 表）。
 - 枚举统一 `XxxEnum`，且 `str, Enum`。
+
+### 异常与 HTTP 响应
+
+> 以下为**当前取舍**，随需求可变；调整时同步本节。
+
+**两条根**（都在 `core/exceptions.py`，层中立、纯定义）：
+- `InfrastructureBaseException`——**技术中立**。基础层负责「库异常 → 本族」，**跨边界禁止抛第三方库类型**。兜底就是根本身，某关切真实到要单独 catch 时才加子类。基础设施**不主动**包装库异常（默认让存储/缓存异常冒成 500、当 bug 处理），确有业务需要时才就地包。端口特有的中立异常继承本族、**放该 port 的 `ports.py`**（如 `TokenVerificationException`）。
+- `BusinessBaseException`——**业务**。domain 与 application **合一**（不再分两棵）。类级 `code`（稳定机读码）+ 类级 `kind`（`ErrorKindEnum` 语义类别）+ 实例级可选 `details`。
+
+**翻译职责**（不许混）：基础层做「库异常 → 中立」；应用层做「中立 → 业务」（**唯一**做这跳的地方；仅当它有业务含义时）。**基础设施层不许 import 业务异常**（端口接口例外，可 lint）。
+
+**HTTP 映射**（`app/interface/http/exception_handlers.py`）：`kind →` VALIDATION/400、UNAUTHENTICATED/401、FORBIDDEN/403、NOT_FOUND/404、CONFLICT/409；技术/未捕获 → 500（不泄露内部、日志带堆栈）。归一 `RequestValidationError`（422）与 `HTTPException`。**统一错误体** `{code, message, details}`；**成功侧不套信封**，直接返数据、语义由 HTTP 状态码承担。
+
+**异常归属**：具体业务异常按**语义**放各子域（`domain/*/exceptions.py`、`application/*/exceptions.py`）；模块业务根 `IAMBusinessBaseException` 在 `iam/domain/shared/exceptions.py`。
+
+**跨模块（python api）**：只经 **core 共享内核**通信——调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根不对外发布**，iam 的 `interface/` 只发布 `get_*`（+ 可选 code 词表），不发布异常类型。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。可逆：将来要从 `interface/` 暴露模块根即可，不破坏既有代码。
 
 ## 运行
 

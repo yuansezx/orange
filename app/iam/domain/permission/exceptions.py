@@ -1,5 +1,7 @@
-from app.iam.domain.shared.exceptions import IAMDomainBaseException
+from app.core.exceptions import ErrorKindEnum
+from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
-class InvalidPermissionActionException(IAMDomainBaseException):
-    pass
+class InvalidPermissionActionException(IAMBusinessBaseException):
+    code = 'IAM_INVALID_PERMISSION_ACTION'
+    kind = ErrorKindEnum.VALIDATION

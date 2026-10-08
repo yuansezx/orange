@@ -6,7 +6,7 @@ from app.core.domain.entities import AuditableEntity
 from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
-from app.iam.domain.user.exceptions import PasswordPolicyViolationException, ReservedUsernameException, UserUpdateForbiddenException
+from app.iam.domain.user.exceptions import PasswordPolicyViolationException, ReservedUsernameException, UserImmutableException
 from app.core.utils.password_hash import hash_password, verify_password
 
 
@@ -63,7 +63,7 @@ class User(AuditableEntity[UserId]):
     def change_profile(self, nickname: str, email: Email | None, phone: Phone | None, description: str | None,
                        dept_id: DeptId | None, operator_id: UserId):
         if not self.can_update():
-            raise UserUpdateForbiddenException('用户不可更改')
+            raise UserImmutableException('用户不可更改')
         self.nickname = nickname
         self.email = email
         self.phone = phone
@@ -74,7 +74,7 @@ class User(AuditableEntity[UserId]):
 
     def change_status(self, status: StatusEnum, update_by: UserId):
         if not self.can_update():
-            raise UserUpdateForbiddenException('用户不可更改')
+            raise UserImmutableException('用户不可更改')
         self.status = status
         self.updated_by = update_by
         self.updated_at = datetime.now(UTC)
@@ -85,7 +85,7 @@ class User(AuditableEntity[UserId]):
         物理删除另行处理（见 StatusEnum.DELETED 的说明）。
         """
         if not self.can_delete():
-            raise UserUpdateForbiddenException('用户不可删除')
+            raise UserImmutableException('用户不可删除')
         self.status = StatusEnum.DELETED
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)

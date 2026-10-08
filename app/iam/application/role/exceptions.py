@@ -1,9 +1,12 @@
-from app.iam.application.common.exceptions import IAMApplicationBaseException
+from app.core.exceptions import ErrorKindEnum
+from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
-class RoleNotFoundException(IAMApplicationBaseException):
-    pass
+class RoleNotFoundException(IAMBusinessBaseException):
+    code = 'IAM_ROLE_NOT_FOUND'
+    kind = ErrorKindEnum.NOT_FOUND
 
 
-class RoleCodeConflictException(IAMApplicationBaseException):
-    pass
+class RoleCodeConflictException(IAMBusinessBaseException):
+    code = 'IAM_ROLE_CODE_CONFLICT'
+    kind = ErrorKindEnum.CONFLICT

@@ -1,19 +1,16 @@
-from app.core.exceptions import ApplicationBaseException
+from app.core.exceptions import ErrorKindEnum
+from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
-class IAMApplicationBaseException(ApplicationBaseException):
-    pass
+class PermissionDeniedException(IAMBusinessBaseException):
+    code = 'IAM_PERMISSION_DENIED'
+    kind = ErrorKindEnum.FORBIDDEN
 
 
-class PermissionDeniedException(IAMApplicationBaseException):
-    pass
+class AuthenticationException(IAMBusinessBaseException):
+    code = 'IAM_AUTHENTICATION_FAILED'
+    kind = ErrorKindEnum.UNAUTHENTICATED
 
-class OperationNotAllowedException(IAMApplicationBaseException):
-    pass
-
-class AuthenticationException(IAMApplicationBaseException):
-    pass
 
 class InvalidTokenException(AuthenticationException):
-    pass
-
+    code = 'IAM_INVALID_TOKEN'
