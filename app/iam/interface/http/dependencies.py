@@ -11,12 +11,16 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.interface.dependences import get_current_user_app_service
 
 
-async def get_current_user(
-    authorization: str | None = Header(default=None),
-    current_user_app_service: CurrentUserApplicationService = Depends(get_current_user_app_service),
-) -> CurrentUser:
-    """取 `Authorization: Bearer <token>`，解析为当前用户；缺/坏令牌 → InvalidTokenException（401）。"""
+async def get_bearer_token(authorization: str | None = Header(default=None)) -> str:
+    """取 `Authorization: Bearer <token>` 的原始令牌；缺/格式不对 → InvalidTokenException（401）。"""
     if not authorization or not authorization.lower().startswith('bearer '):
         raise InvalidTokenException('未提供有效凭证')
-    token = authorization[len('bearer '):].strip()
+    return authorization[len('bearer '):].strip()
+
+
+async def get_current_user(
+    token: str = Depends(get_bearer_token),
+    current_user_app_service: CurrentUserApplicationService = Depends(get_current_user_app_service),
+) -> CurrentUser:
+    """把令牌解成当前用户；令牌无效/失效 → InvalidTokenException（401）。"""
     return await current_user_app_service.get_current_user(token)
