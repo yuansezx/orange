@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime, UTC
 
 from pydantic import Field, model_validator
@@ -9,11 +8,6 @@ from app.iam.domain.role.exceptions import InvalidRoleCodeException
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
 
-
-@dataclass
-class RoleFilter:
-    status: StatusEnum | None = None
-    keyword: str | None = None
 
 
 class Role(AuditableEntity[UserId]):
