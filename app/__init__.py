@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from importlib import import_module
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -6,6 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import core
 from app.core.exceptions import BusinessBaseException, InfrastructureBaseException
+from app.core.infrastructure.settings import CORE_SETTINGS
 from app.interface.http.exception_handlers import (
     business_exception_handler,
     global_exception_handler,
@@ -38,6 +40,15 @@ def create_app():
     # app.add_middleware(CORSMiddleware, allow_origins=CORE_SETTINGS.cors_allowed_origins, allow_credentials=True,
     #                    allow_methods=["*"], allow_headers=["*"])
 
-    # 挂载路由
+    # 挂载各模块路由：约定 app.{模块}.interface.http.router 暴露 router（模块未提供则跳过）
+    for name in CORE_SETTINGS.modules:
+        path = f'app.{name}.interface.http.router'
+        try:
+            module = import_module(path)
+        except ModuleNotFoundError as e:
+            if e.name == path:
+                continue
+            raise
+        app.include_router(module.router, prefix=f'/{name}')
 
     return app

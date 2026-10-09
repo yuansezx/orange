@@ -19,7 +19,7 @@
 
 ```
 app/
-├── __init__.py                    # FastAPI 应用工厂 create_app() + lifespan（无模块级副作用）
+├── __init__.py                    # FastAPI 应用工厂 create_app() + lifespan（按 core.modules 动态挂载各模块 router）
 ├── core/                          # 全局共享基础设施（无业务语义）
 │   ├── __init__.py                #   init_logger() / get_event_bus() / start()（含模块 bootstrap 编排）/ stop()
 │   ├── domain/                    #   DDD 领域抽象
@@ -55,9 +55,9 @@ app/
 │   │   ├── permission/            #     entities.py / repositories.py / exceptions.py
 │   │   ├── user_role_assignment/  #     entities.py / repositories.py
 │   │   ├── login_log/             #     entities.py
-│   │   └── current_user/          #     entities.py / repositories.py（当前用户缓存）
+│   │   └── current_user/          #     entities.py（CurrentUser.has_permission）/ repositories.py（当前用户缓存）
 │   ├── application/
-│   │   ├── common/               #     exceptions.py / dto.py（EffectivePermissions）/ queries.py（EffectivePermissionQuery，CQRS 读侧）
+│   │   ├── common/               #     decorators.py（@requires_permission）/ exceptions.py / dto.py（EffectivePermissions）/ queries.py（CQRS 读侧）
 │   │   ├── current_user/          #     dto.py / services.py（CurrentUserApplicationService）/ ports.py（TokenManagerPort）/ event_handlers.py
 │   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
 │   │   ├── resource/              #     dto.py / services.py（ResourceApplicationService）/ exceptions.py
@@ -73,7 +73,10 @@ app/
 │   │       └── queries/           #     effective_permission.py（EffectivePermissionQueryTortoiseImpl，CQRS 读侧查询）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
-│       └── http/user/             #   api.py / schemas.py
+│       └── http/
+│           ├── router.py          #     模块路由汇总（app 工厂按模块动态 include）
+│           ├── dependencies.py    #     get_current_user（Bearer → CurrentUser，只做身份提取）
+│           └── user/              #     api.py（user_router）/ schemas.py
 ├── interface/                     # app 级接口层（HTTP 边界；app 全局，非模块级）
 │   └── http/exception_handlers.py #   异常→HTTP 映射 + 统一错误体
 ├── run.py                         # 启动入口（uvicorn 工厂 + 读配置）
@@ -111,13 +114,15 @@ app/
   - 迁移：aerich，`migrations/` **不入库**（版本账本在数据库 `aerich` 表）；`auto_migrate` 控制启动期是否迁移
 - **模块 bootstrap**：`core.start()` 按 `core.modules` 动态 import `app.{模块}.bootstrap` 并调用其 `bootstrap()`（钩子可选）。core 只认约定，不认识具体模块。
   - **资源/权限目录声明固定放各模块自己的 `bootstrap.py`**（如 `IAM_RESOURCE_DECLARATIONS`），启动时幂等注册；不塞进包 `__init__`，也不散落在子包里。
+- **路由挂载**：core 不认模块。app 工厂按 `core.modules` 动态 import `app.{模块}.interface.http.router`（暴露 `router`）并 `include_router(prefix='/{模块}')`；模块未提供则跳过（判 `ModuleNotFoundError.name == path`，路由内部有真错则炸）。**每模块一个 `router`**（聚合各 resource 的 `<resource>_router`），resource 路由本体放 `interface/http/{resource}/api.py`。
 - **组合根**：`app/{模块}/interface/dependences.py` 提供 `get_*`，由 http（FastAPI `Depends`）、bootstrap、python api 共用。
 - **抽象取舍判据**：Port 只在「**触碰外部（IO/第三方）**」或「**测试要替换**」时才抽；纯计算/纯数据**不抽**（直接函数/值对象）。
 - **包 `__init__` 不放重副作用、也不放会拖入其它层的 import**（判据是"导入的耦合/成本"，非"有无副作用"）：模块启动钩子（有副作用）独立成 `bootstrap.py`；依赖其它层类型的声明（如资源目录，依赖 application DTO）也放 `bootstrap.py`（否则 `import app.{模块}.domain.*` 会连带拖入 application/循环导入）；**纯常量**（如 `DB_CONNECTION`，零依赖零副作用）可放 `__init__`。FastAPI app 用工厂而非模块级实例。
 - **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）。
 - **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。
 - **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**，由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**，一致性靠读路径按 ACTIVE 过滤。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活已删行、不新插**。
-- **鉴权/令牌（iam）**：令牌 = JWT（自包含 `exp`）+ Redis **白名单** `iam:user_tokens:{uid}`（hash：token→⊥，**HEXPIRE** 每 field 独立 TTL）；多端=多 field，单端 `HDEL`、全端 `DEL`。CurrentUser **快照** `iam:current_user:{uid}`（独立短 TTL）：权限变更只清快照、会话不掉线，快照缺失则重解析回填。有效权限由 `EffectivePermissionQuery.resolve`（**应用层 common 的查询**，非聚合仓储）**唯一收口**（逐级按 ACTIVE 过滤）。Redis 由 **core 门面** 管理（`core.cache`，同 persistence；未配置则不启动）。
+- **令牌 / CurrentUser（iam）**：令牌 = JWT（自包含 `exp`）+ Redis **白名单** `iam:user_tokens:{uid}`（hash：token→⊥，**HEXPIRE** 每 field 独立 TTL）；多端=多 field，单端 `HDEL`、全端 `DEL`。CurrentUser **快照** `iam:current_user:{uid}`（独立短 TTL）：权限变更只清快照、会话不掉线，快照缺失则重解析回填。有效权限由 `EffectivePermissionQuery.resolve`（**应用层 common 的查询**，非聚合仓储）**唯一收口**（逐级按 ACTIVE 过滤）。Redis 由 **core 门面** 管理（`core.cache`，同 persistence；未配置则不启动）。
+- **认证 / 授权（iam，双入口）**：**身份提取在接口层**（`interface/http/dependencies.py::get_current_user`，`Authorization: Bearer` → CurrentUser，缺/坏 → 401）；**授权判定是业务规则、收敛到 application**——功能权限 `current_user.has_permission(code)`（超管旁路）、数据权限调 access service（`can_access`），**http 与 python api 两入口一致**。功能权限可用 `@requires_permission(*codes)`（`application/common/decorators.py`，**按名绑定 `current_user` 参数**；缺参数定义期报错）；数据权限随对象变、需查库，仍手动调。接口层只做 `kind→状态码` 映射（403），**不判权限**。
 
 ### 命名约定
 
