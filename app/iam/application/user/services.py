@@ -57,12 +57,13 @@ class UserApplicationService:
         async with self.in_transaction():
             await self.user_repo.create(user)
 
+    @requires_permission('iam:user:read')
     async def get_users(self, data:GetUsersIn,current_user: CurrentUser) -> PageResult[User]:
         return await self.user_repo.search(SearchUser(**data.model_dump()),data.page_size,data.page,current_user)
 
     @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,
-                                   user_role_app_service: UserRoleApplicationService) -> None:
+                                   user_role_app_service: UserRoleApplicationService) -> User:
         # 用户唯一性检验
         # 竞态问题交给数据库唯一性检验，不做redis分布式锁了
         unique_service = CheckUserUniqueService(self.user_repo)
@@ -91,9 +92,11 @@ class UserApplicationService:
             # 有角色创建用户角色关系，那边会检验权限
             if data.role_ids:
                 await user_role_app_service.assign_roles_to_user(user.id, data.role_ids, current_user)
+        return user
 
+    @requires_permission('iam:user:update')
     async def update_user(self, data: UpdateUserIn, current_user: CurrentUser,
-                          user_role_app_service: UserRoleApplicationService) -> None:
+                          user_role_app_service: UserRoleApplicationService) -> User:
 
         # 当前用户是否有权限操作目标用户
         if not await self.user_access_service.can_access(data.id, current_user):
@@ -117,7 +120,7 @@ class UserApplicationService:
             # 设置角色
             if data.role_ids:
                 await user_role_app_service.set_user_roles(user.id, data.role_ids, current_user)
+        return user
 
 
     # async def delete_users(self,user_ids: list[int], current_user: CurrentUser) -> None:
-
