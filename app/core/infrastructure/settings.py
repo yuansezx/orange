@@ -1,9 +1,21 @@
 # 全局配置,包括数据库配置,jwt配置
 # import secrets
+import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
+
+_PYPROJECT = Path(__file__).resolve().parents[3] / 'pyproject.toml'
+
+
+def _pyproject_version() -> str:
+    """版本默认值取 pyproject.toml 的 [project].version（config 未提供时才启用）；读不到回退 'nightly'。"""
+    try:
+        with _PYPROJECT.open('rb') as f:
+            return tomllib.load(f)['project']['version']
+    except (OSError, KeyError):
+        return 'nightly'
 
 
 class AppBaseSettings(BaseSettings):
@@ -69,7 +81,7 @@ class CoreSettings(AppBaseSettings):
     )
 
     app_name: str = 'orange'
-    app_version: str = 'nightly'
+    app_version: str = Field(default_factory=_pyproject_version)
     debug: bool = False
 
     # 服务监听地址（容器内需绑 0.0.0.0）

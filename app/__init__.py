@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app():
-    app = FastAPI(title='代码库', lifespan=lifespan)
+    app = FastAPI(title=CORE_SETTINGS.app_name, version=CORE_SETTINGS.app_version, lifespan=lifespan)
     # 注册全局异常处理函数（按异常类型/MRO 匹配，非顺序）
     app.add_exception_handler(BusinessBaseException, business_exception_handler)
     app.add_exception_handler(InfrastructureBaseException, infrastructure_exception_handler)
