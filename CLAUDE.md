@@ -93,6 +93,7 @@ app/
   - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、**`modules`**（启用模块清单）、`persistence`
   - `persistence`：`backend`（ORM）+ `auto_migrate` + `use_tz`/`timezone` + `options`（**连接映射** `{连接名: {dialect, credentials}}`；每个连接**自带引擎** `dialect`，`engine` 由方言层补、不写进配置）
 - 实体用 pydantic `BaseModel`；值对象用 `@dataclass(frozen=True)`（带 `__post_init__` 校验 + 脱敏 property）。
+- **值对象序列化（pydantic）**：单值 VO 继承 `SingleValueObject[value]`（`core/domain/value_objects.py`）——**出入裸值**（校验接受 裸值 / `{"value":..}` / 实例；序列化 `str(self)`），OpenAPI 展示为 `string`（`BaseEntityId` 带 `format: uuid`）。**多字段（结构化）VO 不套它**（如 `RoleSummary`），交给 pydantic 默认按对象序列化，要自定义形态再手动转。脱敏等按字段用 `Annotated[...]` 声明。
 - **实体 ID**：`BaseEntityId`（持有 `uuid.UUID`）及其子类 `UserId`/`RoleId`/`DeptId`/`UserRoleId`/`ResourceId`/`PermissionId`/`EventId`；用 `XxxId.new()` 生成（UUIDv7）。**不设 IdProvider 端口**。
 - `AuditableEntity[IdType]` 泛型审计基类（created/updated/deleted 的 at/by）。
 - 仓储继承 `BaseRepository`：`get / create / bulk_create / update / hard_delete`。
@@ -120,7 +121,7 @@ app/
 - **包 `__init__` 不放重副作用、也不放会拖入其它层的 import**（判据是"导入的耦合/成本"，非"有无副作用"）：模块启动钩子（有副作用）独立成 `bootstrap.py`；依赖其它层类型的声明（如资源目录，依赖 application DTO）也放 `bootstrap.py`（否则 `import app.{模块}.domain.*` 会连带拖入 application/循环导入）；**纯常量**（如 `DB_CONNECTION`，零依赖零副作用）可放 `__init__`。FastAPI app 用工厂而非模块级实例。
 - **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）。
 - **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。
-- **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**，由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**，一致性靠读路径按 ACTIVE 过滤。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活已删行、不新插**。
+- **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**，由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**（**状态层面**：软删 / 禁用等状态变更不级联改其他聚合，一致性靠读路径按 ACTIVE 过滤；**物理硬删**则显式级联清理从属行——无 FK，应用层做）。此约定的前提是「状态不级联**不影响业务判断**」，若日后发现有影响，软删也需级联（**待观察**）。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活已删行、不新插**。
 - **令牌 / CurrentUser（iam）**：令牌 = JWT（自包含 `exp`）+ Redis **白名单** `iam:user_tokens:{uid}`（hash：token→⊥，**HEXPIRE** 每 field 独立 TTL）；多端=多 field，单端 `HDEL`、全端 `DEL`。CurrentUser **快照** `iam:current_user:{uid}`（独立短 TTL）：权限变更只清快照、会话不掉线，快照缺失则重解析回填。有效权限由 `EffectivePermissionQuery.resolve`（**应用层 common 的查询**，非聚合仓储）**唯一收口**（逐级按 ACTIVE 过滤）。Redis 由 **core 门面** 管理（`core.cache`，同 persistence；未配置则不启动）。
 - **认证 / 授权（iam，双入口）**：**身份提取在接口层**（`interface/http/dependencies.py::get_current_user`，`Authorization: Bearer` → CurrentUser，缺/坏 → 401）；**授权判定是业务规则、收敛到 application**——功能权限 `current_user.has_permission(code)`（超管旁路）、数据权限调 access service（`can_access`），**http 与 python api 两入口一致**。功能权限可用 `@requires_permission(*codes)`（`application/common/decorators.py`，**按名绑定 `current_user` 参数**；缺参数定义期报错）；数据权限随对象变、需查库，仍手动调。接口层只做 `kind→状态码` 映射（403），**不判权限**。
 
@@ -132,6 +133,7 @@ app/
 - **数据类型的归属按语义定**（不按谁先用）：领域概念 → domain（entity / 值对象）；应用层通用数据（含查询结果）→ `dto.py`；端口私有契约类型 → 与端口同处 `ports.py`（过长时拆 `ports/` 包，一端口一文件）。
 - **查询（CQRS 读侧）不与聚合仓储混放**：跨聚合只读查询放**应用层**（接口 `common/queries.py`，实现 `infrastructure/persistence/tortoise/queries/`）；`repositories/` 只留聚合仓储（entity ↔ 表）。
 - 枚举统一 `XxxEnum`，且 `str, Enum`。
+- **接口层 schema 命名**：HTTP 的 `schemas.py` 用 `XxxReq`（请求）/ `XxxResp`（响应）；应用层 DTO 用 `XxxIn` / `XxxOut`。两套不混用。
 
 ### 异常与 HTTP 响应
 

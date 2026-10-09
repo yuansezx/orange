@@ -67,5 +67,6 @@ async def bootstrap() -> None:
         logger.warning('未找到超管 id，跳过资源/权限目录注册')
         return
 
-    logger.info('注册 iam 资源/权限目录（{} 个资源）', len(IAM_RESOURCE_DECLARATIONS))
+    logger.info('同步 iam 资源/权限目录（声明 {} 个资源；幂等 upsert，仅变更时落库）',
+                len(IAM_RESOURCE_DECLARATIONS))
     await get_resource_app_service().register_resources(IAM_RESOURCE_DECLARATIONS, operator_id)
