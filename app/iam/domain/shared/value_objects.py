@@ -1,13 +1,11 @@
 import re
 from dataclasses import dataclass
 
-from app.core.domain.value_objects import BaseEntityId
+from app.core.domain.value_objects import BaseEntityId, SingleValueObject
 
 
 @dataclass(frozen=True)
-class Phone:
-    value: str
-
+class Phone(SingleValueObject[str]):
     def __post_init__(self):
         if not re.match(r'^1[3-9]\d{9}$', self.value):
             raise ValueError(f"手机号格式不正确: {self.value}")
@@ -18,9 +16,7 @@ class Phone:
 
 
 @dataclass(frozen=True)
-class Email:
-    value: str
-
+class Email(SingleValueObject[str]):
     def __post_init__(self):
         if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', self.value):
             raise ValueError(f"邮箱格式不正确: {self.value}")
@@ -48,6 +44,7 @@ class RoleId(BaseEntityId):
 @dataclass(frozen=True)
 class DeptId(BaseEntityId):
     pass
+
 
 @dataclass(frozen=True)
 class UserRoleId(BaseEntityId):
