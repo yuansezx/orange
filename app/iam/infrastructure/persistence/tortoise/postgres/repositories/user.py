@@ -2,8 +2,11 @@
 
 映射归仓储负责（DDD：仓储处理实体与表模型的转换）。
 """
+from tortoise.expressions import Q
+
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, UserId, DeptId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.enums import UserTypeEnum
@@ -109,5 +112,43 @@ class UserRepositoryTortoiseImpl(UserRepository):
 
     async def search(self, search_by: SearchUser, page_size: int, page: int,
                      current_user: CurrentUser) -> PageResult[User]:
-        # TODO: 动态过滤 + 数据权限 + 分页
-        raise NotImplementedError('用户检索待实现')
+        qs = UserModel.all()
+
+        # 数据权限：超管全见；其余按「可访问用户集」过滤（get_allowed_user_ids 目前仍是桩）
+        if current_user.user_type != UserTypeEnum.SUPER_ADMIN:
+            allowed = await self.get_allowed_user_ids(current_user)
+            qs = qs.filter(id__in=[u.value for u in allowed])
+
+        # keyword：跨文本字段 OR 模糊
+        if search_by.keyword:
+            conds = [Q(**{f'{f}__icontains': search_by.keyword})
+                     for f in ('username', 'nickname', 'email', 'phone', 'description')]
+            cond = conds[0]
+            for extra in conds[1:]:
+                cond |= extra
+            qs = qs.filter(cond)
+
+        if search_by.user_type:
+            qs = qs.filter(user_type=search_by.user_type)
+        if search_by.dept_id:
+            qs = qs.filter(dept_id=search_by.dept_id.value)
+        if search_by.need_change_password is not None:
+            qs = qs.filter(need_change_password=search_by.need_change_password)
+        if search_by.created_at_start:
+            qs = qs.filter(created_at__gte=search_by.created_at_start)
+        if search_by.created_at_end:
+            qs = qs.filter(created_at__lte=search_by.created_at_end)
+        if search_by.password_updated_at_start:
+            qs = qs.filter(password_updated_at__gte=search_by.password_updated_at_start)
+        if search_by.password_updated_at_end:
+            qs = qs.filter(password_updated_at__lte=search_by.password_updated_at_end)
+
+        # status：给了就按给的（可查回收站 DELETED）；没给默认排除软删
+        if search_by.status:
+            qs = qs.filter(status=search_by.status)
+        else:
+            qs = qs.exclude(status=StatusEnum.DELETED)
+
+        total = await qs.count()
+        rows = await qs.order_by('-created_at').offset((page - 1) * page_size).limit(page_size)
+        return PageResult(page=page, page_size=page_size, total=total, data=[to_domain(m) for m in rows])

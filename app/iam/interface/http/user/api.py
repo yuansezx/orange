@@ -9,14 +9,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 
 from app.core.utils.schemas import PageResult
-from app.iam.application.user.dto import GetUsersIn, UpdateUserIn
+from app.iam.application.user.dto import UpdateUserIn
 from app.iam.application.user.services import UserApplicationService
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.interface.dependences import get_user_app_service, get_user_role_app_service
 from app.iam.interface.http.dependencies import get_current_user
-from app.iam.interface.http.user.schemas import CreateUserReq, UpdateUserReq, UserResp
+from app.iam.interface.http.user.schemas import CreateUserReq, GetUsersReq, UpdateUserReq, UserResp
 
 user_router = APIRouter(prefix='/users', tags=['用户'])
 
@@ -34,7 +34,7 @@ async def create_user(
 
 @user_router.get('', response_model=PageResult[UserResp], summary='用户列表')
 async def list_users(
-    filters: Annotated[GetUsersIn, Query()],
+    filters: Annotated[GetUsersReq, Query()],
     current_user: CurrentUser = Depends(get_current_user),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
 ) -> PageResult[UserResp]:

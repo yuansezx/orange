@@ -7,7 +7,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from app.iam.application.user.dto import CreateUserIn
+from app.iam.application.user.dto import CreateUserIn, GetUsersIn
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, Email, Phone, RoleId, UserId
 from app.iam.domain.user.enums import UserTypeEnum
@@ -26,6 +26,10 @@ class UpdateUserReq(BaseModel):
     description: str | None = None
     role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None
+
+
+class GetUsersReq(GetUsersIn):
+    """用户列表查询参数——线格式同 DTO（时间 start/end 各自可选）。"""
 
 
 class UserResp(BaseModel):

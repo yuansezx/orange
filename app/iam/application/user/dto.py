@@ -4,19 +4,21 @@ from pydantic import BaseModel
 
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, RoleId, DeptId, UserId
+from app.iam.domain.user.enums import UserTypeEnum
 
 
 class GetUsersIn(BaseModel):
     page_size: int
     page: int
-    username: str | None = None
-    nickname: str | None = None
-    email: str | None = None
-    phone: str | None = None
+    keyword: str | None = None                          # 跨 用户名/昵称/邮箱/手机号 模糊
+    user_type: UserTypeEnum | None = None
     status: StatusEnum | None = None
-    description: str | None = None
     dept_id: DeptId | None = None
-    created_at_between: tuple[datetime, datetime] | None = None
+    need_change_password: bool | None = None
+    created_at_start: datetime | None = None            # 时间：start/end 各自可选
+    created_at_end: datetime | None = None
+    password_updated_at_start: datetime | None = None
+    password_updated_at_end: datetime | None = None
 
 class CreateUserIn(BaseModel):
     username: str

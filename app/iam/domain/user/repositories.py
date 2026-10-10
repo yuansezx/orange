@@ -13,17 +13,16 @@ from app.iam.domain.user.enums import UserTypeEnum
 
 
 class SearchUser(BaseModel):
-    username: str | None
-    nickname: str | None
-    email: str | None = None
-    phone: Phone | None = None
+    """用户检索条件：文本走单个 `keyword` 模糊；枚举 / 部门 / 时间走精确或区间。"""
+    keyword: str | None = None                          # 跨 username/nickname/email/phone 模糊（icontains）
     user_type: UserTypeEnum | None = None
     status: StatusEnum | None = None
-    need_change_password: bool | None = None
-    password_updated_at_between: tuple[datetime, datetime] | None = None
-    description: str | None = None
     dept_id: DeptId | None = None
-    created_at_between: tuple[datetime, datetime] | None = None
+    need_change_password: bool | None = None            # 筛「未改密码」用户（上线初期用）
+    created_at_start: datetime | None = None            # 时间：start/end 各自可选，给哪个用哪个
+    created_at_end: datetime | None = None
+    password_updated_at_start: datetime | None = None
+    password_updated_at_end: datetime | None = None
 
 
 class UserRepository(BaseRepository[UserId, User]):
