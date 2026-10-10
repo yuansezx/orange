@@ -7,7 +7,7 @@ from app.core.domain.repositories import BaseRepository
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.value_objects import Phone, Email, UserId, DeptId
+from app.iam.domain.shared.value_objects import Phone, Email, UserId, DeptId, DataScopeSpec
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.enums import UserTypeEnum
 
@@ -47,5 +47,5 @@ class UserRepository(BaseRepository[UserId, User]):
     async def get_allowed_user_ids(self, current_user: CurrentUser) -> set[UserId]: ...
 
     @abstractmethod
-    async def search(self, search_by: SearchUser, page_size: int, page: int, current_user: CurrentUser) -> PageResult[
+    async def search(self, search_by: SearchUser, page_size: int, page: int, scope: DataScopeSpec) -> PageResult[
         User]: ...

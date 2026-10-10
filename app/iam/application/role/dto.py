@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field
 
-from app.iam.domain.role.enums import DataScopeEnum
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
 
 

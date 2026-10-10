@@ -7,11 +7,12 @@ from tortoise.expressions import Q
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.value_objects import Email, Phone, UserId, DeptId
+from app.iam.domain.shared.value_objects import Email, Phone, UserId, DeptId, DataScopeSpec
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.user.repositories import SearchUser, UserRepository
 from app.iam.infrastructure.persistence.tortoise.postgres.models import UserModel
+from app.iam.infrastructure.persistence.tortoise.postgres.repositories._scope import scope_filter
 
 
 def to_domain(m: UserModel) -> User:
@@ -111,13 +112,12 @@ class UserRepositoryTortoiseImpl(UserRepository):
         raise NotImplementedError('数据权限查询待角色/部门表落地后实现')
 
     async def search(self, search_by: SearchUser, page_size: int, page: int,
-                     current_user: CurrentUser) -> PageResult[User]:
+                     scope: DataScopeSpec) -> PageResult[User]:
         qs = UserModel.all()
 
-        # 数据权限：超管全见；其余按「可访问用户集」过滤（get_allowed_user_ids 目前仍是桩）
-        if current_user.user_type != UserTypeEnum.SUPER_ADMIN:
-            allowed = await self.get_allowed_user_ids(current_user)
-            qs = qs.filter(id__in=[u.value for u in allowed])
+        # 数据范围翻译（仓储只翻译，不推导）；ALL → None（不过滤）
+        if (cond := scope_filter(scope)) is not None:
+            qs = qs.filter(cond)
 
         # keyword：跨文本字段 OR 模糊
         if search_by.keyword:

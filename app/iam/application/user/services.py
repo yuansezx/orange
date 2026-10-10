@@ -3,6 +3,7 @@ from datetime import datetime, UTC
 from app.core.domain.event_bus import EventBus
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
+from app.iam.domain.access.services import DataScopeService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import UserId
@@ -25,6 +26,7 @@ class UserApplicationService:
                  user_repo: UserRepository,
                  user_access_service: UserAccessService,
                  dept_access_service: DeptAccessService,
+                 data_scope_service: DataScopeService,
                  event_bus: EventBus):
 
         self.in_transaction = in_transaction
@@ -32,6 +34,7 @@ class UserApplicationService:
 
         self.user_access_service = user_access_service
         self.dept_access_service = dept_access_service
+        self.data_scope_service = data_scope_service
 
         self.event_bus = event_bus
 
@@ -59,7 +62,9 @@ class UserApplicationService:
 
     @requires_permission('iam:user:read')
     async def get_users(self, data:GetUsersIn,current_user: CurrentUser) -> PageResult[User]:
-        return await self.user_repo.search(SearchUser(**data.model_dump()),data.page_size,data.page,current_user)
+        # 数据范围由共享访问服务解析，仓储只翻译
+        scope = await self.data_scope_service.data_scope_of(current_user)
+        return await self.user_repo.search(SearchUser(**data.model_dump()),data.page_size,data.page,scope)
 
     @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,

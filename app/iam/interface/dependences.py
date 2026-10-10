@@ -21,6 +21,7 @@ from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user.services import UserApplicationService
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
+from app.iam.domain.access.services import DataScopeService
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
@@ -67,12 +68,17 @@ def get_dept_access_service() -> DeptAccessService:
     return DeptAccessService(get_dept_repo())
 
 
+def get_data_scope_service() -> DataScopeService:
+    return DataScopeService()
+
+
 def get_user_app_service() -> UserApplicationService:
     return UserApplicationService(
         in_transaction=get_in_transaction(),
         user_repo=get_user_repo(),
         user_access_service=get_user_access_service(),
         dept_access_service=get_dept_access_service(),
+        data_scope_service=get_data_scope_service(),
         event_bus=get_event_bus(),
     )
 

@@ -3,9 +3,8 @@ from datetime import datetime, UTC
 from pydantic import Field, model_validator
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.role.enums import DataScopeEnum
 from app.iam.domain.role.exceptions import InvalidRoleCodeException
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
 
 

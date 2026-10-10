@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 
 from app.core.domain.value_objects import BaseEntityId, SingleValueObject
+from app.iam.domain.shared.enums import DataScopeEnum
 
 
 @dataclass(frozen=True)
@@ -67,3 +68,23 @@ class RoleSummary:
     id: RoleId
     code: str
     name: str
+
+
+@dataclass(frozen=True)
+class DataScopeSpec:
+    """数据范围**规约**（selection）——解析结果，供仓储/查询**翻译**成过滤条件（不推导政策）。"""
+    kind: DataScopeEnum
+    dept_ids: frozenset[DeptId] = frozenset()   # CUSTOM 的指定部门（DEPT_AND_CHILD 展开后和DEPT的dept_id也放这）
+    actor_id: UserId | None = None              # SELF：本人 id
+
+    @classmethod
+    def all(cls) -> 'DataScopeSpec':
+        return cls(DataScopeEnum.ALL)
+
+    @classmethod
+    def own(cls, actor_id: UserId) -> 'DataScopeSpec':
+        return cls(DataScopeEnum.SELF, actor_id=actor_id)
+
+    @classmethod
+    def custom(cls, dept_ids) -> 'DataScopeSpec':
+        return cls(DataScopeEnum.CUSTOM, dept_ids=frozenset(dept_ids))

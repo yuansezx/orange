@@ -2,8 +2,7 @@ from future_uuid import uuid7
 from tortoise import fields
 
 from app.core.infrastructure.persistence.tortoise.models import AuditableModel
-from app.iam.domain.role.enums import DataScopeEnum
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 
 
 class RoleModel(AuditableModel):
