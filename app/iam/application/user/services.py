@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 from app.core.domain.event_bus import EventBus
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
-from app.iam.domain.access.services import DataScopeService
+from app.iam.domain.shared.services import DataScopeService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import UserId
