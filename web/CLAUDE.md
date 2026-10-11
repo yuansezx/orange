@@ -43,6 +43,7 @@ web/src/
 - dev 走 vite **proxy**：`/iam` → `http://127.0.0.1:41000`（后端不做 CORS，部署走 nginx）。
 - 路由前缀 `/{module}`（iam 即 `/iam`，如 `/iam/auth/login`、`/iam/users`）；`Authorization: Bearer` 认证。
 - 错误体统一 `{code, message, details}`（成功侧不套信封）。
+- **401 与会话失效**：拦截器（`shared/api/client.ts`）按后端 `code` 区分——`IAM_AUTHENTICATION_FAILED`（登录凭据错，留给表单展示）**之外**的 401 一律视为会话失效：清令牌 + 广播；`app/SessionExpiryWatcher` 收到后提示并跳登录页。
 - 后端未就绪时用 mock：`shared/lib/env.ts` 的 `USE_MOCK`（dev 默认开；设 `VITE_USE_MOCK=false` 关）。
 
 ## 命令

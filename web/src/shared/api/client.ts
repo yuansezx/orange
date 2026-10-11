@@ -1,7 +1,8 @@
 import axios from 'axios'
 import type { AxiosError, AxiosRequestConfig } from 'axios'
 
-import { getToken } from '@shared/auth/token'
+import { emitSessionExpired } from '@shared/auth/session'
+import { getToken, setToken } from '@shared/auth/token'
 
 import { ApiError } from './errors'
 import type { ApiErrorBody } from './types'
@@ -26,13 +27,19 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (res) => res,
   (error: AxiosError<ApiErrorBody>) => {
+    const status = error.response?.status
     const body = error.response?.data
-    if (body && typeof body === 'object' && 'code' in body) {
-      return Promise.reject(new ApiError(body, error.response?.status))
+    // 401 且**非**「登录被拒」→ 会话失效（令牌缺失/失效/过期）：清令牌并广播。
+    // 按后端 code 区分（不靠 URL）：IAM_AUTHENTICATION_FAILED = 登录凭据错（留给调用方展示），
+    // 其余 401（如 IAM_INVALID_TOKEN）= 会话没了。
+    if (status === 401 && body?.code !== 'IAM_AUTHENTICATION_FAILED') {
+      setToken(null)
+      emitSessionExpired()
     }
-    return Promise.reject(
-      new ApiError({ code: 'NETWORK_ERROR', message: error.message }, error.response?.status),
-    )
+    if (body && typeof body === 'object' && 'code' in body) {
+      return Promise.reject(new ApiError(body, status))
+    }
+    return Promise.reject(new ApiError({ code: 'NETWORK_ERROR', message: error.message }, status))
   },
 )
 
