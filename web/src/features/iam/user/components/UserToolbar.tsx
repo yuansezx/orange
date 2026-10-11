@@ -1,26 +1,47 @@
-import { Button, Input, Space } from 'antd'
+import { Button, Input, Select, Space } from 'antd'
+
+import { STATUS_OPTIONS, USER_TYPE_OPTIONS } from '../constants'
+import type { UserToolbarProps } from '../types'
 
 /**
- * 【共用层】—— 两端都能用，所以放在 components/ 根目录，**不**进 desktop/、mobile/。
- *
- * 判据：这块在两端是「同一行为、不同长相」还是「不同行为」？
- *  · 同一行为（本例：搜索 + 新建）→ 留在这里共用；
- *  · 不同行为（例：桌面点「新建」弹 Modal、移动跳整页）→ 才拆到 desktop/ mobile/。
- *
- * 注意：共用组件要避免绑定某一端的重样式，否则移动端会很别扭；
- * 一旦发现"为了共用而塞一堆设备判断"，那其实就是该分叉的信号。
+ * 【共用层】工具栏（搜索 + 状态/类型筛选 + 新建）——两端共用，不放 desktop/ mobile/。
+ * 回调 patch 的键即 URL query 参数名（`keyword` / `status` / `user_type`）。
  */
-export function UserToolbar() {
+export function UserToolbar({
+  keyword,
+  status,
+  userType,
+  onChange,
+  onCreate,
+}: UserToolbarProps) {
   return (
-    <Space
-      style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap' }}
-    >
-      <Input
+    <Space style={{ display: 'flex', marginBottom: 16, flexWrap: 'wrap' }} size={12}>
+      <Input.Search
         allowClear
+        defaultValue={keyword}
         placeholder="搜索 用户名 / 昵称 / 邮箱 / 手机号"
-        style={{ width: 300, maxWidth: '100%' }}
+        style={{ width: 280, maxWidth: '100%' }}
+        onSearch={(value) => onChange({ keyword: value.trim() || undefined })}
       />
-      <Button type="primary">新建用户</Button>
+      <Select
+        allowClear
+        placeholder="状态"
+        style={{ width: 110 }}
+        value={status}
+        options={STATUS_OPTIONS}
+        onChange={(value) => onChange({ status: value })}
+      />
+      <Select
+        allowClear
+        placeholder="类型"
+        style={{ width: 140 }}
+        value={userType}
+        options={USER_TYPE_OPTIONS}
+        onChange={(value) => onChange({ user_type: value })}
+      />
+      <Button type="primary" onClick={onCreate}>
+        新建用户
+      </Button>
     </Space>
   )
 }

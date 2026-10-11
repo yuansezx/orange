@@ -34,3 +34,20 @@ export interface UserListViewProps {
   loading: boolean
   error: Error | null
 }
+
+/** 桌面表格：在视图入参上再加分页。 */
+export interface UserTableProps extends UserListViewProps {
+  total: number
+  page: number
+  pageSize: number
+  onPageChange: (page: number, pageSize: number) => void
+}
+
+/** 工具栏：筛选值 + 变更回调（回调 patch 的键即 URL query 参数名）。 */
+export interface UserToolbarProps {
+  keyword: string
+  status?: UserStatus
+  userType?: UserType
+  onChange: (patch: Record<string, string | undefined>) => void
+  onCreate: () => void
+}

@@ -1,5 +1,7 @@
 import { ErrorBlock, List } from 'antd-mobile'
+import dayjs from 'dayjs'
 
+import { STATUS_LABELS, USER_TYPE_LABELS } from '../../constants'
 import type { UserListViewProps } from '../../types'
 
 /**
@@ -13,7 +15,13 @@ export function UserCardList({ users, loading, error }: UserListViewProps) {
   return (
     <List header="用户">
       {users.map((user) => (
-        <List.Item key={user.id} description={user.username} extra={user.status}>
+        <List.Item
+          key={user.id}
+          description={`${user.username} · ${USER_TYPE_LABELS[user.user_type]} · ${dayjs(
+            user.created_at,
+          ).format('YYYY-MM-DD')}`}
+          extra={STATUS_LABELS[user.status]}
+        >
           {user.nickname || user.username}
         </List.Item>
       ))}
