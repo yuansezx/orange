@@ -1,22 +1,21 @@
-import { Dropdown, Layout, Menu } from 'antd'
+import { Layout, Menu } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
-import { useLogout, usePermission } from '@features/auth'
+import { UserMenu, usePermission } from '@features/auth'
 import { appConfig } from '@shared/config'
 import { colorTokens } from '@shared/theme/tokens'
-import { BrandLogo, UserAvatar } from '@shared/ui'
+import { BrandLogo } from '@shared/ui'
 
 import { ADMIN_PATH } from '../../navigation'
 import { menuGroups } from '../../routes'
 
 const { Sider, Header, Content } = Layout
 
-/** 后台管理壳 · 桌面：左栏分组菜单（按权限过滤）+ 顶栏（右：版本 + 用户菜单）+ 内容区。 */
+/** 后台管理壳 · 桌面：左栏分组菜单（按权限过滤）+ 顶栏（右：版本 + 用户区）+ 内容区。 */
 export function DesktopAdminShell() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { can, me } = usePermission()
-  const { logout } = useLogout()
+  const { can } = usePermission()
 
   // 过滤：只留有权限的链接；组内空了整组不显示
   const groups = menuGroups
@@ -66,41 +65,9 @@ export function DesktopAdminShell() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
-            gap: 16,
           }}
         >
-          <span style={{ color: colorTokens.textTertiary, fontSize: 12 }}>
-            v{appConfig.version}
-          </span>
-          {me && (
-            <Dropdown
-              trigger={['click']}
-              placement="bottomRight"
-              menu={{
-                items: [{ key: 'logout', label: '退出登录', danger: true }],
-                onClick: ({ key }) => {
-                  if (key === 'logout') logout()
-                },
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  maxWidth: 180,
-                  cursor: 'pointer',
-                }}
-              >
-                <UserAvatar name={me.nickname} src={me.avatar} size={28} />
-                <span
-                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
-                  {me.nickname}
-                </span>
-              </div>
-            </Dropdown>
-          )}
+          <UserMenu />
         </Header>
         <Content style={{ padding: 24 }}>
           <Outlet />

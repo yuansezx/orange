@@ -6,6 +6,7 @@
  */
 export { LoginPage } from './LoginPage'
 export { RequireAuth } from './RequireAuth'
+export { UserMenu } from './components/UserMenu'
 export { useLogin } from './hooks/useLogin'
 export { useLogout } from './hooks/useLogout'
 export { useMe } from './hooks/useMe'
