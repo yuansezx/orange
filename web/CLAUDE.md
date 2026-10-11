@@ -16,7 +16,7 @@
 ```
 web/src/
 ├── app/        # 组合根（= 后端 app 工厂）：providers / router / navigation / pages / layout
-├── shared/     # 共享内核（= 后端 core，无业务语义）：api / platform / query / ui / lib / config / auth / navigation / theme
+├── shared/     # 共享内核（= 后端 core，无业务语义）：api / platform / query / ui / config / auth / navigation / theme
 └── features/   # 切片，两类：
     ├── <模块>/           # ① 模块型：对齐后端模块（iam / monitor…）
     │   ├── <页面>/       #    每个页面：api / hooks / components / types.ts
