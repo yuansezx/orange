@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { UserMenu, usePermission } from '@features/auth'
 import { appConfig } from '@shared/config'
+import { matchMenuLink } from '@shared/navigation'
 import { colorTokens } from '@shared/theme/tokens'
 import { BrandLogo } from '@shared/ui'
 
@@ -11,7 +12,7 @@ import { menuGroups } from '../../routes'
 
 const { Sider, Header, Content } = Layout
 
-/** 后台管理壳 · 桌面：左栏分组菜单（按权限过滤）+ 顶栏（右：版本 + 用户区）+ 内容区。 */
+/** 后台管理壳 · 桌面：左栏分组菜单（按权限过滤）+ 顶栏（右：用户区）+ 内容区。 */
 export function DesktopAdminShell() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -22,7 +23,12 @@ export function DesktopAdminShell() {
     .map((group) => ({ ...group, links: group.links.filter((link) => can(link.permission)) }))
     .filter((group) => group.links.length > 0)
   const links = groups.flatMap((group) => group.links)
-  const selectedKey = links.find((link) => pathname.endsWith(`/${link.path}`))?.key
+
+  // 当前路由 → 选中项 + 其所属分组（直接粘 URL / 回跳进来也对）
+  const selectedKey = matchMenuLink(links, pathname, ADMIN_PATH)?.key
+  const activeGroupKey = groups.find((group) =>
+    group.links.some((link) => link.key === selectedKey),
+  )?.key
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -43,9 +49,11 @@ export function DesktopAdminShell() {
           {appConfig.name}
         </div>
         <Menu
+          // key 绑当前分组：路由换了分组就重挂，默认展开随之切到该分组
+          key={activeGroupKey ?? 'none'}
           mode="inline"
           selectedKeys={selectedKey ? [selectedKey] : []}
-          defaultOpenKeys={groups.map((group) => group.key)}
+          defaultOpenKeys={activeGroupKey ? [activeGroupKey] : []}
           items={groups.map((group) => ({
             key: group.key,
             label: group.label,

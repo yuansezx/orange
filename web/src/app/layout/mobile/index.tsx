@@ -4,6 +4,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useLogout, usePermission } from '@features/auth'
 import { appConfig } from '@shared/config'
+import { matchMenuLink } from '@shared/navigation'
 import { colorTokens } from '@shared/theme/tokens'
 import { BrandLogo, UserAvatar } from '@shared/ui'
 
@@ -66,7 +67,7 @@ export function MobileAdminShell() {
     .map((group) => ({ ...group, links: group.links.filter((link) => can(link.permission)) }))
     .filter((group) => group.links.length > 0)
   const links = groups.flatMap((group) => group.links)
-  const current = links.find((link) => pathname.endsWith(`/${link.path}`))
+  const current = matchMenuLink(links, pathname, ADMIN_PATH)
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
