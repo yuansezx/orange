@@ -8,7 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app import core
 from app.core.exceptions import BusinessBaseException, InfrastructureBaseException
 from app.core.infrastructure.settings import CORE_SETTINGS
-from app.interface.http.exception_handlers import (
+from app.core.interface.http.exception_handlers import (
     business_exception_handler,
     global_exception_handler,
     http_exception_handler,
