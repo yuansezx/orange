@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { appConfig } from '@shared/config'
 import { colorTokens } from '@shared/theme/tokens'
+import { BrandLogo } from '@shared/ui'
 
 import { navItems } from '../../routes'
 
@@ -18,6 +19,7 @@ export function MobileLayout() {
           height: 48,
           display: 'flex',
           alignItems: 'center',
+          gap: 8,
           paddingInline: 16,
           fontWeight: 600,
           color: colorTokens.brand,
@@ -25,6 +27,7 @@ export function MobileLayout() {
           background: colorTokens.bgContainer,
         }}
       >
+        <BrandLogo size={22} />
         {appConfig.name}
       </header>
       <main style={{ flex: 1, overflow: 'auto', padding: 12 }}>

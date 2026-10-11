@@ -25,6 +25,8 @@ export const colorSchemes = {
   /** 橙（当前） */
   orange: {
     brand: '#f5822b',
+    /** 品牌浅色底（背景/大面积淡色） */
+    brandSoft: '#fdf0e6',
     bgContainer: '#ffffff',
     borderSecondary: '#f0f0f0',
     textTertiary: '#999999',
@@ -32,6 +34,7 @@ export const colorSchemes = {
   /** 示例第二套：蓝（按需增删） */
   blue: {
     brand: '#1677ff',
+    brandSoft: '#e8f1ff',
     bgContainer: '#ffffff',
     borderSecondary: '#e6f0ff',
     textTertiary: '#8896ab',

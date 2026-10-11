@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Orange">
+  <!-- 单色标：整体一块品牌橙，切面为负空间（透明）。mask 白=保留 黑=挖空 -->
+  <defs>
+    <mask id="orange-slice">
+      <rect width="48" height="48" rx="12" fill="#fff"/>
+      <circle cx="24" cy="24" r="13" fill="#000"/>
+      <g stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+        <line x1="11" y1="24" x2="37" y2="24"/>
+        <line x1="17.5" y1="12.74" x2="30.5" y2="35.26"/>
+        <line x1="30.5" y1="12.74" x2="17.5" y2="35.26"/>
+      </g>
+    </mask>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="#f5822b" mask="url(#orange-slice)"/>
+</svg>
