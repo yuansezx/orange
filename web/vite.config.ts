@@ -33,6 +33,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',
     port: 40000,
     // 后端不做 CORS，dev 经 vite proxy 转发到 FastAPI（模块前缀 /iam）
     proxy: {

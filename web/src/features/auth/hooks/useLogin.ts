@@ -23,7 +23,7 @@ export function useLogin() {
       if (data.need_change_password) {
         message.warning('当前为初始密码，请尽快修改')
       }
-      const from = (location.state as { from?: string } | null)?.from ?? '/home'
+      const from = (location.state as { from?: string } | null)?.from ?? '/'
       navigate(from, { replace: true })
     },
     onError: (error) => {

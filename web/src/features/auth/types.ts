@@ -27,6 +27,8 @@ export interface CurrentUser {
   user_id: string
   username: string
   nickname: string
+  /** 头像 URL；后端暂未提供，缺省时回退昵称首字。 */
+  avatar?: string | null
   user_type: UserType
   roles: RoleSummary[] | null
   dept_id: string | null

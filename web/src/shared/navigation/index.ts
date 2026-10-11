@@ -1,1 +1,1 @@
-export type { FeatureModule, FeatureRoute, NavItem } from './types'
+export type { FeatureModule, MenuGroup, MenuLink, NavEntry } from './types'

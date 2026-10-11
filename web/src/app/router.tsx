@@ -4,28 +4,32 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { LoginPage, RequireAuth } from '@features/auth'
 import { PageLoading } from '@shared/ui'
 
-import { AppLayout } from './layout'
-import { featureRoutes } from './routes'
+import { AdminShell } from './layout'
+import { ADMIN_PATH } from './navigation'
+import { NavHome } from './pages/NavHome'
+import { menuLinks } from './routes'
 
-/** 聚合：登录页（壳外） + 受保护的应用壳（壳内各 feature 路由懒加载）。 */
+/** 路由：登录（壳外）→ 导航页（入口列表）→ 应用壳（后台管理）+ 各菜单页。 */
 export function AppRouter() {
+  const firstLink = menuLinks[0]?.path
+
   return (
     <Routes>
-      {/* 登录页在应用壳之外，不受守卫约束 */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* 其余全部需登录 */}
       <Route element={<RequireAuth />}>
-        <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/home" replace />} />
-          {featureRoutes.map((route) => (
+        <Route path="/" element={<NavHome />} />
+
+        <Route path={ADMIN_PATH} element={<AdminShell />}>
+          {firstLink && <Route index element={<Navigate to={firstLink} replace />} />}
+          {menuLinks.map((link) => (
             <Route
-              key={route.path}
-              path={route.path}
-              element={<Suspense fallback={<PageLoading />}>{route.element}</Suspense>}
+              key={link.key}
+              path={link.path}
+              element={<Suspense fallback={<PageLoading />}>{link.element}</Suspense>}
             />
           ))}
-          <Route path="*" element={<Navigate to="/home" replace />} />
+          {firstLink && <Route path="*" element={<Navigate to={firstLink} replace />} />}
         </Route>
       </Route>
     </Routes>
