@@ -17,21 +17,21 @@
 web/src/
 ├── app/        # 组合根（= 后端 app 工厂）：providers / router / routes / layout（桌面/移动）
 ├── shared/     # 共享内核（= 后端 core，无业务语义）：api / platform / query / ui / lib / config / auth / navigation
-└── features/   # 业务模块（= 后端模块），每个自包含
-    └── <feature>/
-        ├── api/          # 接口调用（= infrastructure）
-        ├── hooks/        # 用例（= application）
-        ├── components/   # 视图（= interface）
-        ├── types.ts
-        ├── routes.ts     # 自声明路由（lazy）
-        └── index.ts      # 门面：导出 FeatureModule
+└── features/   # 切片，两类：
+    ├── <模块>/           # ① 模块型：对齐后端模块（iam / portal / monitor…）
+    │   ├── <页面>/       #    每个页面：api / hooks / components / types.ts / routes.ts
+    │   ├── components/   #    模块内共用件（如部门选择器）——留模块内，别上浮到 shared
+    │   └── index.ts      #    门面：导出 FeatureModule（聚合本模块的 routes + nav）
+    └── <控制台级>/       # ② 控制台级：不属任何后端模块（auth 登录、home 概览）
+        └── index.ts      #    同样导出 FeatureModule
 ```
 
 ## 约定
 
 - **依赖单向**：`app → features → shared`。feature 不认识 app；跨 feature 只能经其**门面** `@features/<name>`，**禁止深入内部路径**——由 ESLint `no-restricted-imports` 强守（见 `eslint.config.js`）。
 - **模块自报门面**：feature 只在 `index.ts` 导出 `FeatureModule`（`routes` + `nav`）；组合根 `app/routes.ts` 逐个登记（同后端 `core.modules`）。
-- **平台分叉**：**默认一份响应式实现**；`shared/platform` 的 `<Platform desktop={} mobile={}/>` 是**逃生口、按需用**。判据：同一行为、不同长相 → 共用；不同行为 → 才拆。跨端**共用**组件放 `components/` **根目录**，只有**确实分叉**的才进 `components/desktop/` `mobile/`；取数等逻辑放页面层共用、视图只渲染。范例：`features/home`（共用档）、`features/user`（一处叶子分叉）。
+- **features 对齐后端模块**：模块型切片与后端模块**同名同边界**（`iam` / `portal` / `monitor`…），**不按"iam 的某张表"平铺**（否则 iam 专属的共享件无处安放）；控制台级切片（`auth`/`home`）例外。例：`features/iam/user`。
+- **平台分叉**：**默认一份响应式实现**；`shared/platform` 的 `<Platform desktop={} mobile={}/>` 是**逃生口、按需用**。判据：同一行为、不同长相 → 共用；不同行为 → 才拆。跨端**共用**组件放 `components/` **根目录**，只有**确实分叉**的才进 `components/desktop/` `mobile/`；取数等逻辑放页面层共用、视图只渲染。范例：`features/home`（共用档）、`features/iam/user`（一处叶子分叉）。
 - **服务器状态**用 TanStack Query；`shared/api` 只出 `get/post/put/del<T>`，错误统一归一为 `ApiError`（`code` 对齐后端错误体，可 `except`/按 `code` 区分）。
 - **配置**：值是**数据**，放 `src/config.json`；读取层 `shared/config/index.ts` 只"读数据 + 定型"，不含配置值。`appVersion` 构建期从 `package.json` 注入（`__APP_VERSION__`），dev 未注入时 `typeof` 兜底 `'dev'`。
 - 别名：`@app` / `@shared` / `@features` / `@`（见 `vite.config.ts` 与 `tsconfig.app.json`）。
