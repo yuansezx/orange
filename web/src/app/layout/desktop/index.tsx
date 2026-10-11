@@ -2,6 +2,7 @@ import { Layout, Menu } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { appConfig } from '@shared/config'
+import { colorTokens } from '@shared/theme/tokens'
 
 import { navItems } from '../../routes'
 
@@ -23,7 +24,7 @@ export function DesktopLayout() {
             paddingInline: 20,
             fontSize: 18,
             fontWeight: 600,
-            color: '#f5822b',
+            color: colorTokens.brand,
           }}
         >
           {appConfig.name}
@@ -41,14 +42,16 @@ export function DesktopLayout() {
       <Layout>
         <Header
           style={{
-            background: '#fff',
+            background: colorTokens.bgContainer,
             paddingInline: 24,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
           }}
         >
-          <span style={{ color: '#999', fontSize: 12 }}>v{appConfig.version}</span>
+          <span style={{ color: colorTokens.textTertiary, fontSize: 12 }}>
+            v{appConfig.version}
+          </span>
         </Header>
         <Content style={{ padding: 24 }}>
           <Outlet />

@@ -34,6 +34,7 @@ web/src/
 - **平台分叉**：**默认一份响应式实现**；`shared/platform` 的 `<Platform desktop={} mobile={}/>` 是**逃生口、按需用**。判据：同一行为、不同长相 → 共用；不同行为 → 才拆。跨端**共用**组件放 `components/` **根目录**，只有**确实分叉**的才进 `components/desktop/` `mobile/`；取数等逻辑放页面层共用、视图只渲染。范例：`features/home`（共用档）、`features/iam/user`（一处叶子分叉）。
 - **服务器状态**用 TanStack Query；`shared/api` 只出 `get/post/put/del<T>`，错误统一归一为 `ApiError`（`code` 对齐后端错误体，可 `except`/按 `code` 区分）。
 - **配置**：值是**数据**，放 `src/config.json`；读取层 `shared/config/index.ts` 只"读数据 + 定型"，不含配置值。`appVersion` 构建期从 `package.json` 注入（`__APP_VERSION__`），dev 未注入时 `typeof` 兜底 `'dev'`。
+- **配色收敛**：颜色一律走 **`@shared/theme/tokens`**（**唯一来源**），组件里**别写死 hex**；antd 主题 `app/theme.ts` 也引同一份 token。**多套方案**放在 `colorSchemes`，**当前生效**的由 `config.json` 的 `colorScheme` 选定（改值 → 重新构建，构建期非运行时）；消费方一律引 `colorTokens`。之所以自建而非用 antd 的 CSS 变量：本项目同时用 antd 与 antd-mobile（两套主题系统），需要两家之上的共同来源才能收敛到一处。
 - 别名：`@app` / `@shared` / `@features` / `@`（见 `vite.config.ts` 与 `tsconfig.app.json`）。
 
 ## 对接后端

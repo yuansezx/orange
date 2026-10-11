@@ -2,6 +2,7 @@ import { TabBar } from 'antd-mobile'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { appConfig } from '@shared/config'
+import { colorTokens } from '@shared/theme/tokens'
 
 import { navItems } from '../../routes'
 
@@ -19,9 +20,9 @@ export function MobileLayout() {
           alignItems: 'center',
           paddingInline: 16,
           fontWeight: 600,
-          color: '#f5822b',
-          borderBottom: '1px solid #f0f0f0',
-          background: '#fff',
+          color: colorTokens.brand,
+          borderBottom: `1px solid ${colorTokens.borderSecondary}`,
+          background: colorTokens.bgContainer,
         }}
       >
         {appConfig.name}
@@ -29,7 +30,12 @@ export function MobileLayout() {
       <main style={{ flex: 1, overflow: 'auto', padding: 12 }}>
         <Outlet />
       </main>
-      <nav style={{ borderTop: '1px solid #f0f0f0', background: '#fff' }}>
+      <nav
+        style={{
+          borderTop: `1px solid ${colorTokens.borderSecondary}`,
+          background: colorTokens.bgContainer,
+        }}
+      >
         <TabBar
           activeKey={activeKey}
           onChange={(key) => {
