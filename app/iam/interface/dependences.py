@@ -113,6 +113,7 @@ def get_role_app_service() -> RoleApplicationService:
         in_transaction=get_in_transaction(),
         role_repo=get_role_repo(),
         permission_repo=get_permission_repo(),
+        dept_repo=get_dept_repo(),
         role_access_service=get_role_access_service(),
         event_bus=get_event_bus(),
     )

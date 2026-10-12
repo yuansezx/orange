@@ -99,6 +99,11 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         )
         return to_domain(m) if m else None
 
+    async def get_by_ids(self, dept_ids: list[DeptId]) -> list[Dept]:
+        ids = [d.value for d in dept_ids]
+        models = await DeptModel.filter(id__in=ids, status__not=StatusEnum.DELETED)
+        return [to_domain(m) for m in models]
+
     async def get_allowed_dept_ids(self, current_user: CurrentUser) -> set[DeptId]:
         # TODO: 数据权限——依赖 role / user_role 等表，待那些模型落地后实现
         raise NotImplementedError('部门数据权限查询待角色表落地后实现')
