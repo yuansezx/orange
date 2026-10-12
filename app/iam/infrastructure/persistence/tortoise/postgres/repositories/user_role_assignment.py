@@ -68,3 +68,8 @@ class UserRoleRepositoryTortoiseImpl(UserRoleRepository):
             qs = qs.filter(status__not=StatusEnum.DELETED)
         models = await qs
         return [to_domain(m) for m in models]
+
+    async def get_user_ids_by_role(self, role_id: RoleId) -> list[UserId]:
+        rows = await UserRoleAssignmentModel.filter(
+            role_id=role_id.value, status=StatusEnum.ACTIVE).values_list('user_id', flat=True)
+        return [UserId(u) for u in rows]

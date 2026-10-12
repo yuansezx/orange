@@ -9,9 +9,20 @@ _run_module_bootstraps）。放独立模块而非 `__init__.py`，是为了避�
 """
 from loguru import logger
 
+from app.core import get_event_bus
+from app.iam.application.current_user.event_handlers import CurrentUserCacheInvalidationHandler
 from app.iam.application.resource.dto import RegisterPermissionIn, RegisterResourceIn
+from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.user.entities import SUPER_ADMIN_USERNAME
-from app.iam.interface.dependences import get_resource_app_service, get_user_app_service, get_user_repo
+from app.iam.domain.user.events import UserChanged
+from app.iam.domain.user_role_assignment.events import UserRolesChanged
+from app.iam.interface.dependences import (
+    get_current_user_repo,
+    get_resource_app_service,
+    get_user_app_service,
+    get_user_repo,
+    get_user_role_repo,
+)
 
 # 超管账户硬编码（不读配置）：用户名取自领域常量 SUPER_ADMIN_USERNAME（'admin'，保留名）
 # 初始密码首次登录强制修改
@@ -70,3 +81,11 @@ async def bootstrap() -> None:
     logger.info('同步 iam 资源/权限目录（声明 {} 个资源；幂等 upsert，仅变更时落库）',
                 len(IAM_RESOURCE_DECLARATIONS))
     await get_resource_app_service().register_resources(IAM_RESOURCE_DECLARATIONS, operator_id)
+
+    # 订阅 CurrentUser 快照的失效：用户/角色变动时清 iam:current_user:{uid}（会话不受影响）
+    bus = get_event_bus()
+    invalidation = CurrentUserCacheInvalidationHandler(get_current_user_repo(), get_user_role_repo())
+    bus.subscribe(UserChanged, invalidation)
+    bus.subscribe(UserRolesChanged, invalidation)
+    bus.subscribe(RoleChanged, invalidation)
+    logger.info('已订阅 CurrentUser 快照失效（UserChanged / UserRolesChanged / RoleChanged）')

@@ -1,6 +1,7 @@
 from datetime import datetime, UTC
 
 from app.core.domain.event_bus import EventBus
+from app.core.domain.value_objects import EventId
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.shared.services import DataScopeService
@@ -16,6 +17,7 @@ from app.iam.application.user.dto import CreateUserIn, UpdateUserIn, GetUsersIn
 from app.iam.domain.dept.services import DeptAccessService
 from app.core.domain.units_of_work import InTransactionType
 from app.iam.domain.user.entities import User
+from app.iam.domain.user.events import UserChanged
 from app.iam.domain.user.repositories import UserRepository, SearchUser
 from app.iam.domain.user.services import CheckUserUniqueService, UserAccessService
 
@@ -125,6 +127,8 @@ class UserApplicationService:
             # 设置角色
             if data.role_ids:
                 await user_role_app_service.set_user_roles(user.id, data.role_ids, current_user)
+        # 事务已提交，通知订阅方失效该用户的快照（如昵称/部门/状态变更）
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
         return user
 
 

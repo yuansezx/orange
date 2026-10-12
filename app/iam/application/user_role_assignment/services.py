@@ -1,12 +1,15 @@
 from datetime import datetime, UTC
 
+from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
+from app.core.domain.value_objects import EventId
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId, UserId, UserRoleId
 from app.iam.domain.user_role_assignment.entities import UserRoleAssignment
+from app.iam.domain.user_role_assignment.events import UserRolesChanged
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
 
@@ -19,10 +22,12 @@ class UserRoleApplicationService:
 
     def __init__(self, in_transaction: InTransactionType,
                  user_role_repo: UserRoleRepository,
-                 role_access_service: RoleAccessService) -> None:
+                 role_access_service: RoleAccessService,
+                 event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.user_role_repo = user_role_repo
         self.role_access_service = role_access_service
+        self.event_bus = event_bus
 
     async def assign_roles_to_user(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
                                    current_user: CurrentUser) -> None:
@@ -34,6 +39,7 @@ class UserRoleApplicationService:
             by_role = await self._existing_map(user_id)
             active = {r for r, a in by_role.items() if a.status is StatusEnum.ACTIVE}
             await self._add_roles(user_id, role_ids - active, by_role, current_user.user_id)
+        await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user_id))
 
     async def set_user_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
                              current_user: CurrentUser) -> None:
@@ -55,6 +61,7 @@ class UserRoleApplicationService:
                 assignment.delete(current_user.user_id)
                 await self.user_role_repo.update(assignment)
             await self._add_roles(user_id, to_add, by_role, current_user.user_id)
+        await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user_id))
 
     # ---------------- 内部 ----------------
     async def _existing_map(self, user_id: UserId) -> dict[RoleId, UserRoleAssignment]:

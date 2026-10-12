@@ -1,6 +1,8 @@
 from datetime import datetime, UTC
 
+from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
+from app.core.domain.value_objects import EventId
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.resource.exceptions import PermissionNotFoundException
 from app.iam.application.role.dto import (
@@ -15,6 +17,7 @@ from app.iam.application.role.exceptions import RoleCodeConflictException, RoleN
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.permission.repositories import PermissionRepository
 from app.iam.domain.role.entities import Role
+from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.shared.enums import StatusEnum
@@ -30,11 +33,13 @@ class RoleApplicationService:
     def __init__(self, in_transaction: InTransactionType,
                  role_repo: RoleRepository,
                  permission_repo: PermissionRepository,
-                 role_access_service: RoleAccessService) -> None:
+                 role_access_service: RoleAccessService,
+                 event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.role_repo = role_repo
         self.permission_repo = permission_repo
         self.role_access_service = role_access_service
+        self.event_bus = event_bus
 
     # ---------------- 写 ----------------
     async def create_role(self, data: CreateRoleIn, current_user: CurrentUser) -> RoleId:
@@ -72,12 +77,15 @@ class RoleApplicationService:
             if data.status is not None:
                 role.change_status(data.status, current_user.user_id)
             await self.role_repo.update(role)
+        # 名称/状态变更影响持有者快照（data_scope 不在快照内，但多清无害）
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role.id))
 
     async def delete_role(self, role_id: RoleId, current_user: CurrentUser) -> None:
         async with self.in_transaction():
             role = await self._load_accessible(role_id, current_user)
             role.delete(current_user.user_id)
             await self.role_repo.update(role)
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
 
     async def set_role_permissions(self, data: SetRolePermissionsIn, current_user: CurrentUser) -> None:
         async with self.in_transaction():
@@ -87,6 +95,7 @@ class RoleApplicationService:
                 await self._ensure_permissions_exist(permission_ids)
             role.set_permissions(permission_ids, current_user.user_id)
             await self.role_repo.update(role)
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role.id))
 
     async def set_role_depts(self, data: SetRoleDeptsIn, current_user: CurrentUser) -> None:
         async with self.in_transaction():

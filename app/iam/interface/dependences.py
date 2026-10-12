@@ -114,6 +114,7 @@ def get_role_app_service() -> RoleApplicationService:
         role_repo=get_role_repo(),
         permission_repo=get_permission_repo(),
         role_access_service=get_role_access_service(),
+        event_bus=get_event_bus(),
     )
 
 
@@ -126,6 +127,7 @@ def get_user_role_app_service() -> UserRoleApplicationService:
         in_transaction=get_in_transaction(),
         user_role_repo=get_user_role_repo(),
         role_access_service=get_role_access_service(),
+        event_bus=get_event_bus(),
     )
 
 
