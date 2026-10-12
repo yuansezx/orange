@@ -18,6 +18,9 @@ class RoleRepository(BaseRepository[RoleId, Role]):
     async def get_by_code(self, code: str) -> Role | None: ...
 
     @abstractmethod
+    async def get_by_ids(self, role_ids: list[RoleId]) -> list[Role]: ...
+
+    @abstractmethod
     async def get_all(self, include_deleted: bool = False) -> list[Role]: ...
 
     @abstractmethod

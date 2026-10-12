@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from app.iam.domain.shared.value_objects import DeptId, RoleSummary, UserId
+from app.iam.domain.shared.value_objects import DataScopeSpec, DeptId, RoleSummary, UserId
 from app.iam.domain.user.enums import UserTypeEnum
 
 
@@ -9,6 +9,8 @@ class CurrentUser(BaseModel):
     username: str
     nickname: str
     user_type: UserTypeEnum
+    # 解析好的数据范围（快照构建时算好、随快照缓存；读侧直接用）
+    data_scope_spec: DataScopeSpec
     roles: list[RoleSummary] | None = None
     dept_id: DeptId | None = None
     permission_codes: list[str] | None = None

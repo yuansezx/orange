@@ -2,7 +2,7 @@
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.entities import Dept
 from app.iam.domain.dept.repositories import DeptRepository
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 from app.iam.infrastructure.persistence.tortoise.postgres.models import DeptModel
 
@@ -105,5 +105,8 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         return [to_domain(m) for m in models]
 
     async def get_allowed_dept_ids(self, current_user: CurrentUser) -> set[DeptId]:
-        # TODO: 数据权限——依赖 role / user_role 等表，待那些模型落地后实现
-        raise NotImplementedError('部门数据权限查询待角色表落地后实现')
+        spec = current_user.data_scope_spec
+        if spec.kind is DataScopeEnum.ALL:
+            ids = await DeptModel.filter(status__not=StatusEnum.DELETED).values_list('id', flat=True)
+            return {DeptId(i) for i in ids}
+        return set(spec.dept_ids)

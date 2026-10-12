@@ -6,6 +6,7 @@ from app.iam.application.current_user.ports import TokenManagerPort, TokenVerifi
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.services import DataScopeService
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.repositories import UserRepository
@@ -22,10 +23,12 @@ class CurrentUserApplicationService:
                  user_repo: UserRepository,
                  current_user_repo: CurrentUserRepository,
                  effective_permission_query: EffectivePermissionQuery,
+                 data_scope_service: DataScopeService,
                  token_manager: TokenManagerPort) -> None:
         self.user_repo = user_repo
         self.current_user_repo = current_user_repo
         self.effective_permission_query = effective_permission_query
+        self.data_scope_service = data_scope_service
         self.token_manager = token_manager
 
     async def login(self, data: LoginIn) -> LoginOut:
@@ -76,6 +79,7 @@ class CurrentUserApplicationService:
     # ---------------- 内部 ----------------
     async def _build_current_user(self, user: User) -> CurrentUser:
         effective = await self.effective_permission_query.resolve(user.id)
+        data_scope_spec = await self.data_scope_service.resolve(user)
         return CurrentUser(
             user_id=user.id,
             username=user.username,
@@ -84,4 +88,5 @@ class CurrentUserApplicationService:
             roles=sorted(effective.roles, key=lambda r: r.code),
             dept_id=user.dept_id,
             permission_codes=sorted(effective.permission_codes),
+            data_scope_spec=data_scope_spec,
         )

@@ -85,6 +85,14 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
         perms, depts = await self._load_relations([m.id])
         return _assemble(m, perms, depts)
 
+    async def get_by_ids(self, role_ids: list[RoleId]) -> list[Role]:
+        ids = [r.value for r in role_ids]
+        models = await RoleModel.filter(id__in=ids, status__not=StatusEnum.DELETED)
+        if not models:
+            return []
+        perms, depts = await self._load_relations([m.id for m in models])
+        return [_assemble(m, perms, depts) for m in models]
+
     async def get_all(self, include_deleted: bool = False) -> list[Role]:
         qs = RoleModel.all()
         if not include_deleted:
@@ -128,10 +136,11 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
         await RoleDeptModel.filter(role_id__in=ids).delete()
         return await RoleModel.filter(id__in=ids).delete()
 
-    # ---------------- 数据权限（待 user_role） ----------------
+    # ---------------- 数据权限 ----------------
     async def get_allowed_role_ids(self, current_user: CurrentUser) -> set[RoleId]:
-        # TODO: 数据权限——依赖 user_role 等表，待其落地后实现
-        raise NotImplementedError('角色数据权限查询待 user_role 表落地后实现')
+        # 角色不受数据范围约束：有 iam:role:* 功能权限即可管理任意 ACTIVE 角色
+        ids = await RoleModel.filter(status=StatusEnum.ACTIVE).values_list('id', flat=True)
+        return {RoleId(i) for i in ids}
 
     # ---------------- 内部 ----------------
     async def _load_relations(self, role_ids: list) -> tuple[dict, dict]:

@@ -6,7 +6,7 @@ from tortoise.expressions import Q
 
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, UserId, DeptId, DataScopeSpec
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.enums import UserTypeEnum
@@ -112,8 +112,16 @@ class UserRepositoryTortoiseImpl(UserRepository):
             dept_id=dept_id.value, status__not=StatusEnum.DELETED).exists()
 
     async def get_allowed_user_ids(self, current_user: CurrentUser) -> set[UserId]:
-        # TODO: 数据权限——依赖 role / dept / user_role 等表，待那些模型落地后实现
-        raise NotImplementedError('数据权限查询待角色/部门表落地后实现')
+        spec = current_user.data_scope_spec
+        if spec.kind is DataScopeEnum.ALL:
+            ids = await UserModel.filter(status__not=StatusEnum.DELETED).values_list('id', flat=True)
+            return {UserId(i) for i in ids}
+        if spec.kind is DataScopeEnum.SELF:
+            return {current_user.user_id}
+        ids = await UserModel.filter(
+            dept_id__in=[d.value for d in spec.dept_ids], status__not=StatusEnum.DELETED
+        ).values_list('id', flat=True)
+        return {UserId(i) for i in ids}
 
     async def search(self, search_by: SearchUser, page_size: int, page: int,
                      scope: DataScopeSpec) -> PageResult[User]:
