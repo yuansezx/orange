@@ -42,3 +42,10 @@ iam:
   jwt_config:
     secret_key:
     algorithm: HS256
+    # 访问令牌有效期（分钟）；决定「多久需要重新登录」
+    expire_minutes: 30
+  # 当前用户快照缓存（Redis）配置——与令牌无关：
+  # 快照过期会静默重解析回填，不触发重新登录；它只决定「权限/数据范围变更的陈旧窗口」
+  current_user_config:
+    # 快照 TTL（秒）；不配则缺省 = 令牌期（jwt_config.expire_minutes × 60，此处 30×60=1800）
+    snapshot_ttl_seconds: 1800
