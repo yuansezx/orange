@@ -1,0 +1,85 @@
+"""部门 CRUD + 树路由。
+
+鉴权：功能权限由应用服务（@requires_permission）判定；接口层只 `Depends(get_current_user)` 提取身份。
+路由顺序：`/tree` 必须声明在 `/{dept_id}` 之前，否则会被当成 uuid 解析。
+"""
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, status
+
+from app.iam.application.dept.dto import UpdateDeptIn
+from app.iam.application.dept.services import DeptApplicationService
+from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.value_objects import DeptId
+from app.iam.interface.dependences import get_dept_app_service
+from app.iam.interface.http.dependencies import get_current_user
+from app.iam.interface.http.dept.schemas import (
+    CreateDeptReq,
+    DeptResp,
+    DeptTreeNodeResp,
+    GetDeptsReq,
+    UpdateDeptReq,
+)
+
+dept_router = APIRouter(prefix='/depts', tags=['部门'])
+
+
+@dept_router.post('', response_model=DeptResp, status_code=status.HTTP_201_CREATED, summary='创建部门')
+async def create_dept(
+    body: CreateDeptReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> DeptResp:
+    dept = await dept_app_service.create_dept(body, current_user)
+    return DeptResp.model_validate(dept, from_attributes=True)
+
+
+@dept_router.get('', response_model=list[DeptResp], summary='部门列表')
+async def list_depts(
+    filters: Annotated[GetDeptsReq, Query()],
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> list[DeptResp]:
+    depts = await dept_app_service.get_depts(filters, current_user)
+    return [DeptResp.model_validate(d, from_attributes=True) for d in depts]
+
+
+@dept_router.get('/tree', response_model=list[DeptTreeNodeResp], summary='部门树')
+async def get_dept_tree(
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> list[DeptTreeNodeResp]:
+    nodes = await dept_app_service.get_dept_tree(current_user)
+    return [DeptTreeNodeResp(**n.model_dump()) for n in nodes]
+
+
+@dept_router.get('/{dept_id}', response_model=DeptResp, summary='部门详情')
+async def get_dept(
+    dept_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> DeptResp:
+    dept = await dept_app_service.get_dept(DeptId(dept_id), current_user)
+    return DeptResp.model_validate(dept, from_attributes=True)
+
+
+@dept_router.put('/{dept_id}', response_model=DeptResp, summary='更新部门')
+async def update_dept(
+    dept_id: UUID,
+    body: UpdateDeptReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> DeptResp:
+    data = UpdateDeptIn(id=DeptId(dept_id), **body.model_dump(exclude_unset=True))
+    dept = await dept_app_service.update_dept(data, current_user)
+    return DeptResp.model_validate(dept, from_attributes=True)
+
+
+@dept_router.delete('/{dept_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除部门')
+async def delete_dept(
+    dept_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> None:
+    await dept_app_service.delete_dept(DeptId(dept_id), current_user)

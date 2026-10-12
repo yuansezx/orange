@@ -1,5 +1,7 @@
 from future_uuid import uuid7
 from tortoise import fields
+from tortoise.contrib.postgres import fields as postgres_fields
+from tortoise.contrib.postgres import indexes as postgres_indexes
 
 from app.core.infrastructure.persistence.tortoise.models import AuditableModel
 from app.iam.domain.shared.enums import StatusEnum
@@ -9,11 +11,13 @@ class DeptModel(AuditableModel):
     """dept 聚合的表模型（与领域实体 app.iam.domain.dept.entities.Dept 分离）。
 
     parent_id 用普通 UUID 列（非 FK），与 UserModel.dept_id 一致：引用走 ID，不加库级外键。
+    ancestors 是物化路径（根→父的祖先 id，不含自己），配 GIN 索引支撑 `@>`（`__contains`）找子孙。
     """
 
     id = fields.UUIDField(primary_key=True, default=uuid7)
     name = fields.CharField(max_length=64)
     parent_id = fields.UUIDField(null=True)
+    ancestors = postgres_fields.ArrayField('uuid', default=list)
     leader_id = fields.UUIDField(null=True)
     email = fields.CharField(max_length=255, null=True)
     phone = fields.CharField(max_length=20, null=True)
@@ -23,3 +27,4 @@ class DeptModel(AuditableModel):
 
     class Meta:
         table = 'iam_dept'
+        indexes = [('parent_id',), postgres_indexes.GinIndex(fields=('ancestors',))]

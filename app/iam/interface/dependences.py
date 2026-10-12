@@ -17,6 +17,7 @@ from app.core.infrastructure import cache, persistence
 from app.iam.application.common.queries import EffectivePermissionQuery
 from app.iam.application.current_user.ports import TokenManagerPort
 from app.iam.application.current_user.services import CurrentUserApplicationService
+from app.iam.application.dept.services import DeptApplicationService
 from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user.services import UserApplicationService
@@ -70,6 +71,14 @@ def get_dept_access_service() -> DeptAccessService:
 
 def get_data_scope_service() -> DataScopeService:
     return DataScopeService()
+
+
+def get_dept_app_service() -> DeptApplicationService:
+    return DeptApplicationService(
+        in_transaction=get_in_transaction(),
+        dept_repo=get_dept_repo(),
+        user_repo=get_user_repo(),
+    )
 
 
 def get_user_app_service() -> UserApplicationService:

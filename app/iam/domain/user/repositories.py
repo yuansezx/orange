@@ -44,6 +44,9 @@ class UserRepository(BaseRepository[UserId, User]):
     async def exists_by_user_type(self, user_type: UserTypeEnum) -> bool: ...
 
     @abstractmethod
+    async def exists_by_dept(self, dept_id: DeptId) -> bool: ...
+
+    @abstractmethod
     async def get_allowed_user_ids(self, current_user: CurrentUser) -> set[UserId]: ...
 
     @abstractmethod

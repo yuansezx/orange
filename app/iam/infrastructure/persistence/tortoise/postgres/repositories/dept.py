@@ -2,6 +2,7 @@
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.entities import Dept
 from app.iam.domain.dept.repositories import DeptRepository
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 from app.iam.infrastructure.persistence.tortoise.postgres.models import DeptModel
 
@@ -11,6 +12,7 @@ def to_domain(m: DeptModel) -> Dept:
         id=DeptId(m.id),
         name=m.name,
         parent_id=DeptId(m.parent_id) if m.parent_id else None,
+        ancestors=[DeptId(a) for a in (m.ancestors or [])],
         leader_id=UserId(m.leader_id) if m.leader_id else None,
         email=Email(m.email) if m.email else None,
         phone=Phone(m.phone) if m.phone else None,
@@ -31,6 +33,7 @@ def to_model_fields(d: Dept) -> dict:
         id=d.id.value,
         name=d.name,
         parent_id=d.parent_id.value if d.parent_id else None,
+        ancestors=[a.value for a in d.ancestors],
         leader_id=d.leader_id.value if d.leader_id else None,
         email=d.email.value if d.email else None,
         phone=d.phone.value if d.phone else None,
@@ -70,6 +73,31 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         ids = [i.value for i in entity_ids] if isinstance(entity_ids, list) else [entity_ids.value]
         # 物理删除（tortoise QuerySet.delete 即为物理删）
         return await DeptModel.filter(id__in=ids).delete()
+
+    async def get_all(self, include_deleted: bool = False) -> list[Dept]:
+        qs = DeptModel.all()
+        if not include_deleted:
+            qs = qs.exclude(status=StatusEnum.DELETED)
+        models = await qs.order_by('name')
+        return [to_domain(m) for m in models]
+
+    async def get_descendants(self, dept_id: DeptId) -> list[Dept]:
+        # ancestors @> [dept_id]（走 GIN 索引）；软删的子孙不参与移动重写
+        models = await DeptModel.filter(
+            ancestors__contains=[dept_id.value], status__not=StatusEnum.DELETED)
+        return [to_domain(m) for m in models]
+
+    async def has_children(self, dept_id: DeptId) -> bool:
+        return await DeptModel.filter(
+            parent_id=dept_id.value, status__not=StatusEnum.DELETED).exists()
+
+    async def get_by_parent_and_name(self, parent_id: DeptId | None, name: str) -> Dept | None:
+        m = await DeptModel.get_or_none(
+            parent_id=parent_id.value if parent_id else None,
+            name=name,
+            status__not=StatusEnum.DELETED,
+        )
+        return to_domain(m) if m else None
 
     async def get_allowed_dept_ids(self, current_user: CurrentUser) -> set[DeptId]:
         # TODO: 数据权限——依赖 role / user_role 等表，待那些模型落地后实现

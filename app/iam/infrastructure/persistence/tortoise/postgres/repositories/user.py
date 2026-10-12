@@ -107,6 +107,10 @@ class UserRepositoryTortoiseImpl(UserRepository):
     async def exists_by_user_type(self, user_type: UserTypeEnum) -> bool:
         return await UserModel.filter(user_type=user_type).exists()
 
+    async def exists_by_dept(self, dept_id: DeptId) -> bool:
+        return await UserModel.filter(
+            dept_id=dept_id.value, status__not=StatusEnum.DELETED).exists()
+
     async def get_allowed_user_ids(self, current_user: CurrentUser) -> set[UserId]:
         # TODO: 数据权限——依赖 role / dept / user_role 等表，待那些模型落地后实现
         raise NotImplementedError('数据权限查询待角色/部门表落地后实现')
