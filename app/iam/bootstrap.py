@@ -12,11 +12,13 @@ from loguru import logger
 from app.core import get_event_bus
 from app.iam.application.current_user.event_handlers import CurrentUserCacheInvalidationHandler
 from app.iam.application.resource.dto import RegisterPermissionIn, RegisterResourceIn
+from app.iam.domain.dept.events import DeptStructureChanged
 from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.user.entities import SUPER_ADMIN_USERNAME
 from app.iam.domain.user.events import UserChanged
 from app.iam.domain.user_role_assignment.events import UserRolesChanged
 from app.iam.interface.dependences import (
+    get_affected_users_query,
     get_current_user_repo,
     get_resource_app_service,
     get_user_app_service,
@@ -82,10 +84,12 @@ async def bootstrap() -> None:
                 len(IAM_RESOURCE_DECLARATIONS))
     await get_resource_app_service().register_resources(IAM_RESOURCE_DECLARATIONS, operator_id)
 
-    # 订阅 CurrentUser 快照的失效：用户/角色变动时清 iam:current_user:{uid}（会话不受影响）
+    # 订阅 CurrentUser 快照的失效：用户/角色/部门结构变动时清 iam:current_user:{uid}
     bus = get_event_bus()
-    invalidation = CurrentUserCacheInvalidationHandler(get_current_user_repo(), get_user_role_repo())
+    invalidation = CurrentUserCacheInvalidationHandler(
+        get_current_user_repo(), get_user_role_repo(), get_affected_users_query())
     bus.subscribe(UserChanged, invalidation)
     bus.subscribe(UserRolesChanged, invalidation)
     bus.subscribe(RoleChanged, invalidation)
-    logger.info('已订阅 CurrentUser 快照失效（UserChanged / UserRolesChanged / RoleChanged）')
+    bus.subscribe(DeptStructureChanged, invalidation)
+    logger.info('已订阅 CurrentUser 快照失效（UserChanged / UserRolesChanged / RoleChanged / DeptStructureChanged）')

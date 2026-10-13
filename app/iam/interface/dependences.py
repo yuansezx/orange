@@ -14,7 +14,7 @@ from redis.asyncio import Redis
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure import cache, persistence
-from app.iam.application.common.queries import EffectivePermissionQuery
+from app.iam.application.common.queries import EffectivePermissionQuery, UsersAffectedByDeptChangeQuery
 from app.iam.application.current_user.ports import TokenManagerPort
 from app.iam.application.current_user.services import CurrentUserApplicationService
 from app.iam.application.dept.services import DeptApplicationService
@@ -82,6 +82,7 @@ def get_dept_app_service() -> DeptApplicationService:
         in_transaction=get_in_transaction(),
         dept_repo=get_dept_repo(),
         user_repo=get_user_repo(),
+        event_bus=get_event_bus(),
     )
 
 
@@ -145,6 +146,10 @@ def get_current_user_repo() -> CurrentUserRepository:
 
 def get_effective_permission_query() -> EffectivePermissionQuery:
     return _queries.EffectivePermissionQueryTortoiseImpl()
+
+
+def get_affected_users_query() -> UsersAffectedByDeptChangeQuery:
+    return _queries.UsersAffectedByDeptChangeQueryTortoiseImpl()
 
 
 def get_token_manager() -> TokenManagerPort:

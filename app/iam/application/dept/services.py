@@ -1,6 +1,8 @@
 from datetime import datetime, UTC
 
+from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
+from app.core.domain.value_objects import EventId
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.dept.dto import (
     CreateDeptIn,
@@ -18,8 +20,9 @@ from app.iam.application.dept.exceptions import (
 )
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.entities import Dept
+from app.iam.domain.dept.events import DeptStructureChanged
 from app.iam.domain.dept.repositories import DeptRepository
-from app.iam.domain.dept.services import shift_descendant_ancestors
+from app.iam.domain.dept.services import parent_chain, shift_descendant_ancestors
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId
 from app.iam.domain.user.repositories import UserRepository
@@ -46,16 +49,18 @@ def _build_tree(depts: list[Dept]) -> list[DeptTreeNode]:
 class DeptApplicationService:
     """部门用例：CRUD + 树。
 
-    权限：功能权限由 @requires_permission 判定（超管旁路）；数据权限（非超管的部门范围）
-    留待「数据权限正式化」那一步，本轮不做。
+    功能权限由 @requires_permission 判定（超管旁路）。结构变更（增/移/删）提交后发
+    DeptStructureChanged，供快照失效订阅者精确定位受影响用户。
     """
 
     def __init__(self, in_transaction: InTransactionType,
                  dept_repo: DeptRepository,
-                 user_repo: UserRepository) -> None:
+                 user_repo: UserRepository,
+                 event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.dept_repo = dept_repo
         self.user_repo = user_repo
+        self.event_bus = event_bus
 
     # ---------------- 读 ----------------
     @requires_permission('iam:dept:read')
@@ -94,10 +99,12 @@ class DeptApplicationService:
                 created_at=datetime.now(UTC),
                 created_by=current_user.user_id,
             ))
-            return dept
+        await self._notify_structure_changed(parent_chain(parent))
+        return dept
 
     @requires_permission('iam:dept:update')
     async def update_dept(self, data: UpdateDeptIn, current_user: CurrentUser) -> Dept:
+        affected: set[DeptId] = set()
         async with self.in_transaction():
             dept = await self._load(data.id)
             provided = data.model_fields_set
@@ -111,6 +118,7 @@ class DeptApplicationService:
                 await self._ensure_name_unique(new_parent_id, new_name, exclude_id=dept.id)
 
             if parent_changed:
+                old_parent = await self.dept_repo.get(dept.parent_id) if dept.parent_id else None
                 parent = await self._load_available_parent(data.parent_id)
                 dept.move_under(parent, operator)  # 改 parent_id + ancestors，含环路校验
                 for child in await self.dept_repo.get_descendants(dept.id):
@@ -118,6 +126,8 @@ class DeptApplicationService:
                     child.updated_by = operator
                     child.updated_at = datetime.now(UTC)
                     await self.dept_repo.update(child)
+                # 受影响 = 旧/新父祖先链的对称差（这些部门的 DEPT_AND_CHILD 展开会变）
+                affected = parent_chain(old_parent) ^ parent_chain(parent)
 
             if {'name', 'leader_id', 'email', 'phone', 'description'} & provided:
                 dept.change_profile(
@@ -131,7 +141,9 @@ class DeptApplicationService:
             if 'status' in provided and data.status is not None:
                 dept.change_status(data.status, operator)
 
-            return await self.dept_repo.update(dept)
+            await self.dept_repo.update(dept)
+        await self._notify_structure_changed(affected)
+        return dept
 
     @requires_permission('iam:dept:delete')
     async def delete_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
@@ -141,10 +153,17 @@ class DeptApplicationService:
                 raise DeptHasChildrenException('存在下级部门，不允许删除')
             if await self.user_repo.exists_by_dept(dept.id):
                 raise DeptHasUsersException('部门下存在用户，不允许删除')
+            parent = await self.dept_repo.get(dept.parent_id) if dept.parent_id else None
             dept.delete(current_user.user_id)
             await self.dept_repo.update(dept)
+        await self._notify_structure_changed(parent_chain(parent))
 
     # ---------------- 内部 ----------------
+    async def _notify_structure_changed(self, affected: set[DeptId]) -> None:
+        if affected:
+            await self.event_bus.publish(
+                DeptStructureChanged(id=EventId.new(), affected_dept_ids=frozenset(affected)))
+
     async def _load(self, dept_id: DeptId) -> Dept:
         dept = await self.dept_repo.get(dept_id)
         if dept is None or dept.status is StatusEnum.DELETED:

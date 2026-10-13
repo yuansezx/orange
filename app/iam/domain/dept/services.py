@@ -1,8 +1,19 @@
 from app.core.utils.type_utils import to_set
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.dept.entities import Dept
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.shared.value_objects import DeptId
 from app.iam.domain.user.enums import UserTypeEnum
+
+
+def parent_chain(dept: Dept | None) -> set[DeptId]:
+    """某部门的「父链」= 自身 ∪ 其祖先 id（None → 空）。
+
+    部门结构变更时，自身部门落在此链上的 DEPT_AND_CHILD 用户会受影响（展开集变化）。
+    """
+    if dept is None:
+        return set()
+    return {dept.id, *dept.ancestors}
 
 
 def shift_descendant_ancestors(descendant_ancestors: list[DeptId], dept_id: DeptId,
