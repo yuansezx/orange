@@ -1,5 +1,8 @@
+from pydantic import BaseModel
+
 from app.iam.application.current_user.dto import LoginIn, LoginOut
-from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.value_objects import DeptId, RoleSummary, UserId
+from app.iam.domain.user.enums import UserTypeEnum
 
 
 class LoginReq(LoginIn):
@@ -10,5 +13,12 @@ class LoginResp(LoginOut):
     """登录响应。"""
 
 
-class CurrentUserResp(CurrentUser):
-    """当前用户响应。线格式同领域实体（单值 VO 已裸值化，结构化 VO 保持对象）。"""
+class CurrentUserResp(BaseModel):
+    """当前用户响应——显式声明对外字段，避免漏出内部状态（如 data_scope_spec）。"""
+    user_id: UserId
+    username: str
+    nickname: str
+    user_type: UserTypeEnum
+    roles: list[RoleSummary] | None = None
+    dept_id: DeptId | None = None
+    permission_codes: list[str] | None = None
