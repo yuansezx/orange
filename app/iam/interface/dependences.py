@@ -82,6 +82,7 @@ def get_dept_app_service() -> DeptApplicationService:
         in_transaction=get_in_transaction(),
         dept_repo=get_dept_repo(),
         user_repo=get_user_repo(),
+        dept_access_service=get_dept_access_service(),
         event_bus=get_event_bus(),
     )
 

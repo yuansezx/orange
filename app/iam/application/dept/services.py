@@ -4,6 +4,7 @@ from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
 from app.iam.application.common.decorators import requires_permission
+from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.dept.dto import (
     CreateDeptIn,
     DeptOut,
@@ -22,8 +23,8 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.entities import Dept
 from app.iam.domain.dept.events import DeptStructureChanged
 from app.iam.domain.dept.repositories import DeptRepository
-from app.iam.domain.dept.services import parent_chain, shift_descendant_ancestors
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.dept.services import DeptAccessService, parent_chain, shift_descendant_ancestors
+from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId
 from app.iam.domain.user.repositories import UserRepository
 
@@ -49,27 +50,30 @@ def _build_tree(depts: list[Dept]) -> list[DeptTreeNode]:
 class DeptApplicationService:
     """部门用例：CRUD + 树。
 
-    功能权限由 @requires_permission 判定（超管旁路）。结构变更（增/移/删）提交后发
+    功能权限由 @requires_permission 判定（超管旁路）；数据范围读侧按快照 `data_scope_spec`
+    过滤、写侧由 `DeptAccessService.can_access` 判定。结构变更（增/移/删）提交后发
     DeptStructureChanged，供快照失效订阅者精确定位受影响用户。
     """
 
     def __init__(self, in_transaction: InTransactionType,
                  dept_repo: DeptRepository,
                  user_repo: UserRepository,
+                 dept_access_service: DeptAccessService,
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.dept_repo = dept_repo
         self.user_repo = user_repo
+        self.dept_access_service = dept_access_service
         self.event_bus = event_bus
 
     # ---------------- 读 ----------------
     @requires_permission('iam:dept:read')
     async def get_dept_tree(self, current_user: CurrentUser) -> list[DeptTreeNode]:
-        return _build_tree(await self.dept_repo.get_all())
+        return _build_tree(await self._visible_depts(current_user))
 
     @requires_permission('iam:dept:read')
     async def get_depts(self, filters: GetDeptsIn, current_user: CurrentUser) -> list[DeptOut]:
-        depts = await self.dept_repo.get_all()
+        depts = await self._visible_depts(current_user)
         if filters.name:
             depts = [d for d in depts if filters.name in d.name]
         if filters.status is not None:
@@ -78,13 +82,18 @@ class DeptApplicationService:
 
     @requires_permission('iam:dept:read')
     async def get_dept(self, dept_id: DeptId, current_user: CurrentUser) -> DeptOut:
-        return _to_out(await self._load(dept_id))
+        dept = await self._load(dept_id)
+        if not await self.dept_access_service.can_access(dept.id, current_user):
+            raise PermissionDeniedException('无权访问该部门')
+        return _to_out(dept)
 
     # ---------------- 写 ----------------
     @requires_permission('iam:dept:create')
     async def create_dept(self, data: CreateDeptIn, current_user: CurrentUser) -> Dept:
         async with self.in_transaction():
             parent = await self._load_available_parent(data.parent_id)
+            if parent is not None and not await self.dept_access_service.can_access(parent.id, current_user):
+                raise PermissionDeniedException('无权在该部门下新增')
             await self._ensure_name_unique(parent.id if parent else None, data.name, exclude_id=None)
             dept = await self.dept_repo.create(Dept(
                 id=DeptId.new(),
@@ -107,6 +116,8 @@ class DeptApplicationService:
         affected: set[DeptId] = set()
         async with self.in_transaction():
             dept = await self._load(data.id)
+            if not await self.dept_access_service.can_access(dept.id, current_user):
+                raise PermissionDeniedException('无权访问该部门')
             provided = data.model_fields_set
             operator = current_user.user_id
 
@@ -120,6 +131,8 @@ class DeptApplicationService:
             if parent_changed:
                 old_parent = await self.dept_repo.get(dept.parent_id) if dept.parent_id else None
                 parent = await self._load_available_parent(data.parent_id)
+                if parent is not None and not await self.dept_access_service.can_access(parent.id, current_user):
+                    raise PermissionDeniedException('无权移动到该部门下')
                 dept.move_under(parent, operator)  # 改 parent_id + ancestors，含环路校验
                 for child in await self.dept_repo.get_descendants(dept.id):
                     child.ancestors = shift_descendant_ancestors(child.ancestors, dept.id, dept.ancestors)
@@ -149,6 +162,8 @@ class DeptApplicationService:
     async def delete_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
         async with self.in_transaction():
             dept = await self._load(dept_id)
+            if not await self.dept_access_service.can_access(dept.id, current_user):
+                raise PermissionDeniedException('无权访问该部门')
             if await self.dept_repo.has_children(dept.id):
                 raise DeptHasChildrenException('存在下级部门，不允许删除')
             if await self.user_repo.exists_by_dept(dept.id):
@@ -159,6 +174,14 @@ class DeptApplicationService:
         await self._notify_structure_changed(parent_chain(parent))
 
     # ---------------- 内部 ----------------
+    async def _visible_depts(self, current_user: CurrentUser) -> list[Dept]:
+        """按数据范围过滤可见部门（ALL → 不过滤）。"""
+        depts = await self.dept_repo.get_all()
+        spec = current_user.data_scope_spec
+        if spec.kind is DataScopeEnum.ALL:
+            return depts
+        return [d for d in depts if d.id in spec.dept_ids]
+
     async def _notify_structure_changed(self, affected: set[DeptId]) -> None:
         if affected:
             await self.event_bus.publish(
