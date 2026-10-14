@@ -1,6 +1,6 @@
 import { ActionSheet, List, Popup } from 'antd-mobile'
 import { useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useLogout, usePermission } from '@features/auth'
 import { appConfig } from '@shared/config'
@@ -103,8 +103,10 @@ export function MobileAdminShell() {
         onMaskClick={() => setMenuOpen(false)}
         bodyStyle={{ width: '72vw', height: '100%', display: 'flex', flexDirection: 'column' }}
       >
-        {/* 顶部：logo + 应用名 */}
-        <div
+        {/* 顶部：logo + 应用名（点击回导航页） */}
+        <Link
+          to="/"
+          onClick={() => setMenuOpen(false)}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -113,11 +115,12 @@ export function MobileAdminShell() {
             fontSize: 18,
             fontWeight: 600,
             color: colorTokens.brand,
+            textDecoration: 'none',
           }}
         >
           <BrandLogo size={26} />
           {appConfig.name}
-        </div>
+        </Link>
 
         {/* 中部：分组菜单（可滚动） */}
         <div style={{ flex: 1, overflow: 'auto' }}>

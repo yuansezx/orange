@@ -1,5 +1,5 @@
 import { Layout, Menu } from 'antd'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { UserMenu, usePermission } from '@features/auth'
 import { appConfig } from '@shared/config'
@@ -33,7 +33,8 @@ export function DesktopAdminShell() {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider theme="light" width={220}>
-        <div
+        <Link
+          to="/"
           style={{
             height: 56,
             display: 'flex',
@@ -43,11 +44,12 @@ export function DesktopAdminShell() {
             fontSize: 18,
             fontWeight: 600,
             color: colorTokens.brand,
+            textDecoration: 'none',
           }}
         >
           <BrandLogo size={26} />
           {appConfig.name}
-        </div>
+        </Link>
         <Menu
           // key 绑当前分组：路由换了分组就重挂，默认展开随之切到该分组
           key={activeGroupKey ?? 'none'}
