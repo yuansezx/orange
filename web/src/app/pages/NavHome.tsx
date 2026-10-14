@@ -42,7 +42,20 @@ export function NavHome() {
         >
           {navEntries.map((entry) => (
             <Link key={entry.key} to={entry.path}>
-              <Card hoverable>{entry.label}</Card>
+              <Card hoverable>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 0',
+                  }}
+                >
+                  {entry.icon && <span style={{ color: colorTokens.brand }}>{entry.icon}</span>}
+                  <span style={{ fontSize: 16, fontWeight: 500 }}>{entry.label}</span>
+                </div>
+              </Card>
             </Link>
           ))}
         </div>

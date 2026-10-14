@@ -57,7 +57,11 @@ export function DesktopAdminShell() {
           items={groups.map((group) => ({
             key: group.key,
             label: group.label,
-            children: group.links.map((link) => ({ key: link.key, label: link.label })),
+            children: group.links.map((link) => ({
+              key: link.key,
+              icon: link.icon,
+              label: link.label,
+            })),
           }))}
           onClick={({ key }) => {
             const link = links.find((item) => item.key === key)

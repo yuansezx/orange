@@ -11,6 +11,8 @@ export interface MenuLink {
   path: string
   /** 需要的功能权限码（`module:resource:action`）；缺省 = 永远可见。 */
   permission?: string
+  /** 菜单图标（ReactNode）；缺省无图标。 */
+  icon?: ReactNode
   element: ReactNode
 }
 
@@ -33,4 +35,6 @@ export interface NavEntry {
   label: string
   /** 应用壳路由（如 `/admin`）。 */
   path: string
+  /** 入口图标（ReactNode）；缺省无图标。 */
+  icon?: ReactNode
 }

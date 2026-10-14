@@ -1,8 +1,10 @@
-import { Alert, Button, Space, Table, Tag } from 'antd'
+import { Alert, Button, Space, Table, Tag, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
 import type { Key } from 'react'
+
+import { IconBuildingPlus, IconEdit, IconTrash } from '@shared/ui'
 
 import { STATUS_COLORS, STATUS_LABELS } from '../../../constants'
 import type { Dept, DeptTreeNode } from '../../types'
@@ -36,7 +38,7 @@ export function DeptTable({ nodes, loading, error, onEdit, onCreateChild, onDele
   }
 
   const columns: TableProps<DeptTreeNode>['columns'] = [
-    { title: '部门名称', dataIndex: 'name' },
+    { title: '部门名称', dataIndex: 'name', width: 320, ellipsis: true },
     {
       title: '状态',
       dataIndex: 'status',
@@ -51,21 +53,27 @@ export function DeptTable({ nodes, loading, error, onEdit, onCreateChild, onDele
     },
     {
       title: '操作',
-      width: 220,
+      width: 160,
       render: (_, record) => (
-        <Space size={4}>
-          <Button type="link" size="small" onClick={() => onEdit(record)}>
-            编辑
-          </Button>
-          <Button type="link" size="small" onClick={() => onCreateChild(record.id)}>
-            新增子部门
-          </Button>
-          <Button type="link" size="small" danger onClick={() => onDelete(record)}>
-            删除
-          </Button>
+        <Space size={8}>
+          <Tooltip title="编辑">
+            <Button type="text" icon={<IconEdit size={16} />} onClick={() => onEdit(record)} />
+          </Tooltip>
+          <Tooltip title="新增子部门">
+            <Button
+              type="text"
+              icon={<IconBuildingPlus size={16} />}
+              onClick={() => onCreateChild(record.id)}
+            />
+          </Tooltip>
+          <Tooltip title="删除">
+            <Button type="text" danger icon={<IconTrash size={16} />} onClick={() => onDelete(record)} />
+          </Tooltip>
         </Space>
       ),
     },
+    // 空列吸收剩余宽度：避免部门树随容器被拉宽、把「操作」挤窄
+    { key: 'spacer', title: '', render: () => null },
   ]
 
   return (

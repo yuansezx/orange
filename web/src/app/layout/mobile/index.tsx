@@ -130,6 +130,7 @@ export function MobileAdminShell() {
                 {group.links.map((link) => (
                   <List.Item
                     key={link.key}
+                    prefix={link.icon}
                     onClick={() => {
                       setMenuOpen(false)
                       navigate(`${ADMIN_PATH}/${link.path}`)
