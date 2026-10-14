@@ -1,11 +1,7 @@
-import type { UserStatus, UserType } from './types'
+import type { UserType } from './types'
 
-/** 状态 → 中文（对齐后端 `StatusEnum`）。 */
-export const STATUS_LABELS: Record<UserStatus, string> = {
-  active: '启用',
-  disabled: '禁用',
-  deleted: '已删除',
-}
+// 状态标签为 iam 资源共用，收敛到模块级单源（见 features/iam/constants.ts）
+export { STATUS_LABELS, STATUS_OPTIONS } from '../constants'
 
 /** 用户类型 → 中文（对齐后端 `UserTypeEnum`）。 */
 export const USER_TYPE_LABELS: Record<UserType, string> = {
@@ -14,11 +10,6 @@ export const USER_TYPE_LABELS: Record<UserType, string> = {
   system: '系统用户',
   super_admin: '超级管理员',
 }
-
-export const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as UserStatus[]).map((value) => ({
-  value,
-  label: STATUS_LABELS[value],
-}))
 
 export const USER_TYPE_OPTIONS = (Object.keys(USER_TYPE_LABELS) as UserType[]).map((value) => ({
   value,

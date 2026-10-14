@@ -6,7 +6,6 @@ export interface LoginReq {
 
 export interface LoginResp {
   access_token: string
-  token_type: string
   /** 有效期（秒） */
   expires_in: number
   need_change_password: boolean

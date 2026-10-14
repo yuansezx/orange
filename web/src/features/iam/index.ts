@@ -3,6 +3,7 @@ import { createElement, lazy } from 'react'
 import type { FeatureModule } from '@shared/navigation'
 
 const UserPage = lazy(() => import('./user/UserPage'))
+const DeptPage = lazy(() => import('./dept/DeptPage'))
 
 /**
  * iam 模块门面：声明本模块递给应用壳的**菜单分组**（对齐后端 iam 模块）。
@@ -22,6 +23,13 @@ export const iamFeature: FeatureModule = {
           path: 'users',
           permission: 'iam:user:read',
           element: createElement(UserPage),
+        },
+        {
+          key: 'iam-dept',
+          label: '部门管理',
+          path: 'depts',
+          permission: 'iam:dept:read',
+          element: createElement(DeptPage),
         },
       ],
     },
