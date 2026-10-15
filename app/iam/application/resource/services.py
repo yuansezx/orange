@@ -1,6 +1,7 @@
 from datetime import datetime, UTC
 
 from app.core.domain.units_of_work import InTransactionType
+from app.iam.application.common.decorators import requires_permission
 from app.iam.application.resource.dto import (
     CatalogModuleOut,
     CatalogOut,
@@ -18,6 +19,7 @@ from app.iam.application.resource.exceptions import (
     ResourceCodeConflictException,
     ResourceNotFoundException,
 )
+from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.permission.entities import Permission
 from app.iam.domain.permission.repositories import PermissionRepository
 from app.iam.domain.resource.entities import Resource
@@ -138,7 +140,8 @@ class ResourceApplicationService:
             await self.permission_repo.update(permission)
 
     # ---------------- 读取 ----------------
-    async def get_catalog(self, include_disabled: bool = False) -> CatalogOut:
+    @requires_permission(('iam:resource:read', 'iam:permission:read'), 'iam:role:read')
+    async def get_catalog(self, current_user: CurrentUser, include_disabled: bool = False) -> CatalogOut:
         """返回「模块 → 资源 → 权限」三级结构（两条查询 + 内存分组，无 N+1）。"""
         resources = await self.resource_repo.get_all()
         if not include_disabled:

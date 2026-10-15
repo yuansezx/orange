@@ -12,11 +12,22 @@ from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.domain.current_user.entities import CurrentUser
 
 
-def requires_permission(*codes: str):
-    """要求当前用户具备**全部**给定权限码，否则抛 `PermissionDeniedException`（→ 403）。
+def requires_permission(*groups: str | tuple[str, ...]):
+    """功能权限门禁（超管旁路由 `CurrentUser` 兜住）。
 
-    超管旁路由 `CurrentUser.has_permission` 兜住。
+    **逗号分隔的参数之间「或」；元组内的权限码之间「与」**（DNF）。例：
+      `requires_permission('a', 'b')`         ⇔ a ∨ b
+      `requires_permission(('a', 'b'), 'c')`  ⇔ (a ∧ b) ∨ c
+
+    **空参定义期报错**：空的「要求」= 不需要任何权限 = 等同于不装饰，几乎必是漏填码的 bug；
+    且「看着被保护、其实全放行」是最危险的静默漏洞，故在此挡下。此与 `CurrentUser.has_permission`
+    的空真**有意不对称**（谓词问「是否满足要求」，闸门表达「这是一条要求」）。
+
+    被装饰方法须带名为 `current_user` 的参数（缺参数定义期报错）。
     """
+    if not groups:
+        raise TypeError('requires_permission：至少要给一个权限码')
+
     def decorator(func):
         sig = inspect.signature(func)
         if 'current_user' not in sig.parameters:
@@ -26,7 +37,7 @@ def requires_permission(*codes: str):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             current_user = sig.bind(*args, **kwargs).arguments.get('current_user')
-            if not isinstance(current_user, CurrentUser) or not current_user.has_permission(*codes):
+            if not isinstance(current_user, CurrentUser) or not current_user.has_permission(*groups):
                 raise PermissionDeniedException('权限不足')
             return await func(*args, **kwargs)
 
