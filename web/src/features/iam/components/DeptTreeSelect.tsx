@@ -1,19 +1,7 @@
 import { TreeSelect } from 'antd'
-import type { TreeSelectProps } from 'antd'
 
 import { useDeptTree } from '../dept/hooks/useDeptTree'
-import type { DeptTreeNode } from '../dept/types'
-
-type TreeNode = NonNullable<TreeSelectProps['treeData']>[number]
-
-function buildTreeData(nodes: DeptTreeNode[], exclude: Set<string>): TreeNode[] {
-  return nodes.map((node) => ({
-    value: node.id,
-    title: node.name,
-    disabled: exclude.has(node.id),
-    children: buildTreeData(node.children ?? [], exclude),
-  }))
-}
+import { buildDeptTreeData } from './deptTree'
 
 interface Props {
   value?: string
@@ -39,7 +27,7 @@ export function DeptTreeSelect({
   disabled,
 }: Props) {
   const { data, isLoading } = useDeptTree()
-  const treeData = buildTreeData(data ?? [], new Set(excludeIds ?? []))
+  const treeData = buildDeptTreeData(data ?? [], new Set(excludeIds ?? []))
 
   return (
     <TreeSelect

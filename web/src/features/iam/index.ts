@@ -1,9 +1,10 @@
 import { createElement, lazy } from 'react'
 
 import type { FeatureModule } from '@shared/navigation'
-import { IconSitemap, IconUsers } from '@shared/ui'
+import { IconShieldLock, IconSitemap, IconUsers } from '@shared/ui'
 
 const UserPage = lazy(() => import('./user/UserPage'))
+const RolePage = lazy(() => import('./role/RolePage'))
 const DeptPage = lazy(() => import('./dept/DeptPage'))
 
 /**
@@ -25,6 +26,14 @@ export const iamFeature: FeatureModule = {
           permission: 'iam:user:read',
           icon: createElement(IconUsers, { size: 16 }),
           element: createElement(UserPage),
+        },
+        {
+          key: 'iam-role',
+          label: '角色管理',
+          path: 'roles',
+          permission: 'iam:role:read',
+          icon: createElement(IconShieldLock, { size: 16 }),
+          element: createElement(RolePage),
         },
         {
           key: 'iam-dept',
