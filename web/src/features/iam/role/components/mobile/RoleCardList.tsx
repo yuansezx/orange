@@ -16,12 +16,13 @@ interface Props {
   roles: Role[]
   loading: boolean
   error: Error | null
+  onView: (role: Role) => void
   onEdit: (role: Role) => void
   onDelete: (role: Role) => void
 }
 
-/** 【分叉档 · 移动】角色卡片列表；点项弹 ActionSheet 出操作。 */
-export function RoleCardList({ roles, loading, error, onEdit, onDelete }: Props) {
+/** 【分叉档 · 移动】角色卡片列表；点项弹 ActionSheet 出操作（查看/编辑/删除）。 */
+export function RoleCardList({ roles, loading, error, onView, onEdit, onDelete }: Props) {
   const [active, setActive] = useState<Role | null>(null)
 
   if (error) {
@@ -50,6 +51,7 @@ export function RoleCardList({ roles, loading, error, onEdit, onDelete }: Props)
         cancelText="取消"
         onClose={() => setActive(null)}
         actions={[
+          { key: 'view', text: '查看' },
           { key: 'edit', text: '编辑' },
           { key: 'delete', text: '删除', danger: true },
         ]}
@@ -57,7 +59,8 @@ export function RoleCardList({ roles, loading, error, onEdit, onDelete }: Props)
           if (!active) return
           const target = active
           setActive(null)
-          if (action.key === 'edit') onEdit(target)
+          if (action.key === 'view') onView(target)
+          else if (action.key === 'edit') onEdit(target)
           else if (action.key === 'delete') onDelete(target)
         }}
       />

@@ -2,7 +2,7 @@ import { Alert, Button, Space, Table, Tag, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
-import type { Key } from 'react'
+import type { Key, MouseEvent } from 'react'
 
 import { IconBuildingPlus, IconEdit, IconTrash } from '@shared/ui'
 
@@ -13,6 +13,7 @@ interface Props {
   nodes: DeptTreeNode[]
   loading: boolean
   error: Error | null
+  onView: (dept: Dept) => void
   onEdit: (dept: Dept) => void
   onCreateChild: (parentId: string) => void
   onDelete: (dept: Dept) => void
@@ -24,9 +25,9 @@ function collectIds(nodes: DeptTreeNode[]): Key[] {
 
 /**
  * 【分叉档 · 桌面】部门树表格（antd `Table` 原生支持 `children` 递归展开）。
- * 只负责渲染 + 操作回调；取数与弹层在 DeptPage。
+ * **点行看详情**；操作列按钮已 stopPropagation。取数与弹层在 DeptPage。
  */
-export function DeptTable({ nodes, loading, error, onEdit, onCreateChild, onDelete }: Props) {
+export function DeptTable({ nodes, loading, error, onView, onEdit, onCreateChild, onDelete }: Props) {
   // 受控展开：默认全展开（defaultExpandAllRows 对异步数据不生效）。
   // 只记「被用户折叠」的节点，展开态由 全部节点 - 已折叠 派生——异步数据到达/新增节点均自动展开，无需 effect。
   const [collapsed, setCollapsed] = useState<Set<Key>>(new Set())
@@ -35,6 +36,12 @@ export function DeptTable({ nodes, loading, error, onEdit, onCreateChild, onDele
 
   if (error) {
     return <Alert type="error" message={error.message} showIcon />
+  }
+
+  // 操作按钮点击不应冒泡到行（否则会同时打开详情）
+  const withStop = (handler: () => void) => (event: MouseEvent) => {
+    event.stopPropagation()
+    handler()
   }
 
   const columns: TableProps<DeptTreeNode>['columns'] = [
@@ -57,17 +64,26 @@ export function DeptTable({ nodes, loading, error, onEdit, onCreateChild, onDele
       render: (_, record) => (
         <Space size={8}>
           <Tooltip title="编辑">
-            <Button type="text" icon={<IconEdit size={16} />} onClick={() => onEdit(record)} />
+            <Button
+              type="text"
+              icon={<IconEdit size={16} />}
+              onClick={withStop(() => onEdit(record))}
+            />
           </Tooltip>
           <Tooltip title="新增子部门">
             <Button
               type="text"
               icon={<IconBuildingPlus size={16} />}
-              onClick={() => onCreateChild(record.id)}
+              onClick={withStop(() => onCreateChild(record.id))}
             />
           </Tooltip>
           <Tooltip title="删除">
-            <Button type="text" danger icon={<IconTrash size={16} />} onClick={() => onDelete(record)} />
+            <Button
+              type="text"
+              danger
+              icon={<IconTrash size={16} />}
+              onClick={withStop(() => onDelete(record))}
+            />
           </Tooltip>
         </Space>
       ),
@@ -83,6 +99,7 @@ export function DeptTable({ nodes, loading, error, onEdit, onCreateChild, onDele
       columns={columns}
       dataSource={nodes}
       pagination={false}
+      onRow={(record) => ({ onClick: () => onView(record), style: { cursor: 'pointer' } })}
       expandable={{
         expandedRowKeys: expandedKeys,
         onExpandedRowsChange: (keys) => {

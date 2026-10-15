@@ -1,6 +1,6 @@
-import type { DataScope, Status } from '../types'
+import type { AuditFields, DataScope, DeptRef, Status } from '../types'
 
-/** 角色读模型——对齐后端 `RoleResp`。 */
+/** 角色读模型——对齐后端 `RoleResp`（含权限集 / 数据范围部门集）。 */
 export interface Role {
   id: string
   code: string
@@ -8,12 +8,13 @@ export interface Role {
   data_scope: DataScope
   status: Status
   description: string | null
-}
-
-/** 角色详情——对齐后端 `RoleDetailResp`（含权限集 / 数据范围部门集）。 */
-export interface RoleDetail extends Role {
   permission_ids: string[]
   dept_ids: string[]
+}
+
+/** 角色详情——对齐后端 `RoleDetailResp`（数据 + 审计 + 部门引用）。 */
+export interface RoleDetail extends Role, AuditFields {
+  dept_refs: DeptRef[]
 }
 
 /** 创建角色——对齐后端 `CreateRoleReq`（权限/部门集必填）。 */
@@ -36,7 +37,7 @@ export interface UpdateRoleReq {
   dept_ids: string[]
 }
 
-/** 角色表单值（`code` 仅新建用；`status` 仅编辑用）。 */
+/** 角色表单值（`code` 仅新建用；`status` 编辑/查看用）。 */
 export interface RoleFormValues {
   code: string
   name: string

@@ -3,16 +3,18 @@ import { Popup } from 'antd-mobile'
 
 import { Platform } from '@shared/platform'
 
-import type { RoleDetail, RoleFormValues } from '../types'
+import type { Role, RoleFormValues } from '../types'
 import { RoleForm } from './RoleForm'
 
 const FORM_ID = 'role-form'
 
+const TITLES = { create: '新建角色', edit: '编辑角色' } as const
+
 interface Props {
   open: boolean
   mode: 'create' | 'edit'
-  /** 编辑时已拉取的角色详情（含权限/部门集）。 */
-  initial?: RoleDetail
+  /** 编辑时对应的角色（含权限/部门集）。 */
+  initial?: Role
   pending: boolean
   onSubmit: (values: RoleFormValues, permissionIds: string[]) => void
   onClose: () => void
@@ -20,10 +22,10 @@ interface Props {
 
 /**
  * 角色表单弹层：同一份 `RoleForm`，桌面 Drawer / 移动全屏 Popup（平台分叉收口于此）。
- * 仅在 `open` 时挂载表单 → 每次打开按 `initial` 全新初始化，无需 effect 回填。
+ * 仅 `open` 时挂载表单 → 每次打开按 `initial` 全新初始化。
  */
 export function RoleFormDrawer({ open, mode, initial, pending, onSubmit, onClose }: Props) {
-  const title = mode === 'edit' ? '编辑角色' : '新建角色'
+  const title = TITLES[mode]
 
   const footer = (
     <Space>

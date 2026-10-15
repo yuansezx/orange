@@ -1,4 +1,4 @@
-import type { Status } from '../types'
+import type { AuditFields, DeptRef, Status } from '../types'
 
 /** 部门读模型——字段对齐后端 `DeptResp`。 */
 export interface Dept {
@@ -11,6 +11,13 @@ export interface Dept {
   status: Status
   description: string | null
   created_at: string
+}
+
+/** 部门详情——对齐后端 `DeptDetailResp`（数据 + 审计 + 上级部门引用 + 负责人）。 */
+export interface DeptDetail extends Dept, AuditFields {
+  parent: DeptRef | null
+  leader_username: string | null
+  leader_nickname: string | null
 }
 
 /** 部门树节点——对齐后端 `DeptTreeNodeResp`（`children` 递归）。 */

@@ -8,12 +8,17 @@ export function getRoles(): Promise<Role[]> {
   return get<Role[]>(BASE)
 }
 
-export function getRole(id: string): Promise<RoleDetail> {
-  return get<RoleDetail>(`${BASE}/${id}`)
+export function getRole(id: string): Promise<Role> {
+  return get<Role>(`${BASE}/${id}`)
 }
 
-export function createRole(body: CreateRoleReq): Promise<RoleDetail> {
-  return post<RoleDetail>(BASE, body)
+/** 角色详情（含审计 / 部门引用）。 */
+export function getRoleDetail(id: string): Promise<RoleDetail> {
+  return get<RoleDetail>(`${BASE}/${id}/detail`)
+}
+
+export function createRole(body: CreateRoleReq): Promise<Role> {
+  return post<Role>(BASE, body)
 }
 
 export function updateRole(id: string, body: UpdateRoleReq): Promise<void> {

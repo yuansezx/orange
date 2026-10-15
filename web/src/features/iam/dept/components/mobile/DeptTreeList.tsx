@@ -16,6 +16,7 @@ interface Props {
   nodes: DeptTreeNode[]
   loading: boolean
   error: Error | null
+  onView: (dept: Dept) => void
   onEdit: (dept: Dept) => void
   onCreateChild: (parentId: string) => void
   onDelete: (dept: Dept) => void
@@ -34,7 +35,15 @@ function flatten(nodes: DeptTreeNode[], depth = 0): FlatRow[] {
  * 【分叉档 · 移动】部门树列表：按层级缩进展平；点项弹 ActionSheet 出操作。
  * 与 desktop/DeptTable 同源数据，取数在 DeptPage。
  */
-export function DeptTreeList({ nodes, loading, error, onEdit, onCreateChild, onDelete }: Props) {
+export function DeptTreeList({
+  nodes,
+  loading,
+  error,
+  onView,
+  onEdit,
+  onCreateChild,
+  onDelete,
+}: Props) {
   const [active, setActive] = useState<DeptTreeNode | null>(null)
   const rows = flatten(nodes)
 
@@ -64,6 +73,7 @@ export function DeptTreeList({ nodes, loading, error, onEdit, onCreateChild, onD
         cancelText="取消"
         onClose={() => setActive(null)}
         actions={[
+          { key: 'view', text: '查看' },
           { key: 'child', text: '新增子部门' },
           { key: 'edit', text: '编辑' },
           { key: 'delete', text: '删除', danger: true },
@@ -72,7 +82,8 @@ export function DeptTreeList({ nodes, loading, error, onEdit, onCreateChild, onD
           if (!active) return
           const target = active
           setActive(null)
-          if (action.key === 'child') onCreateChild(target.id)
+          if (action.key === 'view') onView(target)
+          else if (action.key === 'child') onCreateChild(target.id)
           else if (action.key === 'edit') onEdit(target)
           else if (action.key === 'delete') onDelete(target)
         }}

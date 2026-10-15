@@ -1,35 +1,32 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { App } from 'antd'
 import { useMemo, useState } from 'react'
 
-import { isApiError } from '@shared/api'
 import { Platform } from '@shared/platform'
 
-import { getRole } from './api/roleApi'
+import { RoleDetailDrawer } from './components/RoleDetailDrawer'
 import { RoleFormDrawer } from './components/RoleFormDrawer'
 import { RoleToolbar } from './components/RoleToolbar'
 import { RoleTable } from './components/desktop/RoleTable'
 import { RoleCardList } from './components/mobile/RoleCardList'
 import { useRoleMutations } from './hooks/useRoleMutations'
 import { useRoles } from './hooks/useRoles'
-import type { Role, RoleDetail, RoleFormValues } from './types'
+import type { Role, RoleFormValues } from './types'
 
 interface DialogState {
   open: boolean
-  mode: 'create' | 'edit'
-  detail?: RoleDetail
+  mode: 'create' | 'edit' | 'view'
+  role?: Role
 }
 
 /**
- * 角色管理页：列表 + 新建/编辑（基础信息 + 数据范围部门 + 权限树，一次提交）。
- * 写接口为「全合」：POST / PUT 都提交整份角色（PUT 语义：传什么就设成什么）。
- * 编辑需先拉 `GET /roles/{id}` 详情拿权限/部门集再填表。
+ * 角色管理页：列表 + 新建/编辑/查看（基础信息 + 数据范围部门 + 权限树）。
+ * 列表已含权限/部门集（后端同 schema），故「查看/编辑」直接用行数据、无需再拉详情。
+ * 写接口「全合」：POST / PUT 都提交整份角色（PUT 语义：传什么就设成什么）。
  */
 export default function RolePage() {
   const { data: roles = [], isLoading, error } = useRoles()
   const { create, update, remove } = useRoleMutations()
-  const queryClient = useQueryClient()
-  const { message, modal } = App.useApp()
+  const { modal } = App.useApp()
   const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
 
@@ -42,17 +39,8 @@ export default function RolePage() {
   }, [roles, keyword])
 
   const openCreate = () => setDialog({ open: true, mode: 'create' })
-  const openEdit = async (role: Role) => {
-    try {
-      const detail = await queryClient.fetchQuery({
-        queryKey: ['role', role.id],
-        queryFn: () => getRole(role.id),
-      })
-      setDialog({ open: true, mode: 'edit', detail })
-    } catch (err) {
-      message.error(isApiError(err) ? err.message : '加载角色详情失败')
-    }
-  }
+  const openView = (role: Role) => setDialog({ open: true, mode: 'view', role })
+  const openEdit = (role: Role) => setDialog({ open: true, mode: 'edit', role })
   const close = () => setDialog((prev) => ({ ...prev, open: false }))
 
   const submit = (values: RoleFormValues, permissionIds: string[]) => {
@@ -61,15 +49,15 @@ export default function RolePage() {
     const deptIds = dataScope === 'custom' ? (values.dept_ids ?? []) : []
     const description = values.description?.trim() || null
 
-    if (dialog.mode === 'edit' && dialog.detail) {
+    if (dialog.mode === 'edit' && dialog.role) {
       update.mutate(
         {
-          id: dialog.detail.id,
+          id: dialog.role.id,
           body: {
             name: values.name.trim(),
             data_scope: dataScope,
             description,
-            status: values.status ?? dialog.detail.status,
+            status: values.status ?? dialog.role.status,
             permission_ids: permissionIds,
             dept_ids: deptIds,
           },
@@ -109,6 +97,7 @@ export default function RolePage() {
             roles={filtered}
             loading={isLoading}
             error={error}
+            onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
           />
@@ -118,19 +107,24 @@ export default function RolePage() {
             roles={filtered}
             loading={isLoading}
             error={error}
+            onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
           />
         }
       />
-      <RoleFormDrawer
-        open={dialog.open}
-        mode={dialog.mode}
-        initial={dialog.detail}
-        pending={pending}
-        onSubmit={submit}
-        onClose={close}
-      />
+      {dialog.mode === 'view' ? (
+        <RoleDetailDrawer open={dialog.open} roleId={dialog.role?.id} onClose={close} />
+      ) : (
+        <RoleFormDrawer
+          open={dialog.open}
+          mode={dialog.mode}
+          initial={dialog.role}
+          pending={pending}
+          onSubmit={submit}
+          onClose={close}
+        />
+      )}
     </div>
   )
 }

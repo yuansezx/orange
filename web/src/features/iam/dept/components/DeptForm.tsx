@@ -13,7 +13,7 @@ interface Props {
   excludeIds?: string[]
 }
 
-/** 部门表单字段（两端共用）；提交/取值由外层 Dialog 承担。 */
+/** 部门表单字段（新建 / 编辑共用）；提交/取值由外层 Dialog 承担。详情另见 `DeptDetailDrawer`。 */
 export function DeptForm({ form, mode, excludeIds }: Props) {
   return (
     <Form form={form} layout="vertical" requiredMark={false}>

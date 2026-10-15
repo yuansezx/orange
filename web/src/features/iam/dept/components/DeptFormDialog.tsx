@@ -7,6 +7,8 @@ import { Platform } from '@shared/platform'
 import { DeptForm } from './DeptForm'
 import type { Dept, DeptFormValues } from '../types'
 
+const TITLES = { create: '新建部门', edit: '编辑部门' } as const
+
 interface Props {
   open: boolean
   mode: 'create' | 'edit'
@@ -54,7 +56,7 @@ export function DeptFormDialog({
     onSubmit(values)
   }
 
-  const title = mode === 'edit' ? '编辑部门' : '新建部门'
+  const title = TITLES[mode]
 
   return (
     <Platform

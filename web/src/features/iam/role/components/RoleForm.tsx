@@ -3,20 +3,21 @@ import { useState } from 'react'
 
 import { DeptTreeMultiSelect } from '../../components/DeptTreeMultiSelect'
 import { DATA_SCOPE_OPTIONS, STATUS_OPTIONS } from '../../constants'
-import type { RoleDetail, RoleFormValues } from '../types'
+import type { Role, RoleFormValues } from '../types'
 import { PermissionTree } from './PermissionTree'
 
 interface Props {
   /** 供抽屉底部的原生 submit 按钮 `form=` 关联。 */
   formId: string
   mode: 'create' | 'edit'
-  initial?: RoleDetail
+  initial?: Role
   onSubmit: (values: RoleFormValues, permissionIds: string[]) => void
 }
 
 /**
  * 角色表单字段（新建 / 编辑共用，提交由外层抽屉承担）。
  * 由外层以 `key` 重挂，故用 `initialValues` + `useState(initial)` 初始化即可，无需 effect 回填。
+ * （只读详情另见 `RoleDetailDrawer`，不复用本表单。）
  */
 export function RoleForm({ formId, mode, initial, onSubmit }: Props) {
   const [form] = Form.useForm<RoleFormValues>()

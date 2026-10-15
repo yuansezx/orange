@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 
 import { Platform } from '@shared/platform'
 
+import { DeptDetailDrawer } from './components/DeptDetailDrawer'
 import { DeptFormDialog } from './components/DeptFormDialog'
 import { DeptToolbar } from './components/DeptToolbar'
 import { DeptTable } from './components/desktop/DeptTable'
@@ -40,13 +41,13 @@ function findNode(nodes: DeptTreeNode[], id: string): DeptTreeNode | undefined {
 
 interface DialogState {
   open: boolean
-  mode: 'create' | 'edit'
+  mode: 'create' | 'edit' | 'view'
   dept?: Dept
   parentId?: string
 }
 
 /**
- * 部门管理页：树表格 + 增删改 + 移动。
+ * 部门管理页：树表格 + 增删改 + 移动 + 查看详情（点行进入只读）。
  * 取数（useDeptTree）与表单两端共用；仅列表渲染按设备分叉（<Platform>）。
  * 移动 = 编辑时改「上级部门」；删除守卫由后端判定，错误经 message 展示。
  */
@@ -67,6 +68,7 @@ export default function DeptPage() {
   }, [dialog, tree])
 
   const openCreate = (parentId?: string) => setDialog({ open: true, mode: 'create', parentId })
+  const openView = (dept: Dept) => setDialog({ open: true, mode: 'view', dept })
   const openEdit = (dept: Dept) => setDialog({ open: true, mode: 'edit', dept })
   const close = () => setDialog((prev) => ({ ...prev, open: false }))
 
@@ -110,6 +112,7 @@ export default function DeptPage() {
             nodes={nodes}
             loading={isLoading}
             error={error}
+            onView={openView}
             onEdit={openEdit}
             onCreateChild={openCreate}
             onDelete={confirmDelete}
@@ -120,22 +123,27 @@ export default function DeptPage() {
             nodes={nodes}
             loading={isLoading}
             error={error}
+            onView={openView}
             onEdit={openEdit}
             onCreateChild={openCreate}
             onDelete={confirmDelete}
           />
         }
       />
-      <DeptFormDialog
-        open={dialog.open}
-        mode={dialog.mode}
-        dept={dialog.dept}
-        parentId={dialog.parentId}
-        excludeIds={excludeIds}
-        pending={pending}
-        onSubmit={submit}
-        onClose={close}
-      />
+      {dialog.mode === 'view' ? (
+        <DeptDetailDrawer open={dialog.open} deptId={dialog.dept?.id} onClose={close} />
+      ) : (
+        <DeptFormDialog
+          open={dialog.open}
+          mode={dialog.mode}
+          dept={dialog.dept}
+          parentId={dialog.parentId}
+          excludeIds={excludeIds}
+          pending={pending}
+          onSubmit={submit}
+          onClose={close}
+        />
+      )}
     </div>
   )
 }
