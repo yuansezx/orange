@@ -5,8 +5,10 @@ from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.dept.dto import (
     CreateDeptIn,
+    DeptDetailOut,
     DeptOut,
     DeptTreeNode,
     GetDeptsIn,
@@ -59,11 +61,15 @@ class DeptApplicationService:
                  dept_repo: DeptRepository,
                  user_repo: UserRepository,
                  dept_access_service: DeptAccessService,
+                 audit_service: AuditService,
+                 dept_ref_service: DeptRefService,
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.dept_repo = dept_repo
         self.user_repo = user_repo
         self.dept_access_service = dept_access_service
+        self.audit_service = audit_service
+        self.dept_ref_service = dept_ref_service
         self.event_bus = event_bus
 
     # ---------------- 读 ----------------
@@ -86,6 +92,25 @@ class DeptApplicationService:
         if not await self.dept_access_service.can_access(dept.id, current_user):
             raise PermissionDeniedException('无权访问该部门')
         return _to_out(dept)
+
+    @requires_permission('iam:dept:read')
+    async def get_dept_detail(self, dept_id: DeptId, current_user: CurrentUser) -> DeptDetailOut:
+        dept = await self._load(dept_id)
+        if not await self.dept_access_service.can_access(dept.id, current_user):
+            raise PermissionDeniedException('无权访问该部门')
+        audit = await self.audit_service.build(dept)
+        parent_refs = (
+            await self.dept_ref_service.build([dept.parent_id]) if dept.parent_id else []
+        )
+        leader = (await self.user_repo.get_by_ids([dept.leader_id])) if dept.leader_id else []
+        leader_user = leader[0] if leader else None
+        return DeptDetailOut(
+            **_to_out(dept).model_dump(),
+            **audit.model_dump(),
+            parent=parent_refs[0] if parent_refs else None,
+            leader_username=leader_user.username if leader_user else None,
+            leader_nickname=leader_user.nickname if leader_user else None,
+        )
 
     # ---------------- 写 ----------------
     @requires_permission('iam:dept:create')

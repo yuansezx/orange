@@ -5,6 +5,7 @@ from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.dept.exceptions import DeptNotFoundException
 from app.iam.application.resource.exceptions import PermissionNotFoundException
 from app.iam.application.role.dto import (
@@ -25,6 +26,19 @@ from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
 
 
+def _to_out(role: Role) -> RoleOut:
+    return RoleOut(
+        id=role.id,
+        code=role.code,
+        name=role.name,
+        data_scope=role.data_scope,
+        status=role.status,
+        description=role.description,
+        permission_ids=list(role.permission_ids),
+        dept_ids=list(role.custom_dept_ids),
+    )
+
+
 class RoleApplicationService:
     """角色用例：CRUD + 角色↔权限 / 角色↔部门 的整体设置。
 
@@ -36,12 +50,16 @@ class RoleApplicationService:
                  permission_repo: PermissionRepository,
                  dept_repo: DeptRepository,
                  role_access_service: RoleAccessService,
+                 audit_service: AuditService,
+                 dept_ref_service: DeptRefService,
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.role_repo = role_repo
         self.permission_repo = permission_repo
         self.dept_repo = dept_repo
         self.role_access_service = role_access_service
+        self.audit_service = audit_service
+        self.dept_ref_service = dept_ref_service
         self.event_bus = event_bus
 
     # ---------------- 写 ----------------
@@ -98,29 +116,25 @@ class RoleApplicationService:
 
     # ---------------- 读 ----------------
     @requires_permission('iam:role:read')
-    async def get_role(self, role_id: RoleId, current_user: CurrentUser) -> RoleDetailOut:
+    async def get_role(self, role_id: RoleId, current_user: CurrentUser) -> RoleOut:
         role = await self.role_repo.get(role_id)
         if role is None or role.status is StatusEnum.DELETED:
             raise RoleNotFoundException(f'角色不存在：{role_id}')
-        return RoleDetailOut(
-            id=role.id,
-            code=role.code,
-            name=role.name,
-            data_scope=role.data_scope,
-            status=role.status,
-            description=role.description,
-            permission_ids=list(role.permission_ids),
-            dept_ids=list(role.custom_dept_ids),
-        )
+        return _to_out(role)
 
     @requires_permission('iam:role:read')
     async def get_all_roles(self, current_user: CurrentUser) -> list[RoleOut]:
-        roles = await self.role_repo.get_all()
-        return [
-            RoleOut(id=r.id, code=r.code, name=r.name, data_scope=r.data_scope,
-                    status=r.status, description=r.description)
-            for r in roles
-        ]
+        return [_to_out(r) for r in await self.role_repo.get_all()]
+
+    @requires_permission('iam:role:read')
+    async def get_role_detail(self, role_id: RoleId, current_user: CurrentUser) -> RoleDetailOut:
+        role = await self.role_repo.get(role_id)
+        if role is None or role.status is StatusEnum.DELETED:
+            raise RoleNotFoundException(f'角色不存在：{role_id}')
+        audit = await self.audit_service.build(role)
+        dept_refs = await self.dept_ref_service.build(list(role.custom_dept_ids))
+        return RoleDetailOut(
+            **_to_out(role).model_dump(), **audit.model_dump(), dept_refs=dept_refs)
 
     # ---------------- 内部 ----------------
     async def _load_accessible(self, role_id: RoleId, current_user: CurrentUser) -> Role:

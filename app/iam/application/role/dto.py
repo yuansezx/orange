@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+from app.iam.application.common.dto import AuditOut, DeptRefOut
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
 
@@ -31,8 +32,10 @@ class RoleOut(BaseModel):
     data_scope: DataScopeEnum
     status: StatusEnum
     description: str | None = None
-
-
-class RoleDetailOut(RoleOut):
     permission_ids: list[PermissionId] = Field(default_factory=list)
     dept_ids: list[DeptId] = Field(default_factory=list)
+
+
+class RoleDetailOut(RoleOut, AuditOut):
+    """角色详情——数据字段 + 审计（平铺）+ 数据范围部门引用（名字+路径）。"""
+    dept_refs: list[DeptRefOut] = Field(default_factory=list)

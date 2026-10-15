@@ -88,6 +88,11 @@ class UserRepositoryTortoiseImpl(UserRepository):
         # 物理删除（tortoise QuerySet.delete 即为物理删）
         return await UserModel.filter(id__in=ids).delete()
 
+    async def get_by_ids(self, user_ids: list[UserId]) -> list[User]:
+        ids = [u.value for u in user_ids]
+        rows = await UserModel.filter(id__in=ids)
+        return [to_domain(m) for m in rows]
+
     async def get_by_username(self, username: str) -> User | None:
         m = await UserModel.get_or_none(username=username)
         return to_domain(m) if m else None

@@ -29,6 +29,9 @@ class UserRepository(BaseRepository[UserId, User]):
     """用户仓储接口"""
 
     @abstractmethod
+    async def get_by_ids(self, user_ids: list[UserId]) -> list[User]: ...
+
+    @abstractmethod
     async def get_by_username(self, username: str) -> User | None: ...
 
     @abstractmethod

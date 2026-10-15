@@ -15,6 +15,7 @@ from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure import cache, persistence
 from app.iam.application.common.queries import EffectivePermissionQuery, UsersAffectedByDeptChangeQuery
+from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.current_user.ports import TokenManagerPort
 from app.iam.application.current_user.services import CurrentUserApplicationService
 from app.iam.application.dept.services import DeptApplicationService
@@ -77,12 +78,22 @@ def get_data_scope_service() -> DataScopeService:
     )
 
 
+def get_audit_service() -> AuditService:
+    return AuditService(get_user_repo())
+
+
+def get_dept_ref_service() -> DeptRefService:
+    return DeptRefService(get_dept_repo())
+
+
 def get_dept_app_service() -> DeptApplicationService:
     return DeptApplicationService(
         in_transaction=get_in_transaction(),
         dept_repo=get_dept_repo(),
         user_repo=get_user_repo(),
         dept_access_service=get_dept_access_service(),
+        audit_service=get_audit_service(),
+        dept_ref_service=get_dept_ref_service(),
         event_bus=get_event_bus(),
     )
 
@@ -120,6 +131,8 @@ def get_role_app_service() -> RoleApplicationService:
         permission_repo=get_permission_repo(),
         dept_repo=get_dept_repo(),
         role_access_service=get_role_access_service(),
+        audit_service=get_audit_service(),
+        dept_ref_service=get_dept_ref_service(),
         event_bus=get_event_bus(),
     )
 

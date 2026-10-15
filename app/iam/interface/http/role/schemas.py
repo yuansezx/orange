@@ -25,8 +25,8 @@ class UpdateRoleReq(BaseModel):
 
 
 class RoleResp(RoleOut):
-    """角色响应——线格式同 DTO。"""
+    """角色响应（含权限集 / 数据范围部门集）——列表与 `/{id}` 同 schema。"""
 
 
 class RoleDetailResp(RoleDetailOut):
-    """角色详情响应（含权限集 / 数据范围部门集）。"""
+    """角色详情响应——数据字段 + 审计（平铺）。"""

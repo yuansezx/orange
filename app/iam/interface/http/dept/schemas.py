@@ -5,7 +5,13 @@
 """
 from pydantic import BaseModel
 
-from app.iam.application.dept.dto import CreateDeptIn, DeptOut, DeptTreeNode, GetDeptsIn
+from app.iam.application.dept.dto import (
+    CreateDeptIn,
+    DeptDetailOut,
+    DeptOut,
+    DeptTreeNode,
+    GetDeptsIn,
+)
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, Email, Phone, UserId
 
@@ -31,6 +37,10 @@ class GetDeptsReq(GetDeptsIn):
 
 class DeptResp(DeptOut):
     """部门响应——线格式同 DTO。"""
+
+
+class DeptDetailResp(DeptDetailOut):
+    """部门详情响应——数据字段 + 审计（平铺）。"""
 
 
 class DeptTreeNodeResp(DeptTreeNode):
