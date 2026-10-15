@@ -133,8 +133,9 @@ class RoleApplicationService:
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         audit = await self.audit_service.build(role)
         dept_refs = await self.dept_ref_service.build(list(role.custom_dept_ids))
-        return RoleDetailOut(
-            **_to_out(role).model_dump(), **audit.model_dump(), dept_refs=dept_refs)
+        # 先合并成 dict 再展开，避免与审计字段重名（如 created_at）时重复关键字
+        fields = {**_to_out(role).model_dump(), **audit.model_dump()}
+        return RoleDetailOut(**fields, dept_refs=dept_refs)
 
     # ---------------- 内部 ----------------
     async def _load_accessible(self, role_id: RoleId, current_user: CurrentUser) -> Role:

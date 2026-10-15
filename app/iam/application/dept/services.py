@@ -104,9 +104,10 @@ class DeptApplicationService:
         )
         leader = (await self.user_repo.get_by_ids([dept.leader_id])) if dept.leader_id else []
         leader_user = leader[0] if leader else None
+        # 部门 DTO 与审计都含 created_at，先合并成 dict（后者覆盖，取值相同）再展开，避免重复关键字
+        fields = {**_to_out(dept).model_dump(), **audit.model_dump()}
         return DeptDetailOut(
-            **_to_out(dept).model_dump(),
-            **audit.model_dump(),
+            **fields,
             parent=parent_refs[0] if parent_refs else None,
             leader_username=leader_user.username if leader_user else None,
             leader_nickname=leader_user.nickname if leader_user else None,
