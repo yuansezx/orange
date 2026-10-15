@@ -3,7 +3,7 @@
 字段直接用 domain 值对象（RoleId / PermissionId / DeptId），经 `SingleValueObject`
 统一裸值出入、OpenAPI 展示为 string（id 带 format: uuid）。
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.iam.application.role.dto import CreateRoleIn, RoleDetailOut, RoleOut
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
@@ -15,19 +15,13 @@ class CreateRoleReq(CreateRoleIn):
 
 
 class UpdateRoleReq(BaseModel):
-    """更新角色请求——id 来自路径，故不含 id；code 不可改。"""
-    name: str | None = None
-    data_scope: DataScopeEnum | None = None
+    """整体替换角色请求——id 来自路径、code 不可改；PUT 语义：传什么就设成什么（含权限/部门集）。"""
+    name: str
+    data_scope: DataScopeEnum
     description: str | None = None
-    status: StatusEnum | None = None
-
-
-class SetRolePermissionsReq(BaseModel):
-    permission_ids: list[PermissionId] = Field(default_factory=list)
-
-
-class SetRoleDeptsReq(BaseModel):
-    dept_ids: list[DeptId] = Field(default_factory=list)
+    status: StatusEnum
+    permission_ids: list[PermissionId]
+    dept_ids: list[DeptId]
 
 
 class RoleResp(RoleOut):

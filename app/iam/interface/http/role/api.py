@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
-from app.iam.application.role.dto import SetRoleDeptsIn, SetRolePermissionsIn, UpdateRoleIn
+from app.iam.application.role.dto import UpdateRoleIn
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import RoleId
@@ -16,8 +16,6 @@ from app.iam.interface.http.role.schemas import (
     CreateRoleReq,
     RoleDetailResp,
     RoleResp,
-    SetRoleDeptsReq,
-    SetRolePermissionsReq,
     UpdateRoleReq,
 )
 
@@ -64,30 +62,8 @@ async def update_role(
     current_user: CurrentUser = Depends(get_current_user),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> None:
-    data = UpdateRoleIn(id=RoleId(role_id), **body.model_dump(exclude_unset=True))
+    data = UpdateRoleIn(id=RoleId(role_id), **body.model_dump())
     await role_app_service.update_role(data, current_user)
-
-
-@role_router.put('/{role_id}/permissions', status_code=status.HTTP_204_NO_CONTENT, summary='设置角色权限')
-async def set_role_permissions(
-    role_id: UUID,
-    body: SetRolePermissionsReq,
-    current_user: CurrentUser = Depends(get_current_user),
-    role_app_service: RoleApplicationService = Depends(get_role_app_service),
-) -> None:
-    await role_app_service.set_role_permissions(
-        SetRolePermissionsIn(role_id=RoleId(role_id), permission_ids=body.permission_ids), current_user)
-
-
-@role_router.put('/{role_id}/depts', status_code=status.HTTP_204_NO_CONTENT, summary='设置角色数据范围部门')
-async def set_role_depts(
-    role_id: UUID,
-    body: SetRoleDeptsReq,
-    current_user: CurrentUser = Depends(get_current_user),
-    role_app_service: RoleApplicationService = Depends(get_role_app_service),
-) -> None:
-    await role_app_service.set_role_depts(
-        SetRoleDeptsIn(role_id=RoleId(role_id), dept_ids=body.dept_ids), current_user)
 
 
 @role_router.delete('/{role_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除角色')

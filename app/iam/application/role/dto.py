@@ -9,26 +9,19 @@ class CreateRoleIn(BaseModel):
     name: str
     data_scope: DataScopeEnum
     description: str | None = None
-    permission_ids: list[PermissionId] | None = None
-    dept_ids: list[DeptId] | None = None
+    permission_ids: list[PermissionId]
+    dept_ids: list[DeptId]
 
 
 class UpdateRoleIn(BaseModel):
+    """整体替换角色（PUT 语义）：传什么就设成什么，含权限集 / 数据范围部门集。"""
     id: RoleId
-    name: str | None = None
-    data_scope: DataScopeEnum | None = None
+    name: str
+    data_scope: DataScopeEnum
     description: str | None = None
-    status: StatusEnum | None = None
-
-
-class SetRolePermissionsIn(BaseModel):
-    role_id: RoleId
-    permission_ids: list[PermissionId] = Field(default_factory=list)
-
-
-class SetRoleDeptsIn(BaseModel):
-    role_id: RoleId
-    dept_ids: list[DeptId] = Field(default_factory=list)
+    status: StatusEnum
+    permission_ids: list[PermissionId]
+    dept_ids: list[DeptId]
 
 
 class RoleOut(BaseModel):

@@ -11,8 +11,6 @@ from app.iam.application.role.dto import (
     CreateRoleIn,
     RoleDetailOut,
     RoleOut,
-    SetRoleDeptsIn,
-    SetRolePermissionsIn,
     UpdateRoleIn,
 )
 from app.iam.application.role.exceptions import RoleCodeConflictException, RoleNotFoundException
@@ -52,8 +50,8 @@ class RoleApplicationService:
         async with self.in_transaction():
             if await self.role_repo.get_by_code(data.code):
                 raise RoleCodeConflictException(f'角色 code 已存在：{data.code}')
-            permission_ids = set(data.permission_ids or [])
-            dept_ids = set(data.dept_ids or [])
+            permission_ids = set(data.permission_ids)
+            dept_ids = set(data.dept_ids)
             if permission_ids:
                 await self._ensure_permissions_exist(permission_ids)
             if dept_ids:
@@ -73,19 +71,21 @@ class RoleApplicationService:
 
     @requires_permission('iam:role:update')
     async def update_role(self, data: UpdateRoleIn, current_user: CurrentUser) -> None:
+        """整体替换角色（PUT 语义）：属性 / 权限集 / 数据范围部门集一次提交，单事务原子。"""
         async with self.in_transaction():
             role = await self._load_accessible(data.id, current_user)
-            if data.name is not None or data.data_scope is not None or data.description is not None:
-                role.change(
-                    data.name if data.name is not None else role.name,
-                    data.data_scope if data.data_scope is not None else role.data_scope,
-                    data.description if data.description is not None else role.description,
-                    current_user.user_id,
-                )
-            if data.status is not None:
-                role.change_status(data.status, current_user.user_id)
+            permission_ids = set(data.permission_ids)
+            dept_ids = set(data.dept_ids)
+            if permission_ids:
+                await self._ensure_permissions_exist(permission_ids)
+            if dept_ids:
+                await self._ensure_depts_exist(dept_ids)
+            role.change(data.name, data.data_scope, data.description, current_user.user_id)
+            role.change_status(data.status, current_user.user_id)
+            role.set_permissions(permission_ids, current_user.user_id)
+            role.set_depts(dept_ids, current_user.user_id)
             await self.role_repo.update(role)
-        # 名称/状态变更影响持有者快照（data_scope 不在快照内，但多清无害）
+        # 整体替换：名称/权限/数据范围变更都影响持有者快照（多清无害）
         await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role.id))
 
     @requires_permission('iam:role:delete')
@@ -95,27 +95,6 @@ class RoleApplicationService:
             role.delete(current_user.user_id)
             await self.role_repo.update(role)
         await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
-
-    @requires_permission('iam:role:update')
-    async def set_role_permissions(self, data: SetRolePermissionsIn, current_user: CurrentUser) -> None:
-        async with self.in_transaction():
-            role = await self._load_accessible(data.role_id, current_user)
-            permission_ids = set(data.permission_ids)
-            if permission_ids:
-                await self._ensure_permissions_exist(permission_ids)
-            role.set_permissions(permission_ids, current_user.user_id)
-            await self.role_repo.update(role)
-        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role.id))
-
-    @requires_permission('iam:role:update')
-    async def set_role_depts(self, data: SetRoleDeptsIn, current_user: CurrentUser) -> None:
-        async with self.in_transaction():
-            role = await self._load_accessible(data.role_id, current_user)
-            dept_ids = set(data.dept_ids)
-            if dept_ids:
-                await self._ensure_depts_exist(dept_ids)
-            role.set_depts(dept_ids, current_user.user_id)
-            await self.role_repo.update(role)
 
     # ---------------- 读 ----------------
     @requires_permission('iam:role:read')
