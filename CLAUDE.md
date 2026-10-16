@@ -55,13 +55,12 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   ├── user/                  #     entities.py / enums.py / repositories.py / services.py / exceptions.py / events.py
 │   │   ├── role/                  #     entities.py / enums.py / repositories.py / services.py / exceptions.py / events.py
 │   │   ├── dept/                  #     entities.py / repositories.py / services.py / exceptions.py / events.py
-│   │   ├── resource/              #     entities.py / repositories.py / exceptions.py
-│   │   ├── permission/            #     entities.py / repositories.py / exceptions.py
+│   │   ├── resource/              #     entities.py（Resource 聚合根 + 内嵌 Permission 实体）/ repositories.py / enums.py / exceptions.py
 │   │   ├── user_role_assignment/  #     entities.py / repositories.py / events.py
 │   │   ├── login_log/             #     entities.py
 │   │   └── current_user/          #     entities.py（CurrentUser.has_permission / data_scope_spec）/ repositories.py（当前用户缓存）
 │   ├── application/
-│   │   ├── common/               #     decorators.py（@requires_permission）/ exceptions.py / dto.py（EffectivePermissions）/ queries.py（CQRS 读侧）
+│   │   ├── common/               #     decorators.py（@requires_permission）/ exceptions.py / dto.py / queries.py（CQRS 读侧）/ services.py（共用读侧装配）
 │   │   ├── current_user/          #     dto.py / services.py（CurrentUserApplicationService）/ ports.py（TokenManagerPort）/ event_handlers.py（快照失效订阅）
 │   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
 │   │   ├── dept/                  #     dto.py / services.py（DeptApplicationService）/ exceptions.py
@@ -75,7 +74,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   └── persistence/tortoise/{dialect}/  # 按方言分目录（后端解耦）
 │   │       ├── models/            #     __init__.py / user.py / dept.py / ...（每实体一文件）
 │   │       ├── repositories/      #     __init__.py / user.py / ...（聚合仓储，含 领域↔表 映射）
-│   │       └── queries/           #     effective_permission.py / dept_affected_users.py（CQRS 读侧查询）
+│   │       └── queries/           #     effective_permission.py / dept_affected_users.py / permission_exists.py（CQRS 读侧查询）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
 │       └── http/
@@ -83,7 +82,8 @@ app/                               # 后端（本文件详述）；仓库根另�
 │           ├── dependencies.py    #     get_current_user（Bearer → CurrentUser，只做身份提取）
 │           ├── user/              #     api.py（user_router）/ schemas.py
 │           ├── dept/              #     api.py（dept_router）/ schemas.py
-│           └── role/              #     api.py（role_router）/ schemas.py
+│           ├── role/              #     api.py（role_router）/ schemas.py
+│           └── resource/          #     api.py（resource_router）/ schemas.py
 ```
 
 ## 架构规范
@@ -98,6 +98,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - `AuditableEntity[IdType]` 泛型审计基类（created/updated/deleted 的 at/by）。
 - 仓储继承 `BaseRepository`：`get / create / bulk_create / update / hard_delete`。
 - **删除语义统一**：`delete` = **软删**（实体方法，置 `status=DELETED`+`deleted_at/by`）；`hard_delete` = **物理删**（仓储）；`evict` = 缓存淘汰。**裸 `delete` 绝不表示物理删除。**
+- **列表读约定**：读接口**默认只返回未删**；已删走**显式 `status` 参数**（如 `?status=deleted`，供回收站/管理视图）。仓储统一为 `get_all(status: StatusEnum | None = None)`（缺省排除 `DELETED`）。**派生视图**（如 catalog）不受此约定约束——按用途只给可用项，且**停用（`DISABLED`）≠ 删除**、照常列出。
 - 枚举统一 `str, Enum` 且以 `Enum` 结尾（`StatusEnum`、`UserTypeEnum`、`DataScopeEnum`）。
 - **异常与响应**：两条根（`core.exceptions`：`InfrastructureBaseException` 技术中立 / `BusinessBaseException` 业务合一）+ 统一错误体 `{code,message,details}`；HTTP 映射见 `app/core/interface/http/exception_handlers.py`。详见「异常与 HTTP 响应」。
 - `PageResult[DataType]`（`core/utils/schemas.py`）；`check_unique`（`core/utils/validators.py`）。
@@ -120,11 +121,11 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **抽象取舍判据**：Port 只在「**触碰外部（IO/第三方）**」或「**测试要替换**」时才抽；纯计算/纯数据**不抽**（直接函数/值对象）。
 - **包 `__init__` 不放重副作用、也不放会拖入其它层的 import**（判据是"导入的耦合/成本"，非"有无副作用"）：模块启动钩子（有副作用）独立成 `bootstrap.py`；依赖其它层类型的声明（如资源目录，依赖 application DTO）也放 `bootstrap.py`（否则 `import app.{模块}.domain.*` 会连带拖入 application/循环导入）；**纯常量**（如 `DB_CONNECTION`，零依赖零副作用）可放 `__init__`。FastAPI app 用工厂而非模块级实例。
 - **领域规则收口在实体**（防漂移）：如 `User` 的 nickname 缺省=username、非超管不得使用保留用户名（`admin`）；`Dept.move_under` 的环路校验。
-- **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。
-- **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**，由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**（**状态层面**：软删 / 禁用等状态变更不级联改其他聚合，一致性靠读路径按 ACTIVE 过滤；**物理硬删**则显式级联清理从属行——无 FK，应用层做）。此约定的前提是「状态不级联**不影响业务判断**」，若日后发现有影响，软删也需级联（**待观察**）。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活已删行、不新插**。
-- **部门（iam）**：部门树用**物化路径** `ancestors uuid[]`（根→父的祖先 id、不含自己）+ GIN 索引（Tortoise `contrib.postgres` 的 `ArrayField` / `GinIndex`）——找子孙走 `ancestors__contains`（`@>`）单查询。**移动**在应用层事务内连带重写子孙 `ancestors`，实体 `move_under` 做**环路校验**、`shift_descendant_ancestors` 重算子孙路径；删除守卫：有子部门 / 有用户则拒。结构变更（增/移/删）提交后发 `DeptStructureChanged`（携带受影响部门 = 旧/新父祖先链的对称差），供快照失效**精确定位**。
+- **资源/权限目录（iam RBAC）**：资源=名词（`module` 分组、扁平无层级），权限=资源×操作；权限标识 `module:resource:action`（如 `iam:user:create`），完整 key 运行时派生、不落库；`(module,code)` 与 `(resource_id,action)` 唯一。**`Resource` 是聚合根，`Permission` 是其聚合内实体**（身份从属资源）——`ResourceRepository` 整体装配/保存（装配**含软删行**以保 action 身份、按 id upsert 不删重建）；`Resource.delete` 级联软删其权限。两者各有 `resource_type` / `permission_type`（`SourceTypeEnum`：`SYSTEM` 代码声明 / `CUSTOM` 后台自建），供「对账」区分代码拥有与后建。
+- **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**（`permission_ids` 引的是 Resource 聚合**内嵌实体**的 id——此处「跨聚合只引根 id」让位于「权限身份从属资源」），由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**（**状态层面**：软删 / 禁用等状态变更不级联改其他聚合，一致性靠读路径按 ACTIVE 过滤；**物理硬删**则显式级联清理从属行——无 FK，应用层做）。此约定的前提是「状态不级联**不影响业务判断**」，若日后发现有影响，软删也需级联（**待观察**）。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活已删行、不新插**。
+- **部门（iam）**：部门树用**物化路径** `ancestors uuid[]`（根→父的祖先 id、不含自己）+ GIN 索引（Tortoise `contrib.postgres` 的 `ArrayField` / `GinIndex`）——找子孙走 `ancestors__contains`（`@>`）单查询。**移动**在应用层事务内连带重写子孙 `ancestors`，实体 `move_under` 做**环路校验**、`shift_descendant_ancestors` 重算子孙路径。**删除 = 级联软删整棵子树**（不允许「只删父、留子」，维持不变式「父已删 ⇒ 子必删」），子树内任一部门下有用户则整体拒绝。同级同名唯一：应用层校验 + DB `(parent_id,name)` 唯一索引兜底（**根部门 `parent_id` 为 NULL，DB 拦不住，靠应用层**）；且**软删仍占位**（`get_by_parent_and_name` 不过滤已删），故恢复时不会撞名。结构变更（增/移/删）提交后发 `DeptStructureChanged`（携带受影响部门 = 旧/新父祖先链的对称差），供快照失效**精确定位**。
 - **令牌 / CurrentUser（iam）**：令牌 = JWT（自包含 `exp`）+ Redis **白名单** `iam:user_tokens:{uid}`（hash：token→⊥，**HEXPIRE** 每 field 独立 TTL）；多端=多 field，单端 `HDEL`、全端 `DEL`。CurrentUser **快照** `iam:current_user:{uid}`（`snapshot_ttl_seconds` 缺省 = 令牌期）：含 `roles` / `permission_codes` / `data_scope_spec`；**变更只清快照、会话不掉线**，快照缺失则重解析回填。有效权限由 `EffectivePermissionQuery.resolve`、数据范围由 `DataScopeService.resolve` 解析（均**应用层 common / domain 共享**，非聚合仓储）；快照失效由领域事件驱动（`application/current_user/event_handlers.py`）。Redis 由 **core 门面** 管理（`core.cache`，同 persistence；未配置则不启动）。
-- **认证 / 授权（iam，双入口）**：**身份提取在接口层**（`interface/http/dependencies.py::get_current_user`，`Authorization: Bearer` → CurrentUser，缺/坏 → 401）；**授权判定是业务规则、收敛到 application**——功能权限 `current_user.has_permission(code)`（超管旁路）、数据权限调 access service（`can_access`），**http 与 python api 两入口一致**。功能权限可用 `@requires_permission(*codes)`（`application/common/decorators.py`，**按名绑定 `current_user` 参数**；缺参数定义期报错）；数据权限随对象变、需查库，仍手动调。接口层只做 `kind→状态码` 映射（403），**不判权限**。
+- **认证 / 授权（iam，双入口）**：**身份提取在接口层**（`interface/http/dependencies.py::get_current_user`，`Authorization: Bearer` → CurrentUser，缺/坏 → 401）；**授权判定是业务规则、收敛到 application**——功能权限 `current_user.has_permission(*groups)`（**逗号分隔的参数之间「或」、元组内「与」**（DNF）；超管旁路）、数据权限调 access service（`can_access`），**http 与 python api 两入口一致**。功能权限门禁可用 `@requires_permission(*groups)`（`application/common/decorators.py`，**同款与/或模型**；**空参定义期报错**；**按名绑定 `current_user` 参数**，缺参数亦定义期报错）；数据权限随对象变、需查库，仍手动调。接口层只做 `kind→状态码` 映射（403），**不判权限**。
 - **数据权限（iam）**：数据范围在**快照构建时**解析成 `DataScopeSpec` 存进 `CurrentUser.data_scope_spec`（超管 → ALL；其余读 ACTIVE 的 `user_role`→`role`，按「最宽松胜出、同模式并集」合并，`DEPT_AND_CHILD` 用部门树 `ancestors` 展开；无角色 / 仅 SELF → SELF）。读侧**直连** `current_user.data_scope_spec`（不再现场查库），仓储用 `scope_filter` 翻译成过滤条件。对象级判定走各 access service 的 `can_access`（`get_allowed_dept_ids` / `get_allowed_user_ids` / `get_allowed_role_ids`）。**角色不受数据范围管**；若要按部门管角色，需先有「数据可见性列」，未来再议。
 
 ### 命名约定

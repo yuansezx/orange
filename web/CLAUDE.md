@@ -9,7 +9,8 @@
 - 路由 `react-router-dom` v7
 - **服务器状态** TanStack Query v5；**客户端状态** zustand
 - UI：`antd`（桌面）+ `antd-mobile`（移动）
-- HTTP `axios`；表单 `react-hook-form` + `zod`
+- HTTP `axios`；表单用 **antd `Form`**（依赖里的 `react-hook-form` / `zod` 未使用）
+- 图标：**Tabler**（`@tabler/icons-react`）——**收口在 `shared/ui/icons.ts`**（按需再导出），别在页面直接引库；颜色随 `currentColor` 走主题
 
 ## 目录结构
 
@@ -44,7 +45,6 @@ web/src/
 - 路由前缀 `/{module}`（iam 即 `/iam`，如 `/iam/auth/login`、`/iam/users`）；`Authorization: Bearer` 认证。
 - 错误体统一 `{code, message, details}`（成功侧不套信封）。
 - **401 与会话失效**：拦截器（`shared/api/client.ts`）按后端 `code` 区分——`IAM_AUTHENTICATION_FAILED`（登录凭据错，留给表单展示）**之外**的 401 一律视为会话失效：清令牌 + 广播；`app/SessionExpiryWatcher` 收到后提示并跳登录页。
-- 后端未就绪时用 mock：`shared/lib/env.ts` 的 `USE_MOCK`（dev 默认开；设 `VITE_USE_MOCK=false` 关）。
 
 ## 命令
 
