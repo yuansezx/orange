@@ -14,7 +14,11 @@ from redis.asyncio import Redis
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure import cache, persistence
-from app.iam.application.common.queries import EffectivePermissionQuery, UsersAffectedByDeptChangeQuery
+from app.iam.application.common.queries import (
+    EffectivePermissionQuery,
+    PermissionExistsQuery,
+    UsersAffectedByDeptChangeQuery,
+)
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.current_user.ports import TokenManagerPort
 from app.iam.application.current_user.services import CurrentUserApplicationService
@@ -27,7 +31,6 @@ from app.iam.domain.shared.services import DataScopeService
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
-from app.iam.domain.permission.repositories import PermissionRepository
 from app.iam.domain.resource.repositories import ResourceRepository
 from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.role.services import RoleAccessService
@@ -56,10 +59,6 @@ def get_dept_repo() -> DeptRepository:
 
 def get_resource_repo() -> ResourceRepository:
     return _repos.ResourceRepositoryTortoiseImpl()
-
-
-def get_permission_repo() -> PermissionRepository:
-    return _repos.PermissionRepositoryTortoiseImpl()
 
 
 def get_user_access_service() -> UserAccessService:
@@ -112,7 +111,6 @@ def get_resource_app_service() -> ResourceApplicationService:
     return ResourceApplicationService(
         in_transaction=get_in_transaction(),
         resource_repo=get_resource_repo(),
-        permission_repo=get_permission_repo(),
     )
 
 
@@ -128,7 +126,7 @@ def get_role_app_service() -> RoleApplicationService:
     return RoleApplicationService(
         in_transaction=get_in_transaction(),
         role_repo=get_role_repo(),
-        permission_repo=get_permission_repo(),
+        permission_exists_query=get_permission_exists_query(),
         dept_repo=get_dept_repo(),
         role_access_service=get_role_access_service(),
         audit_service=get_audit_service(),
@@ -164,6 +162,10 @@ def get_effective_permission_query() -> EffectivePermissionQuery:
 
 def get_affected_users_query() -> UsersAffectedByDeptChangeQuery:
     return _queries.UsersAffectedByDeptChangeQueryTortoiseImpl()
+
+
+def get_permission_exists_query() -> PermissionExistsQuery:
+    return _queries.PermissionExistsQueryTortoiseImpl()
 
 
 def get_token_manager() -> TokenManagerPort:

@@ -5,6 +5,7 @@ from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.queries import PermissionExistsQuery
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.dept.exceptions import DeptNotFoundException
 from app.iam.application.resource.exceptions import PermissionNotFoundException
@@ -17,7 +18,6 @@ from app.iam.application.role.dto import (
 from app.iam.application.role.exceptions import RoleCodeConflictException, RoleNotFoundException
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.repositories import DeptRepository
-from app.iam.domain.permission.repositories import PermissionRepository
 from app.iam.domain.role.entities import Role
 from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.role.repositories import RoleRepository
@@ -47,7 +47,7 @@ class RoleApplicationService:
 
     def __init__(self, in_transaction: InTransactionType,
                  role_repo: RoleRepository,
-                 permission_repo: PermissionRepository,
+                 permission_exists_query: PermissionExistsQuery,
                  dept_repo: DeptRepository,
                  role_access_service: RoleAccessService,
                  audit_service: AuditService,
@@ -55,7 +55,7 @@ class RoleApplicationService:
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.role_repo = role_repo
-        self.permission_repo = permission_repo
+        self.permission_exists_query = permission_exists_query
         self.dept_repo = dept_repo
         self.role_access_service = role_access_service
         self.audit_service = audit_service
@@ -147,7 +147,7 @@ class RoleApplicationService:
         return role
 
     async def _ensure_permissions_exist(self, permission_ids: set[PermissionId]) -> None:
-        found = await self.permission_repo.get_by_ids(list(permission_ids))
+        found = await self.permission_exists_query.filter_existing(list(permission_ids))
         if len(found) != len(permission_ids):
             raise PermissionNotFoundException('存在无效的权限 id')
 

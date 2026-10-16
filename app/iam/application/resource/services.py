@@ -20,26 +20,22 @@ from app.iam.application.resource.exceptions import (
     ResourceNotFoundException,
 )
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.permission.entities import Permission
-from app.iam.domain.permission.repositories import PermissionRepository
-from app.iam.domain.resource.entities import Resource
+from app.iam.domain.resource.entities import Permission, Resource
 from app.iam.domain.resource.repositories import ResourceRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import PermissionId, ResourceId, UserId
 
 
 class ResourceApplicationService:
-    """资源 + 权限目录：代码声明注册 / 后台补充 / 目录读取。
+    """资源 + 权限目录（**Resource 聚合**）：代码声明注册 / 后台补充 / 目录读取。
 
-    permission 无独立生命周期（身份从属于 resource），故两个仓储同一个服务持有。
+    permission 是聚合内实体（身份从属于资源）——一律 load 聚合 → 实体方法变更 → update 整体落库。
     """
 
     def __init__(self, in_transaction: InTransactionType,
-                 resource_repo: ResourceRepository,
-                 permission_repo: PermissionRepository) -> None:
+                 resource_repo: ResourceRepository) -> None:
         self.in_transaction = in_transaction
         self.resource_repo = resource_repo
-        self.permission_repo = permission_repo
 
     # ---------------- 代码声明（幂等注册） ----------------
     async def register_resource(self, data: RegisterResourceIn, operator_id: UserId) -> Resource:
@@ -75,114 +71,105 @@ class ResourceApplicationService:
 
     async def create_permission(self, data: CreatePermissionIn, operator_id: UserId) -> PermissionId:
         async with self.in_transaction():
-            resource = await self.resource_repo.get(data.resource_id)
-            if resource is None or resource.status is StatusEnum.DELETED:
-                raise ResourceNotFoundException(f'资源不存在：{data.resource_id}')
-            if await self.permission_repo.get_by_resource_and_action(data.resource_id, data.action):
+            resource = await self._load(data.resource_id)
+            if resource.get_permission(data.action) is not None:
                 raise PermissionActionConflictException(
                     f'权限已存在：{resource.full_code()}:{data.action}')
-            permission = await self.permission_repo.create(Permission(
-                id=PermissionId.new(),
-                resource_id=data.resource_id,
-                action=data.action,
-                name=data.name,
-                description=data.description,
-                status=StatusEnum.ACTIVE,
-                created_at=datetime.now(UTC),
-                created_by=operator_id,
-            ))
+            permission = resource.declare_permission(
+                data.action, data.name, data.description, operator_id)
+            await self.resource_repo.update(resource)
             return permission.id
 
     async def update_resource(self, data: UpdateResourceIn, operator_id: UserId) -> None:
         async with self.in_transaction():
-            resource = await self.resource_repo.get(data.id)
-            if resource is None:
-                raise ResourceNotFoundException(f'资源不存在：{data.id}')
-            if data.name is not None or data.description is not None:
-                resource.change(
-                    data.name if data.name is not None else resource.name,
-                    data.description if data.description is not None else resource.description,
-                    operator_id,
-                )
+            resource = await self._load(data.id)
+            resource.change(
+                data.name if data.name is not None else resource.name,
+                data.description if data.description is not None else resource.description,
+                operator_id,
+            )
             if data.status is not None:
                 resource.change_status(data.status, operator_id)
             await self.resource_repo.update(resource)
 
     async def update_permission(self, data: UpdatePermissionIn, operator_id: UserId) -> None:
         async with self.in_transaction():
-            permission = await self.permission_repo.get(data.id)
-            if permission is None:
-                raise PermissionNotFoundException(f'权限不存在：{data.id}')
-            if data.name is not None or data.description is not None:
-                permission.change(
-                    data.name if data.name is not None else permission.name,
-                    data.description if data.description is not None else permission.description,
-                    operator_id,
-                )
+            resource, permission = await self._load_permission(data.id)
+            permission.change(
+                data.name if data.name is not None else permission.name,
+                data.description if data.description is not None else permission.description,
+                operator_id,
+            )
             if data.status is not None:
                 permission.change_status(data.status, operator_id)
-            await self.permission_repo.update(permission)
+            await self.resource_repo.update(resource)
 
     async def delete_resource(self, resource_id: ResourceId, operator_id: UserId) -> None:
         async with self.in_transaction():
-            resource = await self.resource_repo.get(resource_id)
-            if resource is None:
-                raise ResourceNotFoundException(f'资源不存在：{resource_id}')
-            resource.delete(operator_id)
+            resource = await self._load(resource_id)
+            resource.delete(operator_id)  # 级联软删聚合内权限
             await self.resource_repo.update(resource)
 
     async def delete_permission(self, permission_id: PermissionId, operator_id: UserId) -> None:
         async with self.in_transaction():
-            permission = await self.permission_repo.get(permission_id)
-            if permission is None:
-                raise PermissionNotFoundException(f'权限不存在：{permission_id}')
+            resource, permission = await self._load_permission(permission_id)
             permission.delete(operator_id)
-            await self.permission_repo.update(permission)
+            await self.resource_repo.update(resource)
 
     # ---------------- 读取 ----------------
     @requires_permission(('iam:resource:read', 'iam:permission:read'), 'iam:role:read')
     async def get_catalog(self, current_user: CurrentUser, include_disabled: bool = False) -> CatalogOut:
-        """返回「模块 → 资源 → 权限」三级结构（两条查询 + 内存分组，无 N+1）。"""
-        resources = await self.resource_repo.get_all()
-        if not include_disabled:
-            resources = [r for r in resources if r.status is not StatusEnum.DISABLED]
-
-        permissions = await self.permission_repo.get_by_resource_ids([r.id for r in resources])
-        if not include_disabled:
-            permissions = [p for p in permissions if p.status is not StatusEnum.DISABLED]
-
-        perms_by_resource: dict[ResourceId, list[Permission]] = {}
-        for p in permissions:
-            perms_by_resource.setdefault(p.resource_id, []).append(p)
-
+        """返回「模块 → 资源 → 权限」三级结构（装配聚合 + 内存分组，无 N+1）。"""
         modules: dict[str, CatalogModuleOut] = {}
-        for r in resources:
-            module_out = modules.setdefault(r.module, CatalogModuleOut(module=r.module))
+        for resource in await self.resource_repo.get_all():
+            if resource.status is StatusEnum.DELETED:
+                continue
+            if not include_disabled and resource.status is StatusEnum.DISABLED:
+                continue
+            permissions = [
+                p for p in resource.permissions
+                if p.status is not StatusEnum.DELETED
+                and (include_disabled or p.status is not StatusEnum.DISABLED)
+            ]
+            module_out = modules.setdefault(resource.module, CatalogModuleOut(module=resource.module))
             module_out.resources.append(CatalogResourceOut(
-                id=r.id,
-                module=r.module,
-                code=r.code,
-                key=r.full_code(),
-                name=r.name,
-                description=r.description,
-                status=r.status,
+                id=resource.id,
+                module=resource.module,
+                code=resource.code,
+                key=resource.full_code(),
+                name=resource.name,
+                description=resource.description,
+                status=resource.status,
                 permissions=[CatalogPermissionOut(
                     id=p.id,
                     action=p.action,
-                    key=p.full_code(r),
+                    key=p.full_code(resource),
                     name=p.name,
                     description=p.description,
                     status=p.status,
-                ) for p in perms_by_resource.get(r.id, [])],
+                ) for p in permissions],
             ))
         return CatalogOut(modules=list(modules.values()))
 
     # ---------------- 内部方法 ----------------
+    async def _load(self, resource_id: ResourceId) -> Resource:
+        resource = await self.resource_repo.get(resource_id)
+        if resource is None or resource.status is StatusEnum.DELETED:
+            raise ResourceNotFoundException(f'资源不存在：{resource_id}')
+        return resource
+
+    async def _load_permission(self, permission_id: PermissionId) -> tuple[Resource, Permission]:
+        resource = await self.resource_repo.get_by_permission_id(permission_id)
+        permission = resource.get_permission_by_id(permission_id) if resource else None
+        if resource is None or permission is None:
+            raise PermissionNotFoundException(f'权限不存在：{permission_id}')
+        return resource, permission
+
     async def _register_resource(self, data: RegisterResourceIn, operator_id: UserId) -> Resource:
         """幂等 upsert：按自然键查 → 建或改。假定事务已开。"""
         resource = await self.resource_repo.get_by_module_and_code(data.module, data.code)
         if resource is None:
-            resource = await self.resource_repo.create(Resource(
+            resource = Resource(
                 id=ResourceId.new(),
                 module=data.module,
                 code=data.code,
@@ -191,39 +178,16 @@ class ResourceApplicationService:
                 status=StatusEnum.ACTIVE,
                 created_at=datetime.now(UTC),
                 created_by=operator_id,
-            ))
-        else:
-            changed = False
-            if resource.name != data.name or resource.description != data.description:
-                resource.change(data.name, data.description, operator_id)
-                changed = True
-            if resource.status is not StatusEnum.ACTIVE:
-                resource.change_status(StatusEnum.ACTIVE, operator_id)
-                changed = True
-            if changed:
-                await self.resource_repo.update(resource)
+            )
+            for p in data.permissions:
+                resource.declare_permission(p.action, p.name, p.description, operator_id)
+            return await self.resource_repo.create(resource)
 
+        if resource.name != data.name or resource.description != data.description:
+            resource.change(data.name, data.description, operator_id)
+        if resource.status is not StatusEnum.ACTIVE:
+            resource.change_status(StatusEnum.ACTIVE, operator_id)
         for p in data.permissions:
-            permission = await self.permission_repo.get_by_resource_and_action(resource.id, p.action)
-            if permission is None:
-                await self.permission_repo.create(Permission(
-                    id=PermissionId.new(),
-                    resource_id=resource.id,
-                    action=p.action,
-                    name=p.name,
-                    description=p.description,
-                    status=StatusEnum.ACTIVE,
-                    created_at=datetime.now(UTC),
-                    created_by=operator_id,
-                ))
-            else:
-                changed = False
-                if permission.name != p.name or permission.description != p.description:
-                    permission.change(p.name, p.description, operator_id)
-                    changed = True
-                if permission.status is not StatusEnum.ACTIVE:
-                    permission.change_status(StatusEnum.ACTIVE, operator_id)
-                    changed = True
-                if changed:
-                    await self.permission_repo.update(permission)
+            resource.declare_permission(p.action, p.name, p.description, operator_id)
+        await self.resource_repo.update(resource)
         return resource

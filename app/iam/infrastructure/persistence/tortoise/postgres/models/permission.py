@@ -6,7 +6,7 @@ from app.iam.domain.shared.enums import StatusEnum
 
 
 class PermissionModel(AuditableModel):
-    """permission 目录的表模型（与领域实体 app.iam.domain.permission.entities.Permission 分离）。
+    """权限表模型——领域上是 **Resource 聚合内实体**（`domain/resource/entities.py`）。
 
     resource_id 用普通 UUID 列（非 FK），引用走 ID。完整标识 `module:resource:action`
     运行时派生，不落库；(resource_id, action) 联合唯一。

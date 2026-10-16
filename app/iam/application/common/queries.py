@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from app.iam.application.common.dto import EffectivePermissions
-from app.iam.domain.shared.value_objects import DeptId, UserId
+from app.iam.domain.shared.value_objects import DeptId, PermissionId, UserId
 
 
 class EffectivePermissionQuery(ABC):
@@ -23,3 +23,13 @@ class UsersAffectedByDeptChangeQuery(ABC):
 
     @abstractmethod
     async def resolve(self, affected_dept_ids: frozenset[DeptId]) -> set[UserId]: ...
+
+
+class PermissionExistsQuery(ABC):
+    """按 id 过滤出**存在**的权限（CQRS 读侧，角色分配权限时校验用）。
+
+    permission 是 Resource 聚合内实体、无独立仓储，跨聚合读故走此查询。
+    """
+
+    @abstractmethod
+    async def filter_existing(self, permission_ids: list[PermissionId]) -> set[PermissionId]: ...
