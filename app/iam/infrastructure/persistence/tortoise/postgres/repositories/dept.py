@@ -86,15 +86,11 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
             ancestors__contains=[dept_id.value], status__not=StatusEnum.DELETED)
         return [to_domain(m) for m in models]
 
-    async def has_children(self, dept_id: DeptId) -> bool:
-        return await DeptModel.filter(
-            parent_id=dept_id.value, status__not=StatusEnum.DELETED).exists()
-
     async def get_by_parent_and_name(self, parent_id: DeptId | None, name: str) -> Dept | None:
+        """同级同名查（**含已删**——软删仍占位，恢复时才不会撞名）。"""
         m = await DeptModel.get_or_none(
             parent_id=parent_id.value if parent_id else None,
             name=name,
-            status__not=StatusEnum.DELETED,
         )
         return to_domain(m) if m else None
 

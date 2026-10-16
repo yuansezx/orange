@@ -15,7 +15,6 @@ from app.iam.application.dept.dto import (
     UpdateDeptIn,
 )
 from app.iam.application.dept.exceptions import (
-    DeptHasChildrenException,
     DeptHasUsersException,
     DeptNameConflictException,
     DeptNotFoundException,
@@ -184,17 +183,23 @@ class DeptApplicationService:
 
     @requires_permission('iam:dept:delete')
     async def delete_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
+        """删除部门 = **级联软删整棵子树**（不允许「只删父、留子」）。
+
+        维持不变式「父已删 ⇒ 子必删」；子树内任一部门下有用户 → 整体拒绝（守卫）。
+        """
         async with self.in_transaction():
             dept = await self._load(dept_id)
             if not await self.dept_access_service.can_access(dept.id, current_user):
                 raise PermissionDeniedException('无权访问该部门')
-            if await self.dept_repo.has_children(dept.id):
-                raise DeptHasChildrenException('存在下级部门，不允许删除')
-            if await self.user_repo.exists_by_dept(dept.id):
-                raise DeptHasUsersException('部门下存在用户，不允许删除')
+            subtree = [dept, *await self.dept_repo.get_descendants(dept.id)]
+            for node in subtree:
+                if await self.user_repo.exists_by_dept(node.id):
+                    raise DeptHasUsersException(f'部门「{node.name}」下存在用户，不允许删除')
             parent = await self.dept_repo.get(dept.parent_id) if dept.parent_id else None
-            dept.delete(current_user.user_id)
-            await self.dept_repo.update(dept)
+            operator = current_user.user_id
+            for node in subtree:
+                node.delete(operator)
+                await self.dept_repo.update(node)
         await self._notify_structure_changed(parent_chain(parent))
 
     # ---------------- 内部 ----------------

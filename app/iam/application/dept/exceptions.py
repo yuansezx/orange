@@ -19,12 +19,6 @@ class DeptNameConflictException(IAMBusinessBaseException):
     kind = ErrorKindEnum.CONFLICT
 
 
-class DeptHasChildrenException(IAMBusinessBaseException):
-    """存在下级部门，不允许删除。"""
-    code = 'IAM_DEPT_HAS_CHILDREN'
-    kind = ErrorKindEnum.CONFLICT
-
-
 class DeptHasUsersException(IAMBusinessBaseException):
     """部门下存在用户，不允许删除。"""
     code = 'IAM_DEPT_HAS_USERS'

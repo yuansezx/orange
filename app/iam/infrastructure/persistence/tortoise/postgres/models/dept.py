@@ -27,4 +27,8 @@ class DeptModel(AuditableModel):
 
     class Meta:
         table = 'iam_dept'
-        indexes = [('parent_id',), postgres_indexes.GinIndex(fields=('ancestors',))]
+        # 同级同名唯一（DB 兜底，与 user/role 一致）。注意：根部门 parent_id 为 NULL，
+        # PG 里 NULL 互不相等，(parent_id, name) 唯一索引**拦不住根部门重名**——那一层靠应用层。
+        unique_together = (('parent_id', 'name'),)
+        # parent_id 的前缀已被上面的复合索引覆盖，不再单列
+        indexes = [postgres_indexes.GinIndex(fields=('ancestors',))]
