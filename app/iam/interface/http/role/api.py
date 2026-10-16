@@ -4,11 +4,12 @@
 """
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.iam.application.role.dto import UpdateRoleIn
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId
 from app.iam.interface.dependences import get_role_app_service
 from app.iam.interface.http.dependencies import get_current_user
@@ -38,10 +39,11 @@ async def create_role(
 
 @role_router.get('', response_model=list[RoleResp], summary='角色列表')
 async def list_roles(
+    status: StatusEnum | None = Query(None, description='按状态过滤；不传默认排除已删除'),
     current_user: CurrentUser = Depends(get_current_user),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> list[RoleResp]:
-    roles = await role_app_service.get_all_roles(current_user)
+    roles = await role_app_service.get_all_roles(current_user, status)
     return [RoleResp.model_validate(r, from_attributes=True) for r in roles]
 
 

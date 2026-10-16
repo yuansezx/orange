@@ -2,6 +2,7 @@ from future_uuid import uuid7
 from tortoise import fields
 
 from app.core.infrastructure.persistence.tortoise.models import AuditableModel
+from app.iam.domain.resource.enums import SourceTypeEnum
 from app.iam.domain.shared.enums import StatusEnum
 
 
@@ -18,6 +19,7 @@ class PermissionModel(AuditableModel):
     name = fields.CharField(max_length=128)
     description = fields.TextField(null=True)
     status = fields.CharEnumField(StatusEnum, max_length=50)
+    permission_type = fields.CharEnumField(SourceTypeEnum, max_length=50)
 
     class Meta:
         table = 'iam_permission'

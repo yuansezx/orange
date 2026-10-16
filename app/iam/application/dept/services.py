@@ -79,23 +79,21 @@ class DeptApplicationService:
 
     @requires_permission('iam:dept:read')
     async def get_depts(self, filters: GetDeptsIn, current_user: CurrentUser) -> list[DeptOut]:
-        depts = await self._visible_depts(current_user)
+        depts = await self._visible_depts(current_user, filters.status)
         if filters.name:
             depts = [d for d in depts if filters.name in d.name]
-        if filters.status is not None:
-            depts = [d for d in depts if d.status is filters.status]
         return [_to_out(d) for d in depts]
 
     @requires_permission('iam:dept:read')
     async def get_dept(self, dept_id: DeptId, current_user: CurrentUser) -> DeptOut:
-        dept = await self._load(dept_id)
+        dept = await self._load_any(dept_id)
         if not await self.dept_access_service.can_access(dept.id, current_user):
             raise PermissionDeniedException('无权访问该部门')
         return _to_out(dept)
 
     @requires_permission('iam:dept:read')
     async def get_dept_detail(self, dept_id: DeptId, current_user: CurrentUser) -> DeptDetailOut:
-        dept = await self._load(dept_id)
+        dept = await self._load_any(dept_id)
         if not await self.dept_access_service.can_access(dept.id, current_user):
             raise PermissionDeniedException('无权访问该部门')
         audit = await self.audit_service.build(dept)
@@ -200,9 +198,10 @@ class DeptApplicationService:
         await self._notify_structure_changed(parent_chain(parent))
 
     # ---------------- 内部 ----------------
-    async def _visible_depts(self, current_user: CurrentUser) -> list[Dept]:
-        """按数据范围过滤可见部门（ALL → 不过滤）。"""
-        depts = await self.dept_repo.get_all()
+    async def _visible_depts(self, current_user: CurrentUser,
+                             status: StatusEnum | None = None) -> list[Dept]:
+        """按数据范围过滤可见部门（ALL → 不过滤）；`status` 缺省排除已删。"""
+        depts = await self.dept_repo.get_all(status)
         spec = current_user.data_scope_spec
         if spec.kind is DataScopeEnum.ALL:
             return depts
@@ -216,6 +215,13 @@ class DeptApplicationService:
     async def _load(self, dept_id: DeptId) -> Dept:
         dept = await self.dept_repo.get(dept_id)
         if dept is None or dept.status is StatusEnum.DELETED:
+            raise DeptNotFoundException(f'部门不存在：{dept_id}')
+        return dept
+
+    async def _load_any(self, dept_id: DeptId) -> Dept:
+        """读侧加载：**不惧已删**（回收站详情要能看）。"""
+        dept = await self.dept_repo.get(dept_id)
+        if dept is None:
             raise DeptNotFoundException(f'部门不存在：{dept_id}')
         return dept
 

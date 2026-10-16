@@ -74,10 +74,9 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         # 物理删除（tortoise QuerySet.delete 即为物理删）
         return await DeptModel.filter(id__in=ids).delete()
 
-    async def get_all(self, include_deleted: bool = False) -> list[Dept]:
-        qs = DeptModel.all()
-        if not include_deleted:
-            qs = qs.exclude(status=StatusEnum.DELETED)
+    async def get_all(self, status: StatusEnum | None = None) -> list[Dept]:
+        qs = (DeptModel.filter(status=status) if status is not None
+              else DeptModel.exclude(status=StatusEnum.DELETED))
         models = await qs.order_by('name')
         return [to_domain(m) for m in models]
 

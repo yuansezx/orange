@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 from app.core.domain.repositories import BaseRepository
 from app.iam.domain.resource.entities import Resource
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import PermissionId, ResourceId
 
 
@@ -17,4 +18,6 @@ class ResourceRepository(BaseRepository[ResourceId, Resource]):
         ...
 
     @abstractmethod
-    async def get_all(self) -> list[Resource]: ...
+    async def get_all(self, status: StatusEnum | None = None) -> list[Resource]:
+        """`status` 缺省 = 全部未删；给了就按该状态过滤（含 `DELETED`，供回收站）。"""
+        ...

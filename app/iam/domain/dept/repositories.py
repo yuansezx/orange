@@ -3,13 +3,16 @@ from abc import abstractmethod
 from app.core.domain.repositories import BaseRepository
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.entities import Dept
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId
 
 
 class DeptRepository(BaseRepository[DeptId, Dept]):
 
     @abstractmethod
-    async def get_all(self, include_deleted: bool = False) -> list[Dept]: ...
+    async def get_all(self, status: StatusEnum | None = None) -> list[Dept]:
+        """`status` 缺省 = 全部未删；给了就按该状态过滤（含 `DELETED`，供回收站）。"""
+        ...
 
     @abstractmethod
     async def get_descendants(self, dept_id: DeptId) -> list[Dept]:

@@ -21,6 +21,7 @@ from app.iam.application.resource.exceptions import (
 )
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.resource.entities import Permission, Resource
+from app.iam.domain.resource.enums import SourceTypeEnum
 from app.iam.domain.resource.repositories import ResourceRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import PermissionId, ResourceId, UserId
@@ -64,6 +65,7 @@ class ResourceApplicationService:
                 name=data.name,
                 description=data.description,
                 status=StatusEnum.ACTIVE,
+                resource_type=SourceTypeEnum.CUSTOM,
                 created_at=datetime.now(UTC),
                 created_by=operator_id,
             ))
@@ -76,7 +78,7 @@ class ResourceApplicationService:
                 raise PermissionActionConflictException(
                     f'权限已存在：{resource.full_code()}:{data.action}')
             permission = resource.declare_permission(
-                data.action, data.name, data.description, operator_id)
+                data.action, data.name, data.description, SourceTypeEnum.CUSTOM, operator_id)
             await self.resource_repo.update(resource)
             return permission.id
 
@@ -118,19 +120,14 @@ class ResourceApplicationService:
 
     # ---------------- 读取 ----------------
     @requires_permission(('iam:resource:read', 'iam:permission:read'), 'iam:role:read')
-    async def get_catalog(self, current_user: CurrentUser, include_disabled: bool = False) -> CatalogOut:
-        """返回「模块 → 资源 → 权限」三级结构（装配聚合 + 内存分组，无 N+1）。"""
+    async def get_catalog(self, current_user: CurrentUser) -> CatalogOut:
+        """返回「模块 → 资源 → 权限」三级结构（装配聚合 + 内存分组，无 N+1）。
+
+        只排除**已删**；**停用的照列**（停用 ≠ 删除，管理时要看得到才能启用）。
+        """
         modules: dict[str, CatalogModuleOut] = {}
-        for resource in await self.resource_repo.get_all():
-            if resource.status is StatusEnum.DELETED:
-                continue
-            if not include_disabled and resource.status is StatusEnum.DISABLED:
-                continue
-            permissions = [
-                p for p in resource.permissions
-                if p.status is not StatusEnum.DELETED
-                and (include_disabled or p.status is not StatusEnum.DISABLED)
-            ]
+        for resource in await self.resource_repo.get_all():  # 缺省即排除已删
+            permissions = [p for p in resource.permissions if p.status is not StatusEnum.DELETED]
             module_out = modules.setdefault(resource.module, CatalogModuleOut(module=resource.module))
             module_out.resources.append(CatalogResourceOut(
                 id=resource.id,
@@ -176,11 +173,13 @@ class ResourceApplicationService:
                 name=data.name,
                 description=data.description,
                 status=StatusEnum.ACTIVE,
+                resource_type=SourceTypeEnum.SYSTEM,
                 created_at=datetime.now(UTC),
                 created_by=operator_id,
             )
             for p in data.permissions:
-                resource.declare_permission(p.action, p.name, p.description, operator_id)
+                resource.declare_permission(
+                    p.action, p.name, p.description, SourceTypeEnum.SYSTEM, operator_id)
             return await self.resource_repo.create(resource)
 
         if resource.name != data.name or resource.description != data.description:
@@ -188,6 +187,7 @@ class ResourceApplicationService:
         if resource.status is not StatusEnum.ACTIVE:
             resource.change_status(StatusEnum.ACTIVE, operator_id)
         for p in data.permissions:
-            resource.declare_permission(p.action, p.name, p.description, operator_id)
+            resource.declare_permission(
+                p.action, p.name, p.description, SourceTypeEnum.SYSTEM, operator_id)
         await self.resource_repo.update(resource)
         return resource

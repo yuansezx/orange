@@ -5,6 +5,7 @@ from datetime import datetime, UTC
 from pydantic import Field, model_validator
 
 from app.core.domain.entities import AuditableEntity
+from app.iam.domain.resource.enums import SourceTypeEnum
 from app.iam.domain.resource.exceptions import (
     InvalidPermissionActionException,
     InvalidResourceCodeException,
@@ -27,6 +28,7 @@ class Permission(AuditableEntity[UserId]):
     name: str
     description: str | None = None
     status: StatusEnum
+    permission_type: SourceTypeEnum
 
     @model_validator(mode='after')
     def _check_action(self):
@@ -69,6 +71,7 @@ class Resource(AuditableEntity[UserId]):
     name: str
     description: str | None = None
     status: StatusEnum
+    resource_type: SourceTypeEnum
     permissions: list[Permission] = Field(default_factory=list)
 
     @model_validator(mode='after')
@@ -91,15 +94,17 @@ class Resource(AuditableEntity[UserId]):
         return next((p for p in self.permissions if p.id == permission_id), None)
 
     def declare_permission(self, action: str, name: str, description: str | None,
-                           operator_id: UserId) -> Permission:
+                           permission_type: SourceTypeEnum, operator_id: UserId) -> Permission:
         """**幂等**声明一个权限动作：已存在（含软删）则更新属性并复活，否则新建。
 
         幂等是为了 bootstrap 反复注册——重声明不新插、不撞 `(resource_id, action)` 唯一约束。
+        复活时归属以**本次声明方**为准（代码声明会接管一个原本 custom 的动作）。
         需要「已存在即冲突」的语义时，由调用方先 `get_permission` 判断。
         """
         existing = self.get_permission(action)
         if existing is not None:
             existing.change(name, description, operator_id)
+            existing.permission_type = permission_type
             if existing.status is not StatusEnum.ACTIVE:
                 existing.change_status(StatusEnum.ACTIVE, operator_id)
             return existing
@@ -111,6 +116,7 @@ class Resource(AuditableEntity[UserId]):
             name=name,
             description=description,
             status=StatusEnum.ACTIVE,
+            permission_type=permission_type,
             created_at=datetime.now(UTC),
             created_by=operator_id,
         )

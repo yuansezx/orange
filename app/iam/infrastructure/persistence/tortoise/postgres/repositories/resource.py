@@ -21,6 +21,7 @@ def _permission_to_domain(m: PermissionModel) -> Permission:
         name=m.name,
         description=m.description,
         status=m.status,
+        permission_type=m.permission_type,
         created_at=m.created_at,
         created_by=UserId(m.created_by),
         updated_at=m.updated_at,
@@ -38,6 +39,7 @@ def _permission_fields(p: Permission) -> dict:
         name=p.name,
         description=p.description,
         status=p.status,
+        permission_type=p.permission_type,
         created_at=p.created_at,
         created_by=p.created_by.value,
         updated_at=p.updated_at,
@@ -55,6 +57,7 @@ def to_domain(m: ResourceModel, permissions: list[Permission]) -> Resource:
         name=m.name,
         description=m.description,
         status=m.status,
+        resource_type=m.resource_type,
         permissions=permissions,
         created_at=m.created_at,
         created_by=UserId(m.created_by),
@@ -74,6 +77,7 @@ def to_model_fields(r: Resource) -> dict:
         name=r.name,
         description=r.description,
         status=r.status,
+        resource_type=r.resource_type,
         created_at=r.created_at,
         created_by=r.created_by.value,
         updated_at=r.updated_at,
@@ -127,8 +131,10 @@ class ResourceRepositoryTortoiseImpl(ResourceRepository):
             return None
         return await self.get(ResourceId(m.resource_id))
 
-    async def get_all(self) -> list[Resource]:
-        models = await ResourceModel.filter(status__not=StatusEnum.DELETED).order_by('module', 'code')
+    async def get_all(self, status: StatusEnum | None = None) -> list[Resource]:
+        qs = (ResourceModel.filter(status=status) if status is not None
+              else ResourceModel.filter(status__not=StatusEnum.DELETED))
+        models = await qs.order_by('module', 'code')
         if not models:
             return []
         grouped = await _load_permissions([m.id for m in models])

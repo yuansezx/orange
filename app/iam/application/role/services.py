@@ -118,18 +118,19 @@ class RoleApplicationService:
     @requires_permission('iam:role:read')
     async def get_role(self, role_id: RoleId, current_user: CurrentUser) -> RoleOut:
         role = await self.role_repo.get(role_id)
-        if role is None or role.status is StatusEnum.DELETED:
+        if role is None:  # 读不惧已删（回收站要能看）
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         return _to_out(role)
 
     @requires_permission('iam:role:read')
-    async def get_all_roles(self, current_user: CurrentUser) -> list[RoleOut]:
-        return [_to_out(r) for r in await self.role_repo.get_all()]
+    async def get_all_roles(self, current_user: CurrentUser,
+                            status: StatusEnum | None = None) -> list[RoleOut]:
+        return [_to_out(r) for r in await self.role_repo.get_all(status)]
 
     @requires_permission('iam:role:read')
     async def get_role_detail(self, role_id: RoleId, current_user: CurrentUser) -> RoleDetailOut:
         role = await self.role_repo.get(role_id)
-        if role is None or role.status is StatusEnum.DELETED:
+        if role is None:  # 读不惧已删（回收站要能看）
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         audit = await self.audit_service.build(role)
         dept_refs = await self.dept_ref_service.build(list(role.custom_dept_ids))

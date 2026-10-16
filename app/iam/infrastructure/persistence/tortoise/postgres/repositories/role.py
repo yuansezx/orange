@@ -93,10 +93,9 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
         perms, depts = await self._load_relations([m.id for m in models])
         return [_assemble(m, perms, depts) for m in models]
 
-    async def get_all(self, include_deleted: bool = False) -> list[Role]:
-        qs = RoleModel.all()
-        if not include_deleted:
-            qs = qs.filter(status__not=StatusEnum.DELETED)
+    async def get_all(self, status: StatusEnum | None = None) -> list[Role]:
+        qs = (RoleModel.filter(status=status) if status is not None
+              else RoleModel.filter(status__not=StatusEnum.DELETED))
         models = await qs.order_by('code')
         if not models:
             return []
