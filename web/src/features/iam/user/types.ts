@@ -4,7 +4,7 @@ import type { PageQuery } from '@shared/api'
 export type UserType = 'admin_created' | 'self_registered' | 'system' | 'super_admin'
 
 /** 对齐后端 StatusEnum。 */
-export type UserStatus = 'active' | 'disabled' | 'deleted'
+export type UserStatus = 'active' | 'disabled'
 
 /** 用户列表读模型——字段对齐后端 UserResp。 */
 export interface UserListItem {

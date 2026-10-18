@@ -96,7 +96,7 @@ export default function DeptPage() {
   const confirmDelete = (dept: Dept) =>
     modal.confirm({
       title: `删除部门「${dept.name}」？`,
-      content: '存在子部门或部门下有用户时无法删除。',
+      content: '将一并删除其下所有子部门；子树内存在用户时无法删除。',
       okButtonProps: { danger: true },
       onOk: () => remove.mutateAsync(dept.id),
     })

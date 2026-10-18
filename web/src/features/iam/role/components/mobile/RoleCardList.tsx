@@ -5,11 +5,10 @@ import { DATA_SCOPE_LABELS, STATUS_LABELS } from '../../../constants'
 import type { Status } from '../../../types'
 import type { Role } from '../../types'
 
-/** antd-mobile Tag 的预设色系（与 antd 不同：deleted 用 danger）。 */
-const MOBILE_STATUS_COLORS: Record<Status, 'success' | 'default' | 'danger'> = {
+/** antd-mobile Tag 的预设色系（与 antd 不同，移动端就近映射）。 */
+const MOBILE_STATUS_COLORS: Record<Status, 'success' | 'default'> = {
   active: 'success',
   disabled: 'default',
-  deleted: 'danger',
 }
 
 interface Props {
