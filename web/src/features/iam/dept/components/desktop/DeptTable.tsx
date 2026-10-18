@@ -1,4 +1,4 @@
-import { Alert, Button, Space, Table, Tag, Tooltip } from 'antd'
+import { Alert, Button, Space, Table, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
@@ -6,7 +6,8 @@ import type { Key, MouseEvent } from 'react'
 
 import { IconBuildingPlus, IconEdit, IconTrash } from '@shared/ui'
 
-import { STATUS_COLORS, STATUS_LABELS } from '../../../constants'
+import { StatusSwitch } from '../../../components/StatusSwitch'
+import type { Status } from '../../../types'
 import type { Dept, DeptTreeNode } from '../../types'
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   onEdit: (dept: Dept) => void
   onCreateChild: (parentId: string) => void
   onDelete: (dept: Dept) => void
+  statusPendingId?: string
+  onStatusChange: (dept: Dept, status: Status) => void
 }
 
 function collectIds(nodes: DeptTreeNode[]): Key[] {
@@ -27,7 +30,17 @@ function collectIds(nodes: DeptTreeNode[]): Key[] {
  * 【分叉档 · 桌面】部门树表格（antd `Table` 原生支持 `children` 递归展开）。
  * **点行看详情**；操作列按钮已 stopPropagation。取数与弹层在 DeptPage。
  */
-export function DeptTable({ nodes, loading, error, onView, onEdit, onCreateChild, onDelete }: Props) {
+export function DeptTable({
+  nodes,
+  loading,
+  error,
+  onView,
+  onEdit,
+  onCreateChild,
+  onDelete,
+  statusPendingId,
+  onStatusChange,
+}: Props) {
   // 受控展开：默认全展开（defaultExpandAllRows 对异步数据不生效）。
   // 只记「被用户折叠」的节点，展开态由 全部节点 - 已折叠 派生——异步数据到达/新增节点均自动展开，无需 effect。
   const [collapsed, setCollapsed] = useState<Set<Key>>(new Set())
@@ -49,8 +62,14 @@ export function DeptTable({ nodes, loading, error, onView, onEdit, onCreateChild
     {
       title: '状态',
       dataIndex: 'status',
-      width: 100,
-      render: (value: Dept['status']) => <Tag color={STATUS_COLORS[value]}>{STATUS_LABELS[value]}</Tag>,
+      width: 110,
+      render: (_, record) => (
+        <StatusSwitch
+          status={record.status}
+          loading={statusPendingId === record.id}
+          onChange={(status) => onStatusChange(record, status)}
+        />
+      ),
     },
     {
       title: '创建时间',

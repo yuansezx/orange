@@ -5,8 +5,9 @@ import type { MouseEvent } from 'react'
 
 import { IconEdit, IconTrash } from '@shared/ui'
 
-import { STATUS_LABELS, USER_TYPE_LABELS } from '../../constants'
-import type { UserListItem, UserStatus, UserTableProps, UserType } from '../../types'
+import { StatusSwitch } from '../../../components/StatusSwitch'
+import { USER_TYPE_LABELS } from '../../constants'
+import type { UserListItem, UserTableProps, UserType } from '../../types'
 
 /**
  * 【分叉档 · 桌面】—— 宽表格在窄屏不可用，故与移动端拆开。
@@ -22,6 +23,8 @@ export function UserTable({
   onView,
   onEdit,
   onDelete,
+  statusPendingId,
+  onStatusChange,
   onPageChange,
 }: UserTableProps) {
   if (error) {
@@ -46,7 +49,13 @@ export function UserTable({
     {
       title: '状态',
       dataIndex: 'status',
-      render: (value) => STATUS_LABELS[value as UserStatus] ?? value,
+      render: (_, record) => (
+        <StatusSwitch
+          status={record.status}
+          loading={statusPendingId === record.id}
+          onChange={(status) => onStatusChange(record, status)}
+        />
+      ),
     },
     {
       title: '创建人',

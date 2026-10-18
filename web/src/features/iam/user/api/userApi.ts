@@ -7,6 +7,7 @@ import type {
   UpdateUserReq,
   UserDetail,
   UserListItem,
+  UserStatus,
 } from '../types'
 
 const BASE = '/api/iam/users'
@@ -31,4 +32,9 @@ export function updateUser(id: string, body: UpdateUserReq): Promise<void> {
 
 export function deleteUser(id: string): Promise<void> {
   return del<void>(`${BASE}/${id}`)
+}
+
+/** 启用 / 停用（统一状态接口）。 */
+export function setUserStatus(id: string, status: UserStatus): Promise<void> {
+  return put<void>(`${BASE}/${id}/status`, { status })
 }

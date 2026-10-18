@@ -1,5 +1,6 @@
 import { del, get, post, put } from '@shared/api'
 
+import type { Status } from '../../types'
 import type {
   Catalog,
   CreateRoleReq,
@@ -34,6 +35,11 @@ export function updateRole(id: string, body: UpdateRoleReq): Promise<void> {
 
 export function deleteRole(id: string): Promise<void> {
   return del<void>(`${BASE}/${id}`)
+}
+
+/** 启用 / 停用（统一状态接口）。 */
+export function setRoleStatus(id: string, status: Status): Promise<void> {
+  return put<void>(`${BASE}/${id}/status`, { status })
 }
 
 /** 资源/权限目录（角色页权限树用）——`GET /api/iam/resources/catalog`。 */

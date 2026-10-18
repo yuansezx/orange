@@ -90,11 +90,13 @@ export interface UserFormValues {
   role_ids?: string[]
 }
 
-/** 桌面表格：在视图入参上再加分页。 */
+/** 桌面表格：在视图入参上再加分页与状态开关。 */
 export interface UserTableProps extends UserListViewProps {
   total: number
   page: number
   pageSize: number
+  statusPendingId?: string
+  onStatusChange: (user: UserListItem, status: UserStatus) => void
   onPageChange: (page: number, pageSize: number) => void
 }
 

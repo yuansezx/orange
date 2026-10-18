@@ -34,7 +34,7 @@ export default function UserPage() {
   const [viewingId, setViewingId] = useState<string>()
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const { modal } = App.useApp()
-  const { create, update, remove } = useUserMutations()
+  const { create, update, remove, setStatus } = useUserMutations()
 
   const page = Number(params.get('page') ?? '1') || 1
   const pageSize = Number(params.get('page_size') ?? '10') || 10
@@ -140,6 +140,8 @@ export default function UserPage() {
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
+            statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
+            onStatusChange={(user, status) => setStatus.mutate({ id: user.id, status })}
             onPageChange={(nextPage, nextSize) =>
               updateQuery({ page: String(nextPage), page_size: String(nextSize) })
             }

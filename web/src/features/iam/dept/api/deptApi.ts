@@ -1,5 +1,6 @@
 import { del, get, post, put } from '@shared/api'
 
+import type { Status } from '../../types'
 import type { CreateDeptReq, Dept, DeptDetail, DeptTreeNode, UpdateDeptReq } from '../types'
 
 const BASE = '/api/iam/depts'
@@ -24,4 +25,9 @@ export function updateDept(id: string, body: UpdateDeptReq): Promise<Dept> {
 
 export function deleteDept(id: string): Promise<void> {
   return del<void>(`${BASE}/${id}`)
+}
+
+/** 启用 / 停用（统一状态接口；停用级联子树、启用级联祖先）。 */
+export function setDeptStatus(id: string, status: Status): Promise<void> {
+  return put<void>(`${BASE}/${id}/status`, { status })
 }

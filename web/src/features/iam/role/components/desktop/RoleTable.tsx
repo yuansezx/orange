@@ -1,11 +1,13 @@
-import { Alert, Button, Space, Table, Tag, Tooltip } from 'antd'
+import { Alert, Button, Space, Table, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import type { MouseEvent } from 'react'
 
 import { IconEdit, IconTrash } from '@shared/ui'
 
-import { DATA_SCOPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '../../../constants'
+import { StatusSwitch } from '../../../components/StatusSwitch'
+import { DATA_SCOPE_LABELS } from '../../../constants'
+import type { Status } from '../../../types'
 import type { RoleListItem } from '../../types'
 
 interface Props {
@@ -15,10 +17,21 @@ interface Props {
   onView: (role: RoleListItem) => void
   onEdit: (role: RoleListItem) => void
   onDelete: (role: RoleListItem) => void
+  statusPendingId?: string
+  onStatusChange: (role: RoleListItem, status: Status) => void
 }
 
 /** 【分叉档 · 桌面】角色表格：**点行看详情**，操作列按钮已 stopPropagation；取数与弹层在 RolePage。 */
-export function RoleTable({ roles, loading, error, onView, onEdit, onDelete }: Props) {
+export function RoleTable({
+  roles,
+  loading,
+  error,
+  onView,
+  onEdit,
+  onDelete,
+  statusPendingId,
+  onStatusChange,
+}: Props) {
   if (error) {
     return <Alert type="error" message={error.message} showIcon />
   }
@@ -42,8 +55,12 @@ export function RoleTable({ roles, loading, error, onView, onEdit, onDelete }: P
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (value: RoleListItem['status']) => (
-        <Tag color={STATUS_COLORS[value]}>{STATUS_LABELS[value]}</Tag>
+      render: (_, record) => (
+        <StatusSwitch
+          status={record.status}
+          loading={statusPendingId === record.id}
+          onChange={(status) => onStatusChange(record, status)}
+        />
       ),
     },
     { title: '描述', dataIndex: 'description', ellipsis: true },

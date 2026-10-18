@@ -3,8 +3,8 @@ import { App } from 'antd'
 
 import { isApiError } from '@shared/api'
 
-import { createUser, deleteUser, updateUser } from '../api/userApi'
-import type { CreateUserReq, UpdateUserReq } from '../types'
+import { createUser, deleteUser, setUserStatus, updateUser } from '../api/userApi'
+import type { CreateUserReq, UpdateUserReq, UserStatus } from '../types'
 
 /** 用户写操作用例：成功失效列表 / 详情 / 下拉目录缓存，失败提示后端 `message`。 */
 export function useUserMutations() {
@@ -46,5 +46,15 @@ export function useUserMutations() {
     onError,
   })
 
-  return { create, update, remove }
+  const setStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: UserStatus }) =>
+      setUserStatus(id, status),
+    onSuccess: () => {
+      message.success('已更新状态')
+      invalidate()
+    },
+    onError,
+  })
+
+  return { create, update, remove, setStatus }
 }

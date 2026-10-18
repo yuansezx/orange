@@ -53,7 +53,7 @@ interface DialogState {
  */
 export default function DeptPage() {
   const { data: tree = [], isLoading, error } = useDeptTree()
-  const { create, update, remove } = useDeptMutations()
+  const { create, update, remove, setStatus } = useDeptMutations()
   const { modal } = App.useApp()
   const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
@@ -116,6 +116,8 @@ export default function DeptPage() {
             onEdit={openEdit}
             onCreateChild={openCreate}
             onDelete={confirmDelete}
+            statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
+            onStatusChange={(dept, status) => setStatus.mutate({ id: dept.id, status })}
           />
         }
         mobile={

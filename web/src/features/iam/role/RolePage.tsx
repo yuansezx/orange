@@ -25,7 +25,7 @@ interface DialogState {
  */
 export default function RolePage() {
   const { data: roles = [], isLoading, error } = useRoles()
-  const { create, update, remove } = useRoleMutations()
+  const { create, update, remove, setStatus } = useRoleMutations()
   const { modal } = App.useApp()
   const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
@@ -100,6 +100,8 @@ export default function RolePage() {
             onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
+            statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
+            onStatusChange={(role, status) => setStatus.mutate({ id: role.id, status })}
           />
         }
         mobile={
