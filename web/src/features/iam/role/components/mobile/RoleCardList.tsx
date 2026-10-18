@@ -1,4 +1,5 @@
 import { ActionSheet, ErrorBlock, List, Tag } from 'antd-mobile'
+import dayjs from 'dayjs'
 import { useState } from 'react'
 
 import { DATA_SCOPE_LABELS, STATUS_LABELS } from '../../../constants'
@@ -37,7 +38,7 @@ export function RoleCardList({ roles, loading, error, onView, onEdit, onDelete }
             onClick={() => setActive(role)}
             description={`${role.code} · ${DATA_SCOPE_LABELS[role.data_scope]} · ${
               role.created_by?.username ?? '-'
-            }`}
+            } · ${dayjs(role.created_at).format('YYYY-MM-DD')}`}
             extra={<Tag color={MOBILE_STATUS_COLORS[role.status]}>{STATUS_LABELS[role.status]}</Tag>}
           >
             {role.name}

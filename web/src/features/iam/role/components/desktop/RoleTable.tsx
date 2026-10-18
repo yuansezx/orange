@@ -1,5 +1,6 @@
 import { Alert, Button, Space, Table, Tag, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
+import dayjs from 'dayjs'
 import type { MouseEvent } from 'react'
 
 import { IconEdit, IconTrash } from '@shared/ui'
@@ -51,6 +52,12 @@ export function RoleTable({ roles, loading, error, onView, onEdit, onDelete }: P
       key: 'created_by',
       width: 120,
       render: (_, record) => record.created_by?.username ?? '-',
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      width: 170,
+      render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm:ss'),
     },
     {
       title: '操作',
