@@ -10,9 +10,9 @@ import { BrandLogo } from '@shared/ui'
 import { ADMIN_PATH } from '../../navigation'
 import { menuGroups } from '../../routes'
 
-const { Sider, Header, Content } = Layout
+const { Sider, Content } = Layout
 
-/** 后台管理壳 · 桌面：左栏分组菜单（按权限过滤）+ 顶栏（右：用户区）+ 内容区。 */
+/** 后台管理壳 · 桌面：左侧常驻导航（logo / 菜单 / 底部用户区）+ 右侧内容区。 */
 export function DesktopAdminShell() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -31,59 +31,65 @@ export function DesktopAdminShell() {
   )?.key
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ height: '100vh' }}>
       <Sider theme="light" width={220}>
-        <Link
-          to="/"
-          style={{
-            height: 56,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            paddingInline: 20,
-            fontSize: 18,
-            fontWeight: 600,
-            color: colorTokens.brand,
-            textDecoration: 'none',
-          }}
-        >
-          <BrandLogo size={26} />
-          {appConfig.name}
-        </Link>
-        <Menu
-          // key 绑当前分组：路由换了分组就重挂，默认展开随之切到该分组
-          key={activeGroupKey ?? 'none'}
-          mode="inline"
-          selectedKeys={selectedKey ? [selectedKey] : []}
-          defaultOpenKeys={activeGroupKey ? [activeGroupKey] : []}
-          items={groups.map((group) => ({
-            key: group.key,
-            label: group.label,
-            children: group.links.map((link) => ({
-              key: link.key,
-              icon: link.icon,
-              label: link.label,
-            })),
-          }))}
-          onClick={({ key }) => {
-            const link = links.find((item) => item.key === key)
-            if (link) navigate(`${ADMIN_PATH}/${link.path}`)
-          }}
-        />
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Link
+            to="/"
+            style={{
+              height: 56,
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              paddingInline: 20,
+              fontSize: 18,
+              fontWeight: 600,
+              color: colorTokens.brand,
+              textDecoration: 'none',
+            }}
+          >
+            <BrandLogo size={26} />
+            {appConfig.name}
+          </Link>
+          {/* 菜单单独滚动，底部用户区始终贴底 */}
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <Menu
+              // key 绑当前分组：路由换了分组就重挂，默认展开随之切到该分组
+              key={activeGroupKey ?? 'none'}
+              mode="inline"
+              style={{ borderInlineEnd: 0 }}
+              selectedKeys={selectedKey ? [selectedKey] : []}
+              defaultOpenKeys={activeGroupKey ? [activeGroupKey] : []}
+              items={groups.map((group) => ({
+                key: group.key,
+                label: group.label,
+                children: group.links.map((link) => ({
+                  key: link.key,
+                  icon: link.icon,
+                  label: link.label,
+                })),
+              }))}
+              onClick={({ key }) => {
+                const link = links.find((item) => item.key === key)
+                if (link) navigate(`${ADMIN_PATH}/${link.path}`)
+              }}
+            />
+          </div>
+          <div
+            style={{
+              flexShrink: 0,
+              borderTop: `1px solid ${colorTokens.borderSecondary}`,
+              padding: 12,
+            }}
+          >
+            <UserMenu placement="topLeft" />
+          </div>
+        </div>
       </Sider>
       <Layout>
-        <Header
-          style={{
-            background: colorTokens.bgContainer,
-            paddingInline: 24,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <UserMenu />
-        </Header>
-        <Content style={{ padding: 24 }}>
+        {/* 横幅通知位：有横幅时渲染于此（内容列顶部；无横幅零高度，不影响侧边栏） */}
+        <Content style={{ padding: 24, overflow: 'auto', minHeight: 0 }}>
           <Outlet />
         </Content>
       </Layout>

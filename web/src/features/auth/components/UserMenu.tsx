@@ -9,7 +9,12 @@ import { useMe } from '../hooks/useMe'
  * 用户区（头像 + 昵称 → 下拉菜单）——桌面壳与导航页共用。
  * 菜单项目前只有「退出登录」；有「修改密码 / 个人资料」页后再往里加。
  */
-export function UserMenu() {
+interface Props {
+  /** 弹出方向；侧边栏底部用 `topLeft`，顶栏用默认 `bottomRight`。 */
+  placement?: 'bottomRight' | 'topLeft' | 'top'
+}
+
+export function UserMenu({ placement = 'bottomRight' }: Props) {
   const { data: me } = useMe()
   const { logout } = useLogout()
 
@@ -18,7 +23,7 @@ export function UserMenu() {
   return (
     <Dropdown
       trigger={['click']}
-      placement="bottomRight"
+      placement={placement}
       menu={{
         items: [{ key: 'logout', label: '退出登录', danger: true }],
         onClick: ({ key }) => {
