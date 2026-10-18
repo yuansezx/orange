@@ -9,8 +9,10 @@ export {
   IconBuildingPlus,
   IconEdit,
   IconLayoutDashboard,
+  IconRestore,
   IconShieldLock,
   IconSitemap,
   IconTrash,
+  IconTrashX,
   IconUsers,
 } from '@tabler/icons-react'

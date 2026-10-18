@@ -25,6 +25,16 @@ export interface DeptTreeNode extends Dept {
   children: DeptTreeNode[]
 }
 
+/** 部门扁平列表项（回收站）——对齐后端 `DeptListItemResp`（数据 + 审计）。 */
+export interface DeptListItem extends Dept, AuditFields {}
+
+/** 扁平列表查询参数。 */
+export interface GetDeptsQuery {
+  name?: string
+  status?: Status
+  deleted?: boolean
+}
+
 /** 创建部门——对齐后端 `CreateDeptReq`（无 `status`，服务端默认 ACTIVE）。 */
 export interface CreateDeptReq {
   name: string

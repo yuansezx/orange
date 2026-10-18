@@ -24,8 +24,9 @@ interface DialogState {
  * 写接口「全合」：POST / PUT 都提交整份角色（PUT 语义：传什么就设成什么）。
  */
 export default function RolePage() {
-  const { data: roles = [], isLoading, error } = useRoles()
-  const { create, update, remove, setStatus } = useRoleMutations()
+  const [recycleMode, setRecycleMode] = useState(false)
+  const { data: roles = [], isLoading, error } = useRoles(recycleMode)
+  const { create, update, remove, setStatus, restore, hardDelete } = useRoleMutations()
   const { modal } = App.useApp()
   const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
@@ -86,20 +87,44 @@ export default function RolePage() {
       onOk: () => remove.mutateAsync(role.id),
     })
 
+  const confirmRestore = (role: Role) =>
+    modal.confirm({
+      title: `恢复角色「${role.name}」？`,
+      content: '恢复后保留删除前的状态。',
+      onOk: () => restore.mutateAsync(role.id),
+    })
+
+  const confirmHardDelete = (role: Role) =>
+    modal.confirm({
+      title: `彻底删除角色「${role.name}」？`,
+      content: '此操作不可恢复。',
+      okButtonProps: { danger: true },
+      onOk: () => hardDelete.mutateAsync(role.id),
+    })
+
   const pending = create.isPending || update.isPending
 
   return (
     <div>
-      <RoleToolbar keyword={keyword} onKeywordChange={setKeyword} onCreate={openCreate} />
+      <RoleToolbar
+        keyword={keyword}
+        recycleMode={recycleMode}
+        onKeywordChange={setKeyword}
+        onRecycleModeChange={setRecycleMode}
+        onCreate={openCreate}
+      />
       <Platform
         desktop={
           <RoleTable
             roles={filtered}
             loading={isLoading}
             error={error}
+            recycleMode={recycleMode}
             onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
+            onRestore={confirmRestore}
+            onHardDelete={confirmHardDelete}
             statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
             onStatusChange={(role, status) => setStatus.mutate({ id: role.id, status })}
           />
@@ -109,9 +134,12 @@ export default function RolePage() {
             roles={filtered}
             loading={isLoading}
             error={error}
+            recycleMode={recycleMode}
             onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
+            onRestore={confirmRestore}
+            onHardDelete={confirmHardDelete}
           />
         }
       />

@@ -16,13 +16,26 @@ interface Props {
   roles: RoleListItem[]
   loading: boolean
   error: Error | null
+  recycleMode?: boolean
   onView: (role: RoleListItem) => void
   onEdit: (role: RoleListItem) => void
   onDelete: (role: RoleListItem) => void
+  onRestore: (role: RoleListItem) => void
+  onHardDelete: (role: RoleListItem) => void
 }
 
-/** 【分叉档 · 移动】角色卡片列表；点项弹 ActionSheet 出操作（查看/编辑/删除）。 */
-export function RoleCardList({ roles, loading, error, onView, onEdit, onDelete }: Props) {
+/** 【分叉档 · 移动】角色卡片列表；点项弹 ActionSheet 出操作（正常：查看/编辑/删除；回收站：查看/恢复/彻底删除）。 */
+export function RoleCardList({
+  roles,
+  loading,
+  error,
+  recycleMode,
+  onView,
+  onEdit,
+  onDelete,
+  onRestore,
+  onHardDelete,
+}: Props) {
   const [active, setActive] = useState<RoleListItem | null>(null)
 
   if (error) {
@@ -52,16 +65,26 @@ export function RoleCardList({ roles, loading, error, onView, onEdit, onDelete }
         visible={active !== null}
         cancelText="取消"
         onClose={() => setActive(null)}
-        actions={[
-          { key: 'view', text: '查看' },
-          { key: 'edit', text: '编辑' },
-          { key: 'delete', text: '删除', danger: true },
-        ]}
+        actions={
+          recycleMode
+            ? [
+                { key: 'view', text: '查看' },
+                { key: 'restore', text: '恢复' },
+                { key: 'hardDelete', text: '彻底删除', danger: true },
+              ]
+            : [
+                { key: 'view', text: '查看' },
+                { key: 'edit', text: '编辑' },
+                { key: 'delete', text: '删除', danger: true },
+              ]
+        }
         onAction={(action) => {
           if (!active) return
           const target = active
           setActive(null)
           if (action.key === 'view') onView(target)
+          else if (action.key === 'restore') onRestore(target)
+          else if (action.key === 'hardDelete') onHardDelete(target)
           else if (action.key === 'edit') onEdit(target)
           else if (action.key === 'delete') onDelete(target)
         }}

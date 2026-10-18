@@ -4,7 +4,14 @@ import { App } from 'antd'
 import { isApiError } from '@shared/api'
 
 import type { Status } from '../../types'
-import { createRole, deleteRole, setRoleStatus, updateRole } from '../api/roleApi'
+import {
+  createRole,
+  deleteRole,
+  hardDeleteRole,
+  restoreRole,
+  setRoleStatus,
+  updateRole,
+} from '../api/roleApi'
 import type { CreateRoleReq, UpdateRoleReq } from '../types'
 
 /** 角色写操作用例：成功失效角色列表缓存、失败提示后端 `message`。 */
@@ -55,5 +62,23 @@ export function useRoleMutations() {
     onError,
   })
 
-  return { create, update, remove, setStatus }
+  const restore = useMutation({
+    mutationFn: (id: string) => restoreRole(id),
+    onSuccess: () => {
+      message.success('已恢复')
+      invalidate()
+    },
+    onError,
+  })
+
+  const hardDelete = useMutation({
+    mutationFn: (id: string) => hardDeleteRole(id),
+    onSuccess: () => {
+      message.success('已彻底删除')
+      invalidate()
+    },
+    onError,
+  })
+
+  return { create, update, remove, setStatus, restore, hardDelete }
 }

@@ -34,13 +34,14 @@ export default function UserPage() {
   const [viewingId, setViewingId] = useState<string>()
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const { modal } = App.useApp()
-  const { create, update, remove, setStatus } = useUserMutations()
+  const { create, update, remove, setStatus, restore, hardDelete } = useUserMutations()
 
   const page = Number(params.get('page') ?? '1') || 1
   const pageSize = Number(params.get('page_size') ?? '10') || 10
   const keyword = params.get('keyword') ?? ''
   const status = (params.get('status') as UserStatus | null) ?? undefined
   const userType = (params.get('user_type') as UserType | null) ?? undefined
+  const recycleMode = params.get('deleted') === 'true'
 
   const query: GetUsersQuery = {
     page,
@@ -48,6 +49,7 @@ export default function UserPage() {
     keyword: keyword || undefined,
     status,
     user_type: userType,
+    deleted: recycleMode || undefined,
   }
   const { data, isLoading, error } = useUsers(query)
   const users = data?.data ?? []
@@ -117,6 +119,21 @@ export default function UserPage() {
       onOk: () => remove.mutateAsync(user.id),
     })
 
+  const confirmRestore = (user: UserListItem) =>
+    modal.confirm({
+      title: `恢复用户「${user.username}」？`,
+      content: '恢复后保留删除前的状态。',
+      onOk: () => restore.mutateAsync(user.id),
+    })
+
+  const confirmHardDelete = (user: UserListItem) =>
+    modal.confirm({
+      title: `彻底删除用户「${user.username}」？`,
+      content: '此操作不可恢复。',
+      okButtonProps: { danger: true },
+      onOk: () => hardDelete.mutateAsync(user.id),
+    })
+
   const pending = create.isPending || update.isPending
 
   return (
@@ -125,7 +142,9 @@ export default function UserPage() {
         keyword={keyword}
         status={status}
         userType={userType}
+        recycleMode={recycleMode}
         onChange={updateQuery}
+        onRecycleModeChange={(next) => updateQuery({ deleted: next ? 'true' : undefined })}
         onCreate={openCreate}
       />
       <Platform
@@ -137,9 +156,12 @@ export default function UserPage() {
             total={data?.total ?? 0}
             page={page}
             pageSize={pageSize}
+            recycleMode={recycleMode}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
+            onRestore={confirmRestore}
+            onHardDelete={confirmHardDelete}
             statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
             onStatusChange={(user, status) => setStatus.mutate({ id: user.id, status })}
             onPageChange={(nextPage, nextSize) =>
@@ -152,9 +174,12 @@ export default function UserPage() {
             users={users}
             loading={isLoading}
             error={error}
+            recycleMode={recycleMode}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
+            onRestore={confirmRestore}
+            onHardDelete={confirmHardDelete}
           />
         }
       />

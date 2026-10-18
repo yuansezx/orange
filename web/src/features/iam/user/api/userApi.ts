@@ -38,3 +38,13 @@ export function deleteUser(id: string): Promise<void> {
 export function setUserStatus(id: string, status: UserStatus): Promise<void> {
   return put<void>(`${BASE}/${id}/status`, { status })
 }
+
+/** 回收站：恢复（复用删除权限）。 */
+export function restoreUser(id: string): Promise<void> {
+  return post<void>(`${BASE}/${id}/restore`)
+}
+
+/** 回收站：彻底删除（物理，不可恢复）。 */
+export function hardDeleteUser(id: string): Promise<void> {
+  return del<void>(`${BASE}/${id}/hard-delete`)
+}

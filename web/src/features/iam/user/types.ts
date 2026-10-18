@@ -48,9 +48,13 @@ export interface UserListViewProps {
   users: UserListItem[]
   loading: boolean
   error: Error | null
+  /** 回收站模式：行操作换成恢复 / 彻底删除。 */
+  recycleMode?: boolean
   onView: (user: UserListItem) => void
   onEdit: (user: UserListItem) => void
   onDelete: (user: UserListItem) => void
+  onRestore: (user: UserListItem) => void
+  onHardDelete: (user: UserListItem) => void
 }
 
 /** 创建用户——对齐后端 `CreateUserReq`。 */
@@ -105,6 +109,8 @@ export interface UserToolbarProps {
   keyword: string
   status?: UserStatus
   userType?: UserType
+  recycleMode: boolean
   onChange: (patch: Record<string, string | undefined>) => void
+  onRecycleModeChange: (recycleMode: boolean) => void
   onCreate: () => void
 }

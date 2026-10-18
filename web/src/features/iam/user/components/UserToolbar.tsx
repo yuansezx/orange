@@ -1,5 +1,6 @@
 import { Button, Input, Select, Space } from 'antd'
 
+import { RecycleModeSwitch } from '../../components/RecycleModeSwitch'
 import { STATUS_OPTIONS, USER_TYPE_OPTIONS } from '../constants'
 import type { UserToolbarProps } from '../types'
 
@@ -11,11 +12,14 @@ export function UserToolbar({
   keyword,
   status,
   userType,
+  recycleMode,
   onChange,
+  onRecycleModeChange,
   onCreate,
 }: UserToolbarProps) {
   return (
     <Space style={{ display: 'flex', marginBottom: 16, flexWrap: 'wrap' }} size={12}>
+      <RecycleModeSwitch value={recycleMode} onChange={onRecycleModeChange} />
       <Input.Search
         allowClear
         defaultValue={keyword}
@@ -39,9 +43,11 @@ export function UserToolbar({
         options={USER_TYPE_OPTIONS}
         onChange={(value) => onChange({ user_type: value })}
       />
-      <Button type="primary" onClick={onCreate}>
-        新建用户
-      </Button>
+      {!recycleMode && (
+        <Button type="primary" onClick={onCreate}>
+          新建用户
+        </Button>
+      )}
     </Space>
   )
 }

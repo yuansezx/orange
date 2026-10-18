@@ -3,7 +3,7 @@ import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import type { MouseEvent } from 'react'
 
-import { IconEdit, IconTrash } from '@shared/ui'
+import { IconEdit, IconRestore, IconTrash, IconTrashX } from '@shared/ui'
 
 import { StatusSwitch } from '../../../components/StatusSwitch'
 import { USER_TYPE_LABELS } from '../../constants'
@@ -20,9 +20,12 @@ export function UserTable({
   total,
   page,
   pageSize,
+  recycleMode,
   onView,
   onEdit,
   onDelete,
+  onRestore,
+  onHardDelete,
   statusPendingId,
   onStatusChange,
   onPageChange,
@@ -35,6 +38,22 @@ export function UserTable({
     event.stopPropagation()
     handler()
   }
+
+  const recycleColumns: NonNullable<TableProps<UserListItem>['columns']> = recycleMode
+    ? [
+        {
+          title: '删除时间',
+          dataIndex: 'deleted_at',
+          render: (value: string | null) =>
+            value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-',
+        },
+        {
+          title: '删除人',
+          key: 'deleted_by',
+          render: (_, record) => record.deleted_by?.username ?? '-',
+        },
+      ]
+    : []
 
   const columns: TableProps<UserListItem>['columns'] = [
     { title: '用户名', dataIndex: 'username' },
@@ -52,6 +71,7 @@ export function UserTable({
       render: (_, record) => (
         <StatusSwitch
           status={record.status}
+          disabled={recycleMode}
           loading={statusPendingId === record.id}
           onChange={(status) => onStatusChange(record, status)}
         />
@@ -67,26 +87,49 @@ export function UserTable({
       dataIndex: 'created_at',
       render: (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-'),
     },
+    ...recycleColumns,
     {
       title: '操作',
-      width: 120,
+      width: recycleMode ? 100 : 120,
       render: (_, record) => (
         <Space size={8}>
-          <Tooltip title="编辑">
-            <Button
-              type="text"
-              icon={<IconEdit size={16} />}
-              onClick={withStop(() => onEdit(record))}
-            />
-          </Tooltip>
-          <Tooltip title="删除">
-            <Button
-              type="text"
-              danger
-              icon={<IconTrash size={16} />}
-              onClick={withStop(() => onDelete(record))}
-            />
-          </Tooltip>
+          {recycleMode ? (
+            <>
+              <Tooltip title="恢复">
+                <Button
+                  type="text"
+                  icon={<IconRestore size={16} />}
+                  onClick={withStop(() => onRestore(record))}
+                />
+              </Tooltip>
+              <Tooltip title="彻底删除">
+                <Button
+                  type="text"
+                  danger
+                  icon={<IconTrashX size={16} />}
+                  onClick={withStop(() => onHardDelete(record))}
+                />
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              <Tooltip title="编辑">
+                <Button
+                  type="text"
+                  icon={<IconEdit size={16} />}
+                  onClick={withStop(() => onEdit(record))}
+                />
+              </Tooltip>
+              <Tooltip title="删除">
+                <Button
+                  type="text"
+                  danger
+                  icon={<IconTrash size={16} />}
+                  onClick={withStop(() => onDelete(record))}
+                />
+              </Tooltip>
+            </>
+          )}
         </Space>
       ),
     },

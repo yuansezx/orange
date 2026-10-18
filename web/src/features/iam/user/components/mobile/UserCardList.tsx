@@ -9,7 +9,17 @@ import type { UserListItem, UserListViewProps } from '../../types'
  * 【分叉档 · 移动】—— 与 desktop/UserTable 同源：同一份数据，换一种更合手的形态（卡片列表）。
  * 点项弹 ActionSheet 出操作（查看/编辑/删除）。
  */
-export function UserCardList({ users, loading, error, onView, onEdit, onDelete }: UserListViewProps) {
+export function UserCardList({
+  users,
+  loading,
+  error,
+  recycleMode,
+  onView,
+  onEdit,
+  onDelete,
+  onRestore,
+  onHardDelete,
+}: UserListViewProps) {
   const [active, setActive] = useState<UserListItem | null>(null)
 
   if (error) {
@@ -39,16 +49,26 @@ export function UserCardList({ users, loading, error, onView, onEdit, onDelete }
         visible={active !== null}
         cancelText="取消"
         onClose={() => setActive(null)}
-        actions={[
-          { key: 'view', text: '查看' },
-          { key: 'edit', text: '编辑' },
-          { key: 'delete', text: '删除', danger: true },
-        ]}
+        actions={
+          recycleMode
+            ? [
+                { key: 'view', text: '查看' },
+                { key: 'restore', text: '恢复' },
+                { key: 'hardDelete', text: '彻底删除', danger: true },
+              ]
+            : [
+                { key: 'view', text: '查看' },
+                { key: 'edit', text: '编辑' },
+                { key: 'delete', text: '删除', danger: true },
+              ]
+        }
         onAction={(action) => {
           if (!active) return
           const target = active
           setActive(null)
           if (action.key === 'view') onView(target)
+          else if (action.key === 'restore') onRestore(target)
+          else if (action.key === 'hardDelete') onHardDelete(target)
           else if (action.key === 'edit') onEdit(target)
           else if (action.key === 'delete') onDelete(target)
         }}

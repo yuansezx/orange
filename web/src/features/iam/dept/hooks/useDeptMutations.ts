@@ -4,7 +4,14 @@ import { App } from 'antd'
 import { isApiError } from '@shared/api'
 
 import type { Status } from '../../types'
-import { createDept, deleteDept, setDeptStatus, updateDept } from '../api/deptApi'
+import {
+  createDept,
+  deleteDept,
+  hardDeleteDept,
+  restoreDept,
+  setDeptStatus,
+  updateDept,
+} from '../api/deptApi'
 import type { CreateDeptReq, UpdateDeptReq } from '../types'
 
 /** 部门写操作用例：成功失效部门树缓存、失败提示后端 `message`。 */
@@ -15,6 +22,7 @@ export function useDeptMutations() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['dept-tree'] })
     queryClient.invalidateQueries({ queryKey: ['dept-detail'] })
+    queryClient.invalidateQueries({ queryKey: ['depts'] })
   }
   const onError = (error: unknown) =>
     message.error(isApiError(error) ? error.message : '操作失败，请重试')
@@ -55,5 +63,23 @@ export function useDeptMutations() {
     onError,
   })
 
-  return { create, update, remove, setStatus }
+  const restore = useMutation({
+    mutationFn: (id: string) => restoreDept(id),
+    onSuccess: () => {
+      message.success('已恢复')
+      invalidate()
+    },
+    onError,
+  })
+
+  const hardDelete = useMutation({
+    mutationFn: (id: string) => hardDeleteDept(id),
+    onSuccess: () => {
+      message.success('已彻底删除')
+      invalidate()
+    },
+    onError,
+  })
+
+  return { create, update, remove, setStatus, restore, hardDelete }
 }

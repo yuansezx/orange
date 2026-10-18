@@ -6,8 +6,11 @@ import { Platform } from '@shared/platform'
 import { DeptDetailDrawer } from './components/DeptDetailDrawer'
 import { DeptFormDialog } from './components/DeptFormDialog'
 import { DeptToolbar } from './components/DeptToolbar'
+import { DeletedDeptTable } from './components/desktop/DeletedDeptTable'
 import { DeptTable } from './components/desktop/DeptTable'
+import { DeletedDeptCardList } from './components/mobile/DeletedDeptCardList'
 import { DeptTreeList } from './components/mobile/DeptTreeList'
+import { useDeletedDepts } from './hooks/useDeletedDepts'
 import { useDeptMutations } from './hooks/useDeptMutations'
 import { useDeptTree } from './hooks/useDeptTree'
 import type { Dept, DeptFormValues, DeptTreeNode } from './types'
@@ -52,13 +55,25 @@ interface DialogState {
  * 移动 = 编辑时改「上级部门」；删除守卫由后端判定，错误经 message 展示。
  */
 export default function DeptPage() {
+  const [recycleMode, setRecycleMode] = useState(false)
   const { data: tree = [], isLoading, error } = useDeptTree()
-  const { create, update, remove, setStatus } = useDeptMutations()
+  const {
+    data: deletedDepts = [],
+    isLoading: deletedLoading,
+    error: deletedError,
+  } = useDeletedDepts(recycleMode)
+  const { create, update, remove, setStatus, restore, hardDelete } = useDeptMutations()
   const { modal } = App.useApp()
   const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
 
   const nodes = useMemo(() => filterTree(tree, keyword), [tree, keyword])
+  const deletedFiltered = useMemo(() => {
+    const query = keyword.trim().toLowerCase()
+    return query
+      ? deletedDepts.filter((dept) => dept.name.toLowerCase().includes(query))
+      : deletedDepts
+  }, [deletedDepts, keyword])
 
   // 编辑时把自身及子孙从「上级部门」候选里禁用（防环）
   const excludeIds = useMemo(() => {
@@ -101,35 +116,78 @@ export default function DeptPage() {
       onOk: () => remove.mutateAsync(dept.id),
     })
 
+  const confirmRestore = (dept: Dept) =>
+    modal.confirm({
+      title: `恢复部门「${dept.name}」？`,
+      content: '若上级部门未全部启用，恢复后会落为停用。',
+      onOk: () => restore.mutateAsync(dept.id),
+    })
+
+  const confirmHardDelete = (dept: Dept) =>
+    modal.confirm({
+      title: `彻底删除部门「${dept.name}」？`,
+      content: '将一并彻底删除其下所有已删子部门，此操作不可恢复。',
+      okButtonProps: { danger: true },
+      onOk: () => hardDelete.mutateAsync(dept.id),
+    })
+
   const pending = create.isPending || update.isPending
 
   return (
     <div>
-      <DeptToolbar keyword={keyword} onKeywordChange={setKeyword} onCreate={() => openCreate()} />
+      <DeptToolbar
+        keyword={keyword}
+        recycleMode={recycleMode}
+        onKeywordChange={setKeyword}
+        onRecycleModeChange={setRecycleMode}
+        onCreate={() => openCreate()}
+      />
       <Platform
         desktop={
-          <DeptTable
-            nodes={nodes}
-            loading={isLoading}
-            error={error}
-            onView={openView}
-            onEdit={openEdit}
-            onCreateChild={openCreate}
-            onDelete={confirmDelete}
-            statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
-            onStatusChange={(dept, status) => setStatus.mutate({ id: dept.id, status })}
-          />
+          recycleMode ? (
+            <DeletedDeptTable
+              depts={deletedFiltered}
+              loading={deletedLoading}
+              error={deletedError}
+              onView={openView}
+              onRestore={confirmRestore}
+              onHardDelete={confirmHardDelete}
+            />
+          ) : (
+            <DeptTable
+              nodes={nodes}
+              loading={isLoading}
+              error={error}
+              onView={openView}
+              onEdit={openEdit}
+              onCreateChild={openCreate}
+              onDelete={confirmDelete}
+              statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
+              onStatusChange={(dept, status) => setStatus.mutate({ id: dept.id, status })}
+            />
+          )
         }
         mobile={
-          <DeptTreeList
-            nodes={nodes}
-            loading={isLoading}
-            error={error}
-            onView={openView}
-            onEdit={openEdit}
-            onCreateChild={openCreate}
-            onDelete={confirmDelete}
-          />
+          recycleMode ? (
+            <DeletedDeptCardList
+              depts={deletedFiltered}
+              loading={deletedLoading}
+              error={deletedError}
+              onView={openView}
+              onRestore={confirmRestore}
+              onHardDelete={confirmHardDelete}
+            />
+          ) : (
+            <DeptTreeList
+              nodes={nodes}
+              loading={isLoading}
+              error={error}
+              onView={openView}
+              onEdit={openEdit}
+              onCreateChild={openCreate}
+              onDelete={confirmDelete}
+            />
+          )
         }
       />
       {dialog.mode === 'view' ? (
