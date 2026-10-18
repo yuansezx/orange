@@ -30,7 +30,7 @@ web/src/
 ## 约定
 
 - **依赖单向**：`app → features → shared`。feature 不认识 app；跨 feature 只能经其**门面** `@features/<name>`，**禁止深入内部路径**——由 ESLint `no-restricted-imports` 强守（见 `eslint.config.js`）。
-- **模块自报门面**：feature 只在 `index.ts` 导出 `FeatureModule`（`groups`: 菜单分组；**每个菜单项同时承载它的路由** `{key,label,path,permission?,element}`——菜单与路由一处声明，杜绝"菜单指向不存在的页"）；组合根 `app/routes.ts` 逐个登记（同后端 `core.modules`）。
+- **模块自报门面**：模块型 feature 在 `index.ts` 导出名为 `feature` 的 `FeatureModule`（`groups`: 菜单分组；**每个菜单项同时承载它的路由** `{key,label,path,permission?,element}`——菜单与路由一处声明，杜绝"菜单指向不存在的页"）。组合根 `app/routes.ts` 用 **`import.meta.glob` 构建期发现** `features/*/index.ts`（有就加载、没有就跳过，新增模块免登记；控制台级切片不导出 `feature` 即自动排除）。**不做前端模块配置**：可见性由后端权限码过滤菜单承担，避免与后端 `core.modules` 形成第二份清单。
 - **导航 / 菜单（菜单归前端）**：后端只发**权限**（`/me` 的 `permission_codes` + `user_type`），**菜单由前端声明**、按 `usePermission().can(code)` 过滤（**超管 `user_type=super_admin` 旁路**）。结构：**导航页**（`/`，入口列表 = `app/navigation.ts` 的 `navEntries`）→ 点入**应用壳**（如 `/admin`，侧栏渲染各 feature 的菜单分组，按权限过滤）。菜单项**不带 `permission` = 永远可见**。菜单隐藏只是 UX，后端仍 403 兜底。
 - **features 对齐后端模块**：模块型切片与后端模块**同名同边界**（`iam` / `monitor`…），**不按"iam 的某张表"平铺**（否则 iam 专属的共享件无处安放）；控制台级切片（`auth`）例外。例：`features/iam/user`。
 - **平台分叉**：**默认一份响应式实现**；`shared/platform` 的 `<Platform desktop={} mobile={}/>` 是**逃生口、按需用**。判据：同一行为、不同长相 → 共用；不同行为 → 才拆。跨端**共用**组件放 `components/` **根目录**，只有**确实分叉**的才进 `components/desktop/` `mobile/`；取数等逻辑放页面层共用、视图只渲染。范例：`features/iam/user`（一处叶子分叉）；应用壳本身也是分叉（桌面侧栏 / 移动抽屉）。

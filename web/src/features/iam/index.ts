@@ -11,8 +11,10 @@ const DeptPage = lazy(() => import('./dept/DeptPage'))
  * iam 模块门面：声明本模块递给应用壳的**菜单分组**（对齐后端 iam 模块）。
  * 菜单项同时承载其路由（相对应用壳的 `path`）；`permission` = 需要的功能权限码。
  * 各页面（user / role / dept / ...）是模块内部结构，外部只见本门面。
+ *
+ * 导出的名字固定为 `feature`：组合根按此名自动发现模块型切片（见 `app/routes.ts`）。
  */
-export const iamFeature: FeatureModule = {
+export const feature: FeatureModule = {
   name: 'iam',
   groups: [
     {
