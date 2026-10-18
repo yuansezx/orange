@@ -179,7 +179,7 @@ class DeptApplicationService:
                     operator_id=operator,
                 )
             if 'status' in provided and data.status is not None:
-                dept.change_status(data.status, operator)
+                await self._cascade_status(dept, data.status, current_user)
 
             await self.dept_repo.update(dept)
         await self._notify_structure_changed(affected)
@@ -211,6 +211,8 @@ class DeptApplicationService:
         """从回收站恢复（复用 `delete` 权限码）。
 
         只恢复自身；**父部门已删时拒绝**（提示先恢复父），以维持「父已删 ⇒ 子必删」。
+        若恢复后自身为 ACTIVE 但祖先链上存在停用/已删部门，则**自身落为 DISABLED**——
+        不惊动祖先（是否符合预期由用户再显式启用）。
         """
         async with self.in_transaction():
             dept = await self._load_any(dept_id)
@@ -221,6 +223,8 @@ class DeptApplicationService:
                 raise PermissionDeniedException('无权访问该部门')
             parent = await self._load_restorable_parent(dept)
             dept.restore(current_user.user_id)
+            if dept.status is StatusEnum.ACTIVE and not await self._ancestors_all_active(dept):
+                dept.change_status(StatusEnum.DISABLED, current_user.user_id)
             await self.dept_repo.update(dept)
         await self._notify_structure_changed(parent_chain(parent))
 
@@ -249,6 +253,54 @@ class DeptApplicationService:
         await self._notify_structure_changed(frozenset(subtree_ids))
 
     # ---------------- 内部 ----------------
+    async def _cascade_status(self, dept: Dept, status: StatusEnum,
+                              current_user: CurrentUser) -> None:
+        """状态级联（不变式：子 ACTIVE ⇒ 其所有祖先 ACTIVE）。
+
+        - **停用**：根 + **未删**子树一起置 DISABLED（已删子树保留删除前状态，留给恢复）。
+        - **启用**：祖先链中非 ACTIVE 的节点一并启用；这些节点必须都可写（防向上越权）。
+          只校验「真正会被修改」的祖先：祖先本就 ACTIVE 时不做额外限制。
+
+        根的 status 在此一并变更，由调用方最终 `update(dept)` 持久化。
+        """
+        if status is StatusEnum.DISABLED:
+            for node in await self.dept_repo.get_descendants(dept.id):
+                if node.status is not StatusEnum.DISABLED:
+                    node.change_status(StatusEnum.DISABLED, current_user.user_id)
+                    await self.dept_repo.update(node)
+            dept.change_status(StatusEnum.DISABLED, current_user.user_id)
+            return
+
+        ancestors = await self._load_ancestors(dept)
+        to_enable = [a for a in ancestors if a.status is not StatusEnum.ACTIVE]
+        if to_enable and not await self.dept_access_service.can_access(
+                [a.id for a in to_enable], current_user):
+            raise PermissionDeniedException('上级部门不在您的数据范围内，请由上级管理员启用')
+        for node in to_enable:
+            node.change_status(StatusEnum.ACTIVE, current_user.user_id)
+            await self.dept_repo.update(node)
+        dept.change_status(StatusEnum.ACTIVE, current_user.user_id)
+
+    async def _load_ancestors(self, dept: Dept) -> list[Dept]:
+        """按物化路径批量取祖先；缺失或已删视为层级不可用（启用时拒绝）。"""
+        if not dept.ancestors:
+            return []
+        ancestors = await self.dept_repo.get_by_ids(dept.ancestors, include_deleted=True)
+        if len(ancestors) != len(set(dept.ancestors)):
+            raise DeptParentUnavailableException('上级部门不存在，无法启用')
+        if any(a.is_deleted for a in ancestors):
+            raise DeptParentUnavailableException('上级部门已被删除，无法启用')
+        return ancestors
+
+    async def _ancestors_all_active(self, dept: Dept) -> bool:
+        """祖先链是否全部「未删且 ACTIVE」（恢复时判定是否降为停用）。"""
+        if not dept.ancestors:
+            return True
+        ancestors = await self.dept_repo.get_by_ids(dept.ancestors, include_deleted=True)
+        if len(ancestors) != len(set(dept.ancestors)):
+            return False
+        return all(not a.is_deleted and a.status is StatusEnum.ACTIVE for a in ancestors)
+
     async def _load_restorable_parent(self, dept: Dept) -> Dept | None:
         """恢复前校验上级：上级不存在（已硬删）或已软删 → 拒绝，提示先恢复上级。"""
         if dept.parent_id is None:

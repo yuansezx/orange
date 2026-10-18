@@ -98,7 +98,7 @@ async def delete_dept(
 
 
 @dept_router.post('/{dept_id}/restore', status_code=status.HTTP_204_NO_CONTENT,
-                  summary='恢复部门（父部门已删时须先恢复父）')
+                  summary='恢复部门（父已删须先恢复父；祖先非全启用时恢复为停用）')
 async def restore_dept(
     dept_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
