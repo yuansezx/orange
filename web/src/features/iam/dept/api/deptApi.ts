@@ -2,7 +2,7 @@ import { del, get, post, put } from '@shared/api'
 
 import type { CreateDeptReq, Dept, DeptDetail, DeptTreeNode, UpdateDeptReq } from '../types'
 
-const BASE = '/iam/depts'
+const BASE = '/api/iam/depts'
 
 /** 部门树（嵌套）——列表页主数据。 */
 export function getDeptTree(): Promise<DeptTreeNode[]> {

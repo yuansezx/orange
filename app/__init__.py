@@ -16,6 +16,11 @@ from app.core.interface.http.exception_handlers import (
     validation_exception_handler,
 )
 
+# 全局 API 前缀：模块统一挂到 /api/{模块}，与前端路由/静态资源天然分离，
+# dev 只需一条代理、部署只需一个 nginx location。URL 版本（/v1）暂不做；
+# 需要时只改这一处前缀，不在 interface 层增加版本目录。
+API_PREFIX = '/api'
+
 
 # fastapi 生命周期管理
 @asynccontextmanager
@@ -49,6 +54,6 @@ def create_app():
             if e.name == path:
                 continue
             raise
-        app.include_router(module.router, prefix=f'/{name}')
+        app.include_router(module.router, prefix=f'{API_PREFIX}/{name}')
 
     return app

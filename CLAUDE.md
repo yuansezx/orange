@@ -116,7 +116,7 @@ app/                               # 后端（本文件详述）；仓库根另�
   - 迁移：aerich，`migrations/` **不入库**（版本账本在数据库 `aerich` 表）；`auto_migrate` 控制启动期是否迁移
 - **模块 bootstrap**：`core.start()` 按 `core.modules` 动态 import `app.{模块}.bootstrap` 并调用其 `bootstrap()`（钩子可选）。core 只认约定，不认识具体模块。
   - **资源/权限目录声明固定放各模块自己的 `bootstrap.py`**（如 `IAM_RESOURCE_DECLARATIONS`），启动时幂等注册；不塞进包 `__init__`，也不散落在子包里。
-- **路由挂载**：core 不认模块。app 工厂按 `core.modules` 动态 import `app.{模块}.interface.http.router`（暴露 `router`）并 `include_router(prefix='/{模块}')`；模块未提供则跳过（判 `ModuleNotFoundError.name == path`，路由内部有真错则炸）。**每模块一个 `router`**（聚合各 resource 的 `<resource>_router`），resource 路由本体放 `interface/http/{resource}/api.py`。
+- **路由挂载**：core 不认模块。app 工厂按 `core.modules` 动态 import `app.{模块}.interface.http.router`（暴露 `router`）并 `include_router(prefix=f'{API_PREFIX}/{模块}')`（`API_PREFIX='/api'`，与前端路由/静态资源分离；**URL 版本 `/v1` 暂不做**，需要时只改该常量，不在 interface 层加版本目录）；模块未提供则跳过（判 `ModuleNotFoundError.name == path`，路由内部有真错则炸）。**每模块一个 `router`**（聚合各 resource 的 `<resource>_router`），resource 路由本体放 `interface/http/{resource}/api.py`。
 - **组合根**：`app/{模块}/interface/dependences.py` 提供 `get_*`，由 http（FastAPI `Depends`）、bootstrap、python api 共用。
 - **抽象取舍判据**：Port 只在「**触碰外部（IO/第三方）**」或「**测试要替换**」时才抽；纯计算/纯数据**不抽**（直接函数/值对象）。
 - **包 `__init__` 不放重副作用、也不放会拖入其它层的 import**（判据是"导入的耦合/成本"，非"有无副作用"）：模块启动钩子（有副作用）独立成 `bootstrap.py`；依赖其它层类型的声明（如资源目录，依赖 application DTO）也放 `bootstrap.py`（否则 `import app.{模块}.domain.*` 会连带拖入 application/循环导入）；**纯常量**（如 `DB_CONNECTION`，零依赖零副作用）可放 `__init__`。FastAPI app 用工厂而非模块级实例。

@@ -3,7 +3,7 @@ import type { PageResult } from '@shared/api'
 
 import type { GetUsersQuery, UserListItem } from '../types'
 
-const BASE = '/iam/users'
+const BASE = '/api/iam/users'
 
 export async function getUsers(query: GetUsersQuery): Promise<PageResult<UserListItem>> {
   const page = await get<PageResult<UserListItem>>(BASE, query)
