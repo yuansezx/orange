@@ -1,11 +1,18 @@
 import { del, get, post, put } from '@shared/api'
 
-import type { Catalog, CreateRoleReq, Role, RoleDetail, UpdateRoleReq } from '../types'
+import type {
+  Catalog,
+  CreateRoleReq,
+  Role,
+  RoleDetail,
+  RoleListItem,
+  UpdateRoleReq,
+} from '../types'
 
 const BASE = '/api/iam/roles'
 
-export function getRoles(): Promise<Role[]> {
-  return get<Role[]>(BASE)
+export function getRoles(): Promise<RoleListItem[]> {
+  return get<RoleListItem[]>(BASE)
 }
 
 export function getRole(id: string): Promise<Role> {

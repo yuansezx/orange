@@ -1,16 +1,19 @@
 """用户 HTTP schema（Req / Resp）。
 
-字段直接用 domain 值对象（UserId / Email / Phone / DeptId），经 `SingleValueObject`
+字段直接用 domain 值对象（Email / Phone / DeptId），经 `SingleValueObject`
 统一裸值出入、OpenAPI 展示为 string（id 带 format: uuid），无需重复写 pattern。
 """
-from datetime import datetime
-
 from pydantic import BaseModel
 
-from app.iam.application.user.dto import CreateUserIn, GetUsersIn
+from app.iam.application.user.dto import (
+    CreateUserIn,
+    GetUsersIn,
+    UserDetailOut,
+    UserListItemOut,
+    UserOut,
+)
 from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.value_objects import DeptId, Email, Phone, RoleId, UserId
-from app.iam.domain.user.enums import UserTypeEnum
+from app.iam.domain.shared.value_objects import DeptId, Email, Phone, RoleId
 
 
 class CreateUserReq(CreateUserIn):
@@ -32,15 +35,13 @@ class GetUsersReq(GetUsersIn):
     """用户列表查询参数——线格式同 DTO（时间 start/end 各自可选）。"""
 
 
-class UserResp(BaseModel):
-    """用户响应——显式字段（**不含 password_hash**）。"""
-    id: UserId
-    username: str
-    nickname: str
-    email: Email | None = None
-    phone: Phone | None = None
-    user_type: UserTypeEnum
-    status: StatusEnum
-    description: str | None = None
-    dept_id: DeptId | None = None
-    created_at: datetime
+class UserResp(UserOut):
+    """用户响应——数据字段 + 生命周期时间（**不含 password_hash**）。"""
+
+
+class UserListItemResp(UserListItemOut):
+    """用户列表项响应——数据字段 + 审计（平铺）。"""
+
+
+class UserDetailResp(UserDetailOut):
+    """用户详情响应——数据字段 + 审计 + 部门引用 + 角色。"""

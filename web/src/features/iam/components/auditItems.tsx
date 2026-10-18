@@ -2,13 +2,13 @@ import { Descriptions } from 'antd'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 
-import type { AuditFields } from '../types'
+import type { AuditFields, OperatorRef } from '../types'
 
-/** 「时间 · 人」一行文本；人或时间缺省 → '-'。 */
-function stamp(at: string | null, nickname: string | null, username: string | null): string {
+/** 「时间 · 用户名」；操作人已硬删 → 「已删除用户」；时间缺省 → '-'。 */
+function stamp(at: string | null, operator: OperatorRef | null): string {
   if (!at) return '-'
-  const who = nickname || username
-  return who ? `${dayjs(at).format('YYYY-MM-DD HH:mm')} · ${who}` : dayjs(at).format('YYYY-MM-DD HH:mm')
+  const time = dayjs(at).format('YYYY-MM-DD HH:mm')
+  return operator ? `${time} · ${operator.username ?? '已删除用户'}` : time
 }
 
 /**
@@ -18,13 +18,13 @@ function stamp(at: string | null, nickname: string | null, username: string | nu
 export function auditItems(audit: AuditFields): ReactNode[] {
   return [
     <Descriptions.Item key="audit-created" label="创建">
-      {stamp(audit.created_at, audit.created_by_nickname, audit.created_by_username)}
+      {stamp(audit.created_at, audit.created_by)}
     </Descriptions.Item>,
     <Descriptions.Item key="audit-updated" label="更新">
-      {stamp(audit.updated_at, audit.updated_by_nickname, audit.updated_by_username)}
+      {stamp(audit.updated_at, audit.updated_by)}
     </Descriptions.Item>,
     <Descriptions.Item key="audit-deleted" label="删除">
-      {stamp(audit.deleted_at, audit.deleted_by_nickname, audit.deleted_by_username)}
+      {stamp(audit.deleted_at, audit.deleted_by)}
     </Descriptions.Item>,
   ]
 }

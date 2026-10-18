@@ -5,15 +5,15 @@ import type { MouseEvent } from 'react'
 import { IconEdit, IconTrash } from '@shared/ui'
 
 import { DATA_SCOPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '../../../constants'
-import type { Role } from '../../types'
+import type { RoleListItem } from '../../types'
 
 interface Props {
-  roles: Role[]
+  roles: RoleListItem[]
   loading: boolean
   error: Error | null
-  onView: (role: Role) => void
-  onEdit: (role: Role) => void
-  onDelete: (role: Role) => void
+  onView: (role: RoleListItem) => void
+  onEdit: (role: RoleListItem) => void
+  onDelete: (role: RoleListItem) => void
 }
 
 /** 【分叉档 · 桌面】角色表格：**点行看详情**，操作列按钮已 stopPropagation；取数与弹层在 RolePage。 */
@@ -28,24 +28,30 @@ export function RoleTable({ roles, loading, error, onView, onEdit, onDelete }: P
     handler()
   }
 
-  const columns: TableProps<Role>['columns'] = [
+  const columns: TableProps<RoleListItem>['columns'] = [
     { title: '角色标识', dataIndex: 'code', width: 200 },
     { title: '名称', dataIndex: 'name', width: 200 },
     {
       title: '数据范围',
       dataIndex: 'data_scope',
       width: 130,
-      render: (value: Role['data_scope']) => DATA_SCOPE_LABELS[value],
+      render: (value: RoleListItem['data_scope']) => DATA_SCOPE_LABELS[value],
     },
     {
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (value: Role['status']) => (
+      render: (value: RoleListItem['status']) => (
         <Tag color={STATUS_COLORS[value]}>{STATUS_LABELS[value]}</Tag>
       ),
     },
     { title: '描述', dataIndex: 'description', ellipsis: true },
+    {
+      title: '创建人',
+      key: 'created_by',
+      width: 120,
+      render: (_, record) => record.created_by?.username ?? '-',
+    },
     {
       title: '操作',
       width: 120,
@@ -72,7 +78,7 @@ export function RoleTable({ roles, loading, error, onView, onEdit, onDelete }: P
   ]
 
   return (
-    <Table<Role>
+    <Table<RoleListItem>
       rowKey="id"
       loading={loading}
       columns={columns}

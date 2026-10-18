@@ -1,8 +1,10 @@
 import { App } from 'antd'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { Platform } from '@shared/platform'
 
+import { UserDetailDrawer } from './components/UserDetailDrawer'
 import { UserToolbar } from './components/UserToolbar'
 import { UserTable } from './components/desktop/UserTable'
 import { UserCardList } from './components/mobile/UserCardList'
@@ -21,6 +23,7 @@ import type { GetUsersQuery, UserStatus, UserType } from './types'
  */
 export default function UserPage() {
   const [params, setParams] = useSearchParams()
+  const [viewingId, setViewingId] = useState<string>()
   const { message } = App.useApp()
 
   const page = Number(params.get('page') ?? '1') || 1
@@ -68,12 +71,25 @@ export default function UserPage() {
             total={data?.total ?? 0}
             page={page}
             pageSize={pageSize}
+            onView={(user) => setViewingId(user.id)}
             onPageChange={(nextPage, nextSize) =>
               update({ page: String(nextPage), page_size: String(nextSize) })
             }
           />
         }
-        mobile={<UserCardList users={users} loading={isLoading} error={error} />}
+        mobile={
+          <UserCardList
+            users={users}
+            loading={isLoading}
+            error={error}
+            onView={(user) => setViewingId(user.id)}
+          />
+        }
+      />
+      <UserDetailDrawer
+        open={!!viewingId}
+        userId={viewingId}
+        onClose={() => setViewingId(undefined)}
       />
     </div>
   )

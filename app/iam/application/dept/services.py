@@ -9,6 +9,7 @@ from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.dept.dto import (
     CreateDeptIn,
     DeptDetailOut,
+    DeptListItemOut,
     DeptOut,
     DeptTreeNode,
     GetDeptsIn,
@@ -36,7 +37,7 @@ def _to_out(d: Dept) -> DeptOut:
     return DeptOut(
         id=d.id, name=d.name, parent_id=d.parent_id, leader_id=d.leader_id,
         email=d.email, phone=d.phone, status=d.status, description=d.description,
-        created_at=d.created_at,
+        created_at=d.created_at, updated_at=d.updated_at, deleted_at=d.deleted_at,
     )
 
 
@@ -81,11 +82,17 @@ class DeptApplicationService:
         return _build_tree(await self._visible_depts(current_user))
 
     @requires_permission('iam:dept:read')
-    async def get_depts(self, filters: GetDeptsIn, current_user: CurrentUser) -> list[DeptOut]:
+    async def get_depts(self, filters: GetDeptsIn,
+                        current_user: CurrentUser) -> list[DeptListItemOut]:
         depts = await self._visible_depts(current_user, filters.status, filters.deleted)
         if filters.name:
             depts = [d for d in depts if filters.name in d.name]
-        return [_to_out(d) for d in depts]
+        audits = await self.audit_service.build_many(depts)
+        items: list[DeptListItemOut] = []
+        for dept, audit in zip(depts, audits):
+            fields = {**_to_out(dept).model_dump(), **audit.model_dump()}
+            items.append(DeptListItemOut(**fields))
+        return items
 
     @requires_permission('iam:dept:read')
     async def get_dept(self, dept_id: DeptId, current_user: CurrentUser) -> DeptOut:
@@ -105,7 +112,6 @@ class DeptApplicationService:
         )
         leader = (await self.user_repo.get_by_ids([dept.leader_id])) if dept.leader_id else []
         leader_user = leader[0] if leader else None
-        # 部门 DTO 与审计都含 created_at，先合并成 dict（后者覆盖，取值相同）再展开，避免重复关键字
         fields = {**_to_out(dept).model_dump(), **audit.model_dump()}
         return DeptDetailOut(
             **fields,

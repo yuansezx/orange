@@ -17,6 +17,7 @@ from app.iam.interface.http.dependencies import get_current_user
 from app.iam.interface.http.dept.schemas import (
     CreateDeptReq,
     DeptDetailResp,
+    DeptListItemResp,
     DeptResp,
     DeptTreeNodeResp,
     GetDeptsReq,
@@ -36,14 +37,14 @@ async def create_dept(
     return DeptResp.model_validate(dept, from_attributes=True)
 
 
-@dept_router.get('', response_model=list[DeptResp], summary='部门列表')
+@dept_router.get('', response_model=list[DeptListItemResp], summary='部门列表（扁平，含审计）')
 async def list_depts(
     filters: Annotated[GetDeptsReq, Query()],
     current_user: CurrentUser = Depends(get_current_user),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
-) -> list[DeptResp]:
+) -> list[DeptListItemResp]:
     depts = await dept_app_service.get_depts(filters, current_user)
-    return [DeptResp.model_validate(d, from_attributes=True) for d in depts]
+    return [DeptListItemResp(**d.model_dump()) for d in depts]
 
 
 @dept_router.get('/tree', response_model=list[DeptTreeNodeResp], summary='部门树')

@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 import { DATA_SCOPE_LABELS, STATUS_LABELS } from '../../../constants'
 import type { Status } from '../../../types'
-import type { Role } from '../../types'
+import type { RoleListItem } from '../../types'
 
 /** antd-mobile Tag 的预设色系（与 antd 不同，移动端就近映射）。 */
 const MOBILE_STATUS_COLORS: Record<Status, 'success' | 'default'> = {
@@ -12,17 +12,17 @@ const MOBILE_STATUS_COLORS: Record<Status, 'success' | 'default'> = {
 }
 
 interface Props {
-  roles: Role[]
+  roles: RoleListItem[]
   loading: boolean
   error: Error | null
-  onView: (role: Role) => void
-  onEdit: (role: Role) => void
-  onDelete: (role: Role) => void
+  onView: (role: RoleListItem) => void
+  onEdit: (role: RoleListItem) => void
+  onDelete: (role: RoleListItem) => void
 }
 
 /** 【分叉档 · 移动】角色卡片列表；点项弹 ActionSheet 出操作（查看/编辑/删除）。 */
 export function RoleCardList({ roles, loading, error, onView, onEdit, onDelete }: Props) {
-  const [active, setActive] = useState<Role | null>(null)
+  const [active, setActive] = useState<RoleListItem | null>(null)
 
   if (error) {
     return <ErrorBlock status="default" title="加载失败" description={error.message} />
@@ -35,7 +35,9 @@ export function RoleCardList({ roles, loading, error, onView, onEdit, onDelete }
           <List.Item
             key={role.id}
             onClick={() => setActive(role)}
-            description={`${role.code} · ${DATA_SCOPE_LABELS[role.data_scope]}`}
+            description={`${role.code} · ${DATA_SCOPE_LABELS[role.data_scope]} · ${
+              role.created_by?.username ?? '-'
+            }`}
             extra={<Tag color={MOBILE_STATUS_COLORS[role.status]}>{STATUS_LABELS[role.status]}</Tag>}
           >
             {role.name}

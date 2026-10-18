@@ -12,6 +12,7 @@ from app.iam.application.resource.exceptions import PermissionNotFoundException
 from app.iam.application.role.dto import (
     CreateRoleIn,
     RoleDetailOut,
+    RoleListItemOut,
     RoleOut,
     UpdateRoleIn,
 )
@@ -38,6 +39,9 @@ def _to_out(role: Role) -> RoleOut:
         description=role.description,
         permission_ids=list(role.permission_ids),
         dept_ids=list(role.custom_dept_ids),
+        created_at=role.created_at,
+        updated_at=role.updated_at,
+        deleted_at=role.deleted_at,
     )
 
 
@@ -156,8 +160,14 @@ class RoleApplicationService:
     @requires_permission('iam:role:read')
     async def get_all_roles(self, current_user: CurrentUser,
                             status: StatusEnum | None = None,
-                            deleted: bool = False) -> list[RoleOut]:
-        return [_to_out(r) for r in await self.role_repo.get_all(status, deleted)]
+                            deleted: bool = False) -> list[RoleListItemOut]:
+        roles = await self.role_repo.get_all(status, deleted)
+        audits = await self.audit_service.build_many(roles)
+        items: list[RoleListItemOut] = []
+        for role, audit in zip(roles, audits):
+            fields = {**_to_out(role).model_dump(), **audit.model_dump()}
+            items.append(RoleListItemOut(**fields))
+        return items
 
     @requires_permission('iam:role:read')
     async def get_role_detail(self, role_id: RoleId, current_user: CurrentUser) -> RoleDetailOut:
@@ -166,7 +176,6 @@ class RoleApplicationService:
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         audit = await self.audit_service.build(role)
         dept_refs = await self.dept_ref_service.build(list(role.custom_dept_ids))
-        # 先合并成 dict 再展开，避免与审计字段重名（如 created_at）时重复关键字
         fields = {**_to_out(role).model_dump(), **audit.model_dump()}
         return RoleDetailOut(**fields, dept_refs=dept_refs)
 

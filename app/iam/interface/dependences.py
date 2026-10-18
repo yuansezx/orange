@@ -106,6 +106,9 @@ def get_user_app_service() -> UserApplicationService:
         dept_access_service=get_dept_access_service(),
         dept_repo=get_dept_repo(),
         user_role_repo=get_user_role_repo(),
+        role_repo=get_role_repo(),
+        audit_service=get_audit_service(),
+        dept_ref_service=get_dept_ref_service(),
         event_bus=get_event_bus(),
     )
 

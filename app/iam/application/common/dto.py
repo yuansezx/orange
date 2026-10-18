@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from app.iam.domain.shared.value_objects import DeptId, RoleSummary
+from app.iam.domain.shared.value_objects import DeptId, RoleSummary, UserId
 
 
 @dataclass(frozen=True)
@@ -13,17 +13,21 @@ class EffectivePermissions:
     permission_codes: frozenset[str]  # module:resource:action
 
 
+class OperatorOut(BaseModel):
+    """审计操作人。**id 来自实体上的审计列**，行不存在（已硬删）时名字为 None。"""
+    id: UserId
+    username: str | None = None
+    nickname: str | None = None
+
+
 class AuditOut(BaseModel):
-    """审计信息（平铺）：创建 / 更新 / 删除的时间与人。未发生/未设置 → None。"""
-    created_at: datetime
-    created_by_username: str | None = None
-    created_by_nickname: str | None = None
-    updated_at: datetime | None = None
-    updated_by_username: str | None = None
-    updated_by_nickname: str | None = None
-    deleted_at: datetime | None = None
-    deleted_by_username: str | None = None
-    deleted_by_nickname: str | None = None
+    """审计**操作人**；生命周期时间属于数据 DTO，不在此重复。
+
+    字段为 None = 该操作未发生；对象在但名字为 None = 操作人已被硬删。
+    """
+    created_by: OperatorOut | None = None
+    updated_by: OperatorOut | None = None
+    deleted_by: OperatorOut | None = None
 
 
 class DeptRefOut(BaseModel):

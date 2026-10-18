@@ -5,7 +5,12 @@
 """
 from pydantic import BaseModel
 
-from app.iam.application.role.dto import CreateRoleIn, RoleDetailOut, RoleOut
+from app.iam.application.role.dto import (
+    CreateRoleIn,
+    RoleDetailOut,
+    RoleListItemOut,
+    RoleOut,
+)
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId
 
@@ -26,6 +31,10 @@ class UpdateRoleReq(BaseModel):
 
 class RoleResp(RoleOut):
     """角色响应（含权限集 / 数据范围部门集）——列表与 `/{id}` 同 schema。"""
+
+
+class RoleListItemResp(RoleListItemOut):
+    """角色列表项响应——数据字段 + 审计（平铺）。"""
 
 
 class RoleDetailResp(RoleDetailOut):

@@ -44,10 +44,16 @@ class DeptOut(BaseModel):
     status: StatusEnum
     description: str | None = None
     created_at: datetime
+    updated_at: datetime | None = None
+    deleted_at: datetime | None = None
 
 
 class DeptTreeNode(DeptOut):
     children: list['DeptTreeNode'] = Field(default_factory=list)
+
+
+class DeptListItemOut(DeptOut, AuditOut):
+    """部门列表项（扁平列表 / 回收站）——数据字段 + 审计（平铺）。树仍用 `DeptTreeNode`。"""
 
 
 class DeptDetailOut(DeptOut, AuditOut):

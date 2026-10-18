@@ -16,6 +16,7 @@ from app.iam.interface.http.dependencies import get_current_user
 from app.iam.interface.http.role.schemas import (
     CreateRoleReq,
     RoleDetailResp,
+    RoleListItemResp,
     RoleResp,
     UpdateRoleReq,
 )
@@ -34,18 +35,19 @@ async def create_role(
         id=role.id, code=role.code, name=role.name, data_scope=role.data_scope,
         status=role.status, description=role.description,
         permission_ids=list(role.permission_ids), dept_ids=list(role.custom_dept_ids),
+        created_at=role.created_at, updated_at=role.updated_at, deleted_at=role.deleted_at,
     )
 
 
-@role_router.get('', response_model=list[RoleResp], summary='角色列表')
+@role_router.get('', response_model=list[RoleListItemResp], summary='角色列表（含审计）')
 async def list_roles(
     status: StatusEnum | None = Query(None, description='按业务状态过滤（ACTIVE/DISABLED）'),
     deleted: bool = Query(False, description='只看回收站（缺省只看未删）'),
     current_user: CurrentUser = Depends(get_current_user),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
-) -> list[RoleResp]:
+) -> list[RoleListItemResp]:
     roles = await role_app_service.get_all_roles(current_user, status, deleted)
-    return [RoleResp.model_validate(r, from_attributes=True) for r in roles]
+    return [RoleListItemResp(**r.model_dump()) for r in roles]
 
 
 @role_router.get('/{role_id}', response_model=RoleResp, summary='角色详情')

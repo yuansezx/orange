@@ -16,7 +16,14 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.interface.dependences import get_user_app_service, get_user_role_app_service
 from app.iam.interface.http.dependencies import get_current_user
-from app.iam.interface.http.user.schemas import CreateUserReq, GetUsersReq, UpdateUserReq, UserResp
+from app.iam.interface.http.user.schemas import (
+    CreateUserReq,
+    GetUsersReq,
+    UpdateUserReq,
+    UserDetailResp,
+    UserListItemResp,
+    UserResp,
+)
 
 user_router = APIRouter(prefix='/users', tags=['用户'])
 
@@ -32,19 +39,30 @@ async def create_user(
     return UserResp.model_validate(user, from_attributes=True)
 
 
-@user_router.get('', response_model=PageResult[UserResp], summary='用户列表')
+@user_router.get('', response_model=PageResult[UserListItemResp], summary='用户列表（含审计）')
 async def list_users(
     filters: Annotated[GetUsersReq, Query()],
     current_user: CurrentUser = Depends(get_current_user),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
-) -> PageResult[UserResp]:
+) -> PageResult[UserListItemResp]:
     page = await user_app_service.get_users(filters, current_user)
-    return PageResult[UserResp](
+    return PageResult[UserListItemResp](
         page=page.page,
         page_size=page.page_size,
         total=page.total,
-        data=[UserResp.model_validate(u, from_attributes=True) for u in (page.data or [])],
+        data=[UserListItemResp(**item.model_dump()) for item in (page.data or [])],
     )
+
+
+@user_router.get('/{user_id}/detail', response_model=UserDetailResp,
+                 summary='用户详情（含审计 / 部门 / 角色）')
+async def get_user_detail(
+    user_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    user_app_service: UserApplicationService = Depends(get_user_app_service),
+) -> UserDetailResp:
+    detail = await user_app_service.get_user_detail(UserId(user_id), current_user)
+    return UserDetailResp(**detail.model_dump())
 
 
 @user_router.put('/{user_id}', response_model=UserResp, summary='更新用户')

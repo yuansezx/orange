@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from app.iam.application.common.dto import AuditOut, DeptRefOut
@@ -34,6 +36,13 @@ class RoleOut(BaseModel):
     description: str | None = None
     permission_ids: list[PermissionId] = Field(default_factory=list)
     dept_ids: list[DeptId] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime | None = None
+    deleted_at: datetime | None = None
+
+
+class RoleListItemOut(RoleOut, AuditOut):
+    """角色列表项——数据字段 + 审计（平铺）。"""
 
 
 class RoleDetailOut(RoleOut, AuditOut):

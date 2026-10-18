@@ -25,6 +25,11 @@ const columns: TableProps<UserListItem>['columns'] = [
     render: (value) => STATUS_LABELS[value as UserStatus] ?? value,
   },
   {
+    title: '创建人',
+    key: 'created_by',
+    render: (_, record) => record.created_by?.username ?? '-',
+  },
+  {
     title: '创建时间',
     dataIndex: 'created_at',
     render: (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-'),
@@ -38,6 +43,7 @@ export function UserTable({
   total,
   page,
   pageSize,
+  onView,
   onPageChange,
 }: UserTableProps) {
   if (error) {
@@ -49,6 +55,7 @@ export function UserTable({
       loading={loading}
       columns={columns}
       dataSource={users}
+      onRow={(record) => ({ onClick: () => onView(record), style: { cursor: 'pointer' } })}
       pagination={{
         current: page,
         pageSize,

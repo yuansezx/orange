@@ -12,6 +12,9 @@ export interface Role {
   dept_ids: string[]
 }
 
+/** 角色列表项——对齐后端 `RoleListItemResp`（数据 + 审计）。 */
+export interface RoleListItem extends Role, AuditFields {}
+
 /** 角色详情——对齐后端 `RoleDetailResp`（数据 + 审计 + 部门引用）。 */
 export interface RoleDetail extends Role, AuditFields {
   dept_refs: DeptRef[]

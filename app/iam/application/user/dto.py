@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.iam.application.common.dto import AuditOut, DeptRefOut
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, RoleId, DeptId, UserId
 from app.iam.domain.user.enums import UserTypeEnum
@@ -41,3 +42,36 @@ class UpdateUserIn(BaseModel):
     description: str | None = None
     role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None
+
+
+class UserOut(BaseModel):
+    """用户数据字段（**不含 password_hash**）。"""
+    id: UserId
+    username: str
+    nickname: str
+    email: Email | None = None
+    phone: Phone | None = None
+    user_type: UserTypeEnum
+    status: StatusEnum
+    description: str | None = None
+    dept_id: DeptId | None = None
+    created_at: datetime
+    updated_at: datetime | None = None
+    deleted_at: datetime | None = None
+
+
+class UserListItemOut(UserOut, AuditOut):
+    """用户列表项——数据字段 + 审计（平铺）。"""
+
+
+class RoleRefOut(BaseModel):
+    """用户详情里的角色引用（id + 标识 + 名称）。"""
+    id: RoleId
+    code: str
+    name: str
+
+
+class UserDetailOut(UserOut, AuditOut):
+    """用户详情——数据字段 + 审计（平铺）+ 部门引用 + 已分配角色。"""
+    dept_ref: DeptRefOut | None = None
+    roles: list[RoleRefOut] = Field(default_factory=list)

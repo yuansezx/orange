@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.iam.application.dept.dto import (
     CreateDeptIn,
     DeptDetailOut,
+    DeptListItemOut,
     DeptOut,
     DeptTreeNode,
     GetDeptsIn,
@@ -37,6 +38,10 @@ class GetDeptsReq(GetDeptsIn):
 
 class DeptResp(DeptOut):
     """部门响应——线格式同 DTO。"""
+
+
+class DeptListItemResp(DeptListItemOut):
+    """部门列表项响应（扁平列表 / 回收站）——数据字段 + 审计（平铺）。"""
 
 
 class DeptDetailResp(DeptDetailOut):

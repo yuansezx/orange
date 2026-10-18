@@ -6,16 +6,23 @@
 from collections.abc import Mapping, Sequence
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.application.common.dto import AuditOut, DeptRefOut
+from app.iam.application.common.dto import AuditOut, DeptRefOut, OperatorOut
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.shared.value_objects import DeptId, UserId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.repositories import UserRepository
 
 
-def _names(users: Mapping[UserId, User], uid: UserId | None) -> tuple[str | None, str | None]:
-    user = users.get(uid) if uid is not None else None
-    return (user.username, user.nickname) if user else (None, None)
+def _operator(users: Mapping[UserId, User], uid: UserId | None) -> OperatorOut | None:
+    """操作人 id 直接来自实体审计列；用户行不存在（已硬删）→ 名字为空。"""
+    if uid is None:
+        return None
+    user = users.get(uid)
+    return OperatorOut(
+        id=uid,
+        username=user.username if user else None,
+        nickname=user.nickname if user else None,
+    )
 
 
 class AuditService:
@@ -25,28 +32,26 @@ class AuditService:
         self.user_repo = user_repo
 
     async def build(self, entity: AuditableEntity) -> AuditOut:
+        return (await self.build_many([entity]))[0]
+
+    async def build_many(self, entities: Sequence[AuditableEntity]) -> list[AuditOut]:
+        """批量装配（列表用）——操作人 id 取并集后一次查询，避免 N+1。"""
         ids: dict[UserId, None] = {}
-        for uid in (entity.created_by, entity.updated_by, entity.deleted_by):
-            if uid is not None:
-                ids[uid] = None
+        for entity in entities:
+            for uid in (entity.created_by, entity.updated_by, entity.deleted_by):
+                if uid is not None:
+                    ids[uid] = None
         # 审计要能解析已删操作人（如 deleted_by），故显式含已删
         users = {u.id: u for u in await self.user_repo.get_by_ids(
             list(ids), include_deleted=True)} if ids else {}
+        return [self._assemble(entity, users) for entity in entities]
 
-        created_username, created_nickname = _names(users, entity.created_by)
-        updated_username, updated_nickname = _names(users, entity.updated_by)
-        deleted_username, deleted_nickname = _names(users, entity.deleted_by)
-
+    @staticmethod
+    def _assemble(entity: AuditableEntity, users: Mapping[UserId, User]) -> AuditOut:
         return AuditOut(
-            created_at=entity.created_at,
-            created_by_username=created_username,
-            created_by_nickname=created_nickname,
-            updated_at=entity.updated_at,
-            updated_by_username=updated_username,
-            updated_by_nickname=updated_nickname,
-            deleted_at=entity.deleted_at,
-            deleted_by_username=deleted_username,
-            deleted_by_nickname=deleted_nickname,
+            created_by=_operator(users, entity.created_by),
+            updated_by=_operator(users, entity.updated_by),
+            deleted_by=_operator(users, entity.deleted_by),
         )
 
 

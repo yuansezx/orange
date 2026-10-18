@@ -11,10 +11,20 @@ from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.password_hash import hash_password
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.user.exceptions import UserExistsException, UserNotExistException
-from app.iam.application.user.dto import CreateUserIn, UpdateUserIn, GetUsersIn
+from app.iam.application.user.dto import (
+    CreateUserIn,
+    GetUsersIn,
+    RoleRefOut,
+    UpdateUserIn,
+    UserDetailOut,
+    UserListItemOut,
+    UserOut,
+)
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
+from app.iam.domain.role.repositories import RoleRepository
 from app.core.domain.units_of_work import InTransactionType
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.events import UserChanged
@@ -32,6 +42,9 @@ class UserApplicationService:
                  dept_access_service: DeptAccessService,
                  dept_repo: DeptRepository,
                  user_role_repo: UserRoleRepository,
+                 role_repo: RoleRepository,
+                 audit_service: AuditService,
+                 dept_ref_service: DeptRefService,
                  event_bus: EventBus):
 
         self.in_transaction = in_transaction
@@ -41,6 +54,9 @@ class UserApplicationService:
         self.dept_access_service = dept_access_service
         self.dept_repo = dept_repo
         self.user_role_repo = user_role_repo
+        self.role_repo = role_repo
+        self.audit_service = audit_service
+        self.dept_ref_service = dept_ref_service
 
         self.event_bus = event_bus
 
@@ -67,10 +83,45 @@ class UserApplicationService:
             await self.user_repo.create(user)
 
     @requires_permission('iam:user:read')
-    async def get_users(self, data:GetUsersIn,current_user: CurrentUser) -> PageResult[User]:
+    async def get_users(self, data: GetUsersIn,
+                        current_user: CurrentUser) -> PageResult[UserListItemOut]:
         # 数据范围直接读当前用户快照里已解析的规约，仓储只翻译
         scope = current_user.data_scope_spec
-        return await self.user_repo.search(SearchUser(**data.model_dump()),data.page_size,data.page,scope)
+        page = await self.user_repo.search(
+            SearchUser(**data.model_dump()), data.page_size, data.page, scope)
+        users = page.data or []
+        audits = await self.audit_service.build_many(users)
+        items: list[UserListItemOut] = []
+        for user, audit in zip(users, audits):
+            fields = {**UserOut.model_validate(user, from_attributes=True).model_dump(),
+                      **audit.model_dump()}
+            items.append(UserListItemOut(**fields))
+        return PageResult(page=page.page, page_size=page.page_size, total=page.total, data=items)
+
+    @requires_permission('iam:user:read')
+    async def get_user_detail(self, user_id: UserId,
+                              current_user: CurrentUser) -> UserDetailOut:
+        """用户详情——读不惧已删（回收站可见）：数据 + 审计 + 部门引用 + 已分配角色。"""
+        user = await self.user_repo.get(user_id, include_deleted=True)
+        if user is None:
+            raise UserNotExistException(f'用户不存在：{user_id}')
+        if not await self.user_access_service.can_access(
+                user.id, current_user, include_deleted=True):
+            raise PermissionDeniedException('无权访问该用户')
+
+        audit = await self.audit_service.build(user)
+        dept_refs = await self.dept_ref_service.build([user.dept_id]) if user.dept_id else []
+        assignments = await self.user_role_repo.get_by_user_id(user.id)
+        roles = sorted(await self.role_repo.get_by_ids([a.role_id for a in assignments]),
+                       key=lambda role: role.code)
+
+        fields = {**UserOut.model_validate(user, from_attributes=True).model_dump(),
+                  **audit.model_dump()}
+        return UserDetailOut(
+            **fields,
+            dept_ref=dept_refs[0] if dept_refs else None,
+            roles=[RoleRefOut(id=r.id, code=r.code, name=r.name) for r in roles],
+        )
 
     @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,
