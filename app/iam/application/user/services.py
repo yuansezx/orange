@@ -179,8 +179,8 @@ class UserApplicationService:
         async with self.in_transaction():
             # 存储实体
             await self.user_repo.update(user)
-            # 设置角色
-            if data.role_ids:
+            # 设置角色：`[]` 也要处理（清空全部角色），故判 None 而非真假
+            if data.role_ids is not None:
                 await user_role_app_service.set_user_roles(user.id, data.role_ids, current_user)
         # 事务已提交，通知订阅方失效该用户的快照（如昵称/部门/状态变更）
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))

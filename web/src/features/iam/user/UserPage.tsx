@@ -5,11 +5,19 @@ import { useSearchParams } from 'react-router-dom'
 import { Platform } from '@shared/platform'
 
 import { UserDetailDrawer } from './components/UserDetailDrawer'
+import { UserFormDrawer } from './components/UserFormDrawer'
 import { UserToolbar } from './components/UserToolbar'
 import { UserTable } from './components/desktop/UserTable'
 import { UserCardList } from './components/mobile/UserCardList'
+import { useUserMutations } from './hooks/useUserMutations'
 import { useUsers } from './hooks/useUsers'
-import type { GetUsersQuery, UserStatus, UserType } from './types'
+import type { GetUsersQuery, UserFormValues, UserListItem, UserStatus, UserType } from './types'
+
+interface DialogState {
+  open: boolean
+  mode: 'create' | 'edit'
+  userId?: string
+}
 
 /**
  * 【平台模式范例 · 分叉档】
@@ -24,7 +32,9 @@ import type { GetUsersQuery, UserStatus, UserType } from './types'
 export default function UserPage() {
   const [params, setParams] = useSearchParams()
   const [viewingId, setViewingId] = useState<string>()
-  const { message } = App.useApp()
+  const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
+  const { modal } = App.useApp()
+  const { create, update, remove } = useUserMutations()
 
   const page = Number(params.get('page') ?? '1') || 1
   const pageSize = Number(params.get('page_size') ?? '10') || 10
@@ -43,7 +53,7 @@ export default function UserPage() {
   const users = data?.data ?? []
 
   /** 改筛选/分页：patch 的键即 URL query 参数名；不带 page 的改动回到第 1 页。 */
-  const update = (patch: Record<string, string | undefined>) => {
+  const updateQuery = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(params)
     for (const [key, value] of Object.entries(patch)) {
       if (value) next.set(key, value)
@@ -53,14 +63,70 @@ export default function UserPage() {
     setParams(next, { replace: true })
   }
 
+  const openCreate = () => setDialog({ open: true, mode: 'create' })
+  const openEdit = (user: UserListItem) =>
+    setDialog({ open: true, mode: 'edit', userId: user.id })
+  const close = () => setDialog((prev) => ({ ...prev, open: false }))
+
+  const submit = (values: UserFormValues) => {
+    const email = values.email?.trim() || null
+    const phone = values.phone?.trim() || null
+    const description = values.description?.trim() || null
+    const deptId = values.dept_id ?? null
+    const roleIds = values.role_ids ?? []
+
+    if (dialog.mode === 'edit' && dialog.userId) {
+      update.mutate(
+        {
+          id: dialog.userId,
+          body: {
+            nickname: values.nickname!.trim(),
+            email,
+            phone,
+            status: values.status,
+            description,
+            role_ids: roleIds,
+            dept_id: deptId,
+          },
+        },
+        { onSuccess: close },
+      )
+    } else {
+      create.mutate(
+        {
+          username: values.username!.trim(),
+          nickname: values.nickname?.trim() || undefined,
+          password: values.password!,
+          email,
+          phone,
+          status: values.status,
+          description,
+          role_ids: roleIds,
+          dept_id: deptId,
+        },
+        { onSuccess: close },
+      )
+    }
+  }
+
+  const confirmDelete = (user: UserListItem) =>
+    modal.confirm({
+      title: `删除用户「${user.username}」？`,
+      content: '删除后可在回收站恢复。',
+      okButtonProps: { danger: true },
+      onOk: () => remove.mutateAsync(user.id),
+    })
+
+  const pending = create.isPending || update.isPending
+
   return (
     <div>
       <UserToolbar
         keyword={keyword}
         status={status}
         userType={userType}
-        onChange={update}
-        onCreate={() => message.info('创建用户：待实现')}
+        onChange={updateQuery}
+        onCreate={openCreate}
       />
       <Platform
         desktop={
@@ -72,8 +138,10 @@ export default function UserPage() {
             page={page}
             pageSize={pageSize}
             onView={(user) => setViewingId(user.id)}
+            onEdit={openEdit}
+            onDelete={confirmDelete}
             onPageChange={(nextPage, nextSize) =>
-              update({ page: String(nextPage), page_size: String(nextSize) })
+              updateQuery({ page: String(nextPage), page_size: String(nextSize) })
             }
           />
         }
@@ -83,6 +151,8 @@ export default function UserPage() {
             loading={isLoading}
             error={error}
             onView={(user) => setViewingId(user.id)}
+            onEdit={openEdit}
+            onDelete={confirmDelete}
           />
         }
       />
@@ -90,6 +160,14 @@ export default function UserPage() {
         open={!!viewingId}
         userId={viewingId}
         onClose={() => setViewingId(undefined)}
+      />
+      <UserFormDrawer
+        open={dialog.open}
+        mode={dialog.mode}
+        userId={dialog.userId}
+        pending={pending}
+        onSubmit={submit}
+        onClose={close}
       />
     </div>
   )

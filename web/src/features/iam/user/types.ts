@@ -49,6 +49,45 @@ export interface UserListViewProps {
   loading: boolean
   error: Error | null
   onView: (user: UserListItem) => void
+  onEdit: (user: UserListItem) => void
+  onDelete: (user: UserListItem) => void
+}
+
+/** 创建用户——对齐后端 `CreateUserReq`。 */
+export interface CreateUserReq {
+  username: string
+  nickname?: string
+  password: string
+  email?: string | null
+  phone?: string | null
+  status: UserStatus
+  description?: string | null
+  role_ids?: string[]
+  dept_id?: string | null
+}
+
+/** 更新用户——对齐后端 `UpdateUserReq`（无 username / password）。 */
+export interface UpdateUserReq {
+  nickname: string
+  email?: string | null
+  phone?: string | null
+  status: UserStatus
+  description?: string | null
+  role_ids?: string[]
+  dept_id?: string | null
+}
+
+/** 用户表单值（新建 / 编辑共用）。 */
+export interface UserFormValues {
+  username?: string
+  nickname?: string
+  password?: string
+  email?: string
+  phone?: string
+  status: UserStatus
+  description?: string
+  dept_id?: string
+  role_ids?: string[]
 }
 
 /** 桌面表格：在视图入参上再加分页。 */
