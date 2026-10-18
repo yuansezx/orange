@@ -50,7 +50,13 @@ class UserRepository(BaseRepository[UserId, User]):
     async def exists_by_dept(self, dept_id: DeptId) -> bool: ...
 
     @abstractmethod
-    async def get_allowed_user_ids(self, current_user: CurrentUser) -> set[UserId]: ...
+    async def get_allowed_user_ids(self, current_user: CurrentUser,
+                                   include_deleted: bool = False) -> set[UserId]: ...
+
+    @abstractmethod
+    async def clear_dept(self, dept_ids: list[DeptId]) -> int:
+        """物理清理悬空引用：把这些部门下用户的 dept_id 置空（彻底删除部门时用）。"""
+        ...
 
     @abstractmethod
     async def search(self, search_by: SearchUser, page_size: int, page: int, scope: DataScopeSpec) -> PageResult[

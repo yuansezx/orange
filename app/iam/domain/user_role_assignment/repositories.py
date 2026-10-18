@@ -14,3 +14,13 @@ class UserRoleRepository(BaseRepository[UserRoleId, UserRoleAssignment]):
     async def get_user_ids_by_role(self, role_id: RoleId) -> list[UserId]:
         """持有该角色的用户（ACTIVE 分配）——角色变动时扇出失效用。"""
         ...
+
+    @abstractmethod
+    async def hard_delete_by_user(self, user_id: UserId) -> int:
+        """物理清理悬空引用：删掉该用户的全部角色分配（彻底删除用户时用）。"""
+        ...
+
+    @abstractmethod
+    async def hard_delete_by_role(self, role_id: RoleId) -> int:
+        """物理清理悬空引用：删掉该角色的全部分配（彻底删除角色时用）。"""
+        ...

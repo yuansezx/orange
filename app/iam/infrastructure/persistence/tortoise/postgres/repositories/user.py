@@ -116,17 +116,27 @@ class UserRepositoryTortoiseImpl(UserRepository):
         return await UserModel.filter(
             dept_id=dept_id.value, status__not=StatusEnum.DELETED).exists()
 
-    async def get_allowed_user_ids(self, current_user: CurrentUser) -> set[UserId]:
+    async def get_allowed_user_ids(self, current_user: CurrentUser,
+                                   include_deleted: bool = False) -> set[UserId]:
         spec = current_user.data_scope_spec
         if spec.kind is DataScopeEnum.ALL:
-            ids = await UserModel.filter(status__not=StatusEnum.DELETED).values_list('id', flat=True)
+            qs = UserModel.all()
+            if not include_deleted:
+                qs = qs.filter(status__not=StatusEnum.DELETED)
+            ids = await qs.values_list('id', flat=True)
             return {UserId(i) for i in ids}
         if spec.kind is DataScopeEnum.SELF:
             return {current_user.user_id}
-        ids = await UserModel.filter(
-            dept_id__in=[d.value for d in spec.dept_ids], status__not=StatusEnum.DELETED
-        ).values_list('id', flat=True)
+        qs = UserModel.filter(dept_id__in=[d.value for d in spec.dept_ids])
+        if not include_deleted:
+            qs = qs.filter(status__not=StatusEnum.DELETED)
+        ids = await qs.values_list('id', flat=True)
         return {UserId(i) for i in ids}
+
+    async def clear_dept(self, dept_ids: list[DeptId]) -> int:
+        if not dept_ids:
+            return 0
+        return await UserModel.filter(dept_id__in=[d.value for d in dept_ids]).update(dept_id=None)
 
     async def search(self, search_by: SearchUser, page_size: int, page: int,
                      scope: DataScopeSpec) -> PageResult[User]:

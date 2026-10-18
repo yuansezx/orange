@@ -23,8 +23,10 @@ from app.iam.application.dept.exceptions import (
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.entities import Dept
 from app.iam.domain.dept.events import DeptStructureChanged
+from app.iam.domain.dept.exceptions import DeptNotDeletedException
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService, parent_chain, shift_descendant_ancestors
+from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId
 from app.iam.domain.user.repositories import UserRepository
@@ -62,11 +64,13 @@ class DeptApplicationService:
                  dept_access_service: DeptAccessService,
                  audit_service: AuditService,
                  dept_ref_service: DeptRefService,
+                 role_repo: RoleRepository,
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.dept_repo = dept_repo
         self.user_repo = user_repo
         self.dept_access_service = dept_access_service
+        self.role_repo = role_repo
         self.audit_service = audit_service
         self.dept_ref_service = dept_ref_service
         self.event_bus = event_bus
@@ -202,7 +206,56 @@ class DeptApplicationService:
                 await self.dept_repo.update(node)
         await self._notify_structure_changed(parent_chain(parent))
 
+    @requires_permission('iam:dept:delete')
+    async def restore_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
+        """从回收站恢复（复用 `delete` 权限码）。
+
+        只恢复自身；**父部门已删时拒绝**（提示先恢复父），以维持「父已删 ⇒ 子必删」。
+        """
+        async with self.in_transaction():
+            dept = await self._load_any(dept_id)
+            if not await self.dept_access_service.can_access(
+                    dept.id, current_user, include_deleted=True):
+                raise PermissionDeniedException('无权访问该部门')
+            parent = await self._load_restorable_parent(dept)
+            dept.restore(current_user.user_id)
+            await self.dept_repo.update(dept)
+        await self._notify_structure_changed(parent_chain(parent))
+
+    @requires_permission('iam:dept:hard_delete')
+    async def hard_delete_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
+        """彻底删除（物理）——只允许对已软删部门做，**级联整棵子树**。
+
+        级联清两类悬空引用：角色数据范围里对这些部门的引用（iam_role_dept 行）、
+        用户（含已软删用户）的 dept_id 指向（置空）。
+        """
+        async with self.in_transaction():
+            dept = await self._load_any(dept_id)
+            if dept.status is not StatusEnum.DELETED:
+                raise DeptNotDeletedException('只能彻底删除已删除的部门')
+            if not await self.dept_access_service.can_access(
+                    dept.id, current_user, include_deleted=True):
+                raise PermissionDeniedException('无权访问该部门')
+            subtree = [dept, *await self.dept_repo.get_descendants(dept.id, include_deleted=True)]
+            # 不变式「父已删 ⇒ 子必删」被破坏时拒绝，避免级联杀掉未删的子树
+            if any(node.status is not StatusEnum.DELETED for node in subtree):
+                raise DeptNotDeletedException('子树中存在未删除的部门，无法彻底删除')
+            subtree_ids = [node.id for node in subtree]
+            await self.role_repo.remove_custom_depts(subtree_ids)
+            await self.user_repo.clear_dept(subtree_ids)
+            await self.dept_repo.hard_delete(subtree_ids)
+        await self._notify_structure_changed(frozenset(subtree_ids))
+
     # ---------------- 内部 ----------------
+    async def _load_restorable_parent(self, dept: Dept) -> Dept | None:
+        """恢复前校验上级：上级不存在（已硬删）或已软删 → 拒绝，提示先恢复上级。"""
+        if dept.parent_id is None:
+            return None
+        parent = await self.dept_repo.get(dept.parent_id)
+        if parent is None or parent.status is StatusEnum.DELETED:
+            raise DeptParentUnavailableException('上级部门已被删除，请先恢复上级部门')
+        return parent
+
     async def _visible_depts(self, current_user: CurrentUser,
                              status: StatusEnum | None = None) -> list[Dept]:
         """按数据范围过滤可见部门（ALL → 不过滤）；`status` 缺省排除已删。"""

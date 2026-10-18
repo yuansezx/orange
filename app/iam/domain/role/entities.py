@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 from pydantic import Field, model_validator
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.role.exceptions import InvalidRoleCodeException
+from app.iam.domain.role.exceptions import InvalidRoleCodeException, RoleNotDeletedException
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
 
@@ -62,3 +62,11 @@ class Role(AuditableEntity[UserId]):
         self.change_status(StatusEnum.DELETED, operator_id)
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
+
+    def restore(self, operator_id: UserId) -> None:
+        """从回收站恢复：置 ACTIVE、清删除痕迹。权限集/部门集在软删时未动，原样保留。"""
+        if self.status is not StatusEnum.DELETED:
+            raise RoleNotDeletedException('角色未被删除，无需恢复')
+        self.change_status(StatusEnum.ACTIVE, operator_id)
+        self.deleted_by = None
+        self.deleted_at = None

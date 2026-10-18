@@ -38,6 +38,8 @@ class CurrentUserCacheInvalidationHandler(EventHandler):
         if isinstance(event, (UserChanged, UserRolesChanged)):
             return {event.user_id}
         if isinstance(event, RoleChanged):
+            if event.affected_user_ids is not None:
+                return set(event.affected_user_ids)
             return set(await self.user_role_repo.get_user_ids_by_role(event.role_id))
         if isinstance(event, DeptStructureChanged):
             return await self.affected_users_query.resolve(event.affected_dept_ids)

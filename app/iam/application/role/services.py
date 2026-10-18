@@ -20,10 +20,12 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.role.entities import Role
 from app.iam.domain.role.events import RoleChanged
+from app.iam.domain.role.exceptions import RoleNotDeletedException
 from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
+from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
 
 def _to_out(role: Role) -> RoleOut:
@@ -52,12 +54,14 @@ class RoleApplicationService:
                  role_access_service: RoleAccessService,
                  audit_service: AuditService,
                  dept_ref_service: DeptRefService,
+                 user_role_repo: UserRoleRepository,
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.role_repo = role_repo
         self.permission_exists_query = permission_exists_query
         self.dept_repo = dept_repo
         self.role_access_service = role_access_service
+        self.user_role_repo = user_role_repo
         self.audit_service = audit_service
         self.dept_ref_service = dept_ref_service
         self.event_bus = event_bus
@@ -114,6 +118,31 @@ class RoleApplicationService:
             await self.role_repo.update(role)
         await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
 
+    @requires_permission('iam:role:delete')
+    async def restore_role(self, role_id: RoleId, current_user: CurrentUser) -> None:
+        """从回收站恢复（复用 `delete` 权限码）；权限集/部门集软删时未动，原样带回。"""
+        async with self.in_transaction():
+            role = await self._load_any(role_id)
+            role.restore(current_user.user_id)
+            await self.role_repo.update(role)
+        # 恢复即重新授出该角色的权限，持有者快照需重解析
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
+
+    @requires_permission('iam:role:hard_delete')
+    async def hard_delete_role(self, role_id: RoleId, current_user: CurrentUser) -> None:
+        """彻底删除（物理）——只允许对已软删角色做；级联清用户角色分配。"""
+        async with self.in_transaction():
+            role = await self._load_any(role_id)
+            if role.status is not StatusEnum.DELETED:
+                raise RoleNotDeletedException('只能彻底删除已删除的角色')
+            # 分配行即将随角色删除，事后再查不到持有者 → 事务内预取
+            affected_user_ids = frozenset(
+                await self.user_role_repo.get_user_ids_by_role(role.id))
+            await self.user_role_repo.hard_delete_by_role(role.id)
+            await self.role_repo.hard_delete(role.id)
+        await self.event_bus.publish(RoleChanged(
+            id=EventId.new(), role_id=role_id, affected_user_ids=affected_user_ids))
+
     # ---------------- 读 ----------------
     @requires_permission('iam:role:read')
     async def get_role(self, role_id: RoleId, current_user: CurrentUser) -> RoleOut:
@@ -139,6 +168,13 @@ class RoleApplicationService:
         return RoleDetailOut(**fields, dept_refs=dept_refs)
 
     # ---------------- 内部 ----------------
+    async def _load_any(self, role_id: RoleId) -> Role:
+        """读侧加载：不惧已删（回收站恢复 / 彻底删除用）。"""
+        role = await self.role_repo.get(role_id)
+        if role is None:
+            raise RoleNotFoundException(f'角色不存在：{role_id}')
+        return role
+
     async def _load_accessible(self, role_id: RoleId, current_user: CurrentUser) -> Role:
         role = await self.role_repo.get(role_id)
         if role is None or role.status is StatusEnum.DELETED:

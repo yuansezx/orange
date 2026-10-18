@@ -87,10 +87,31 @@ async def update_dept(
     return DeptResp.model_validate(dept, from_attributes=True)
 
 
-@dept_router.delete('/{dept_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除部门')
+@dept_router.delete('/{dept_id}', status_code=status.HTTP_204_NO_CONTENT,
+                    summary='删除部门（软删，级联整棵子树）')
 async def delete_dept(
     dept_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
 ) -> None:
     await dept_app_service.delete_dept(DeptId(dept_id), current_user)
+
+
+@dept_router.post('/{dept_id}/restore', status_code=status.HTTP_204_NO_CONTENT,
+                  summary='恢复部门（父部门已删时须先恢复父）')
+async def restore_dept(
+    dept_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> None:
+    await dept_app_service.restore_dept(DeptId(dept_id), current_user)
+
+
+@dept_router.delete('/{dept_id}/hard-delete', status_code=status.HTTP_204_NO_CONTENT,
+                    summary='彻底删除部门（物理，仅限已删；级联整棵子树）')
+async def hard_delete_dept(
+    dept_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> None:
+    await dept_app_service.hard_delete_dept(DeptId(dept_id), current_user)

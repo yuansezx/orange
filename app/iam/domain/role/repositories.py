@@ -4,7 +4,7 @@ from app.core.domain.repositories import BaseRepository
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.entities import Role
 from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.value_objects import RoleId
+from app.iam.domain.shared.value_objects import DeptId, RoleId
 
 
 class RoleRepository(BaseRepository[RoleId, Role]):
@@ -28,3 +28,8 @@ class RoleRepository(BaseRepository[RoleId, Role]):
 
     @abstractmethod
     async def get_allowed_role_ids(self, current_user: CurrentUser) -> set[RoleId]: ...
+
+    @abstractmethod
+    async def remove_custom_depts(self, dept_ids: list[DeptId]) -> int:
+        """物理清理悬空引用：把所有角色数据范围中这些部门的引用移除（彻底删除部门时用）。"""
+        ...

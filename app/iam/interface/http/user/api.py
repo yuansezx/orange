@@ -1,4 +1,4 @@
-"""用户 CRUD 路由（create / list / update；delete 待接）。
+"""用户 CRUD 路由（create / list / update / delete）+ 回收站（restore / hard-delete）。
 
 鉴权：功能权限由应用服务（@requires_permission）判定，数据权限由服务内 access service 判定；
 接口层只 `Depends(get_current_user)` 提取身份。
@@ -58,3 +58,31 @@ async def update_user(
     data = UpdateUserIn(id=UserId(user_id), **body.model_dump())
     user = await user_app_service.update_user(data, current_user, user_role_app_service)
     return UserResp.model_validate(user, from_attributes=True)
+
+
+@user_router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除用户（软删）')
+async def delete_user(
+    user_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    user_app_service: UserApplicationService = Depends(get_user_app_service),
+) -> None:
+    await user_app_service.delete_user(UserId(user_id), current_user)
+
+
+@user_router.post('/{user_id}/restore', status_code=status.HTTP_204_NO_CONTENT, summary='恢复用户')
+async def restore_user(
+    user_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    user_app_service: UserApplicationService = Depends(get_user_app_service),
+) -> None:
+    await user_app_service.restore_user(UserId(user_id), current_user)
+
+
+@user_router.delete('/{user_id}/hard-delete', status_code=status.HTTP_204_NO_CONTENT,
+                    summary='彻底删除用户（物理，仅限已删）')
+async def hard_delete_user(
+    user_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    user_app_service: UserApplicationService = Depends(get_user_app_service),
+) -> None:
+    await user_app_service.hard_delete_user(UserId(user_id), current_user)

@@ -11,14 +11,17 @@ from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.password_hash import hash_password
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
-from app.iam.application.user.exceptions import UserExistsException
+from app.iam.application.user.exceptions import UserExistsException, UserNotExistException
 from app.iam.application.user.dto import CreateUserIn, UpdateUserIn, GetUsersIn
+from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
 from app.core.domain.units_of_work import InTransactionType
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.events import UserChanged
+from app.iam.domain.user.exceptions import UserNotDeletedException
 from app.iam.domain.user.repositories import UserRepository, SearchUser
 from app.iam.domain.user.services import CheckUserUniqueService, UserAccessService
+from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
 
 class UserApplicationService:
@@ -27,6 +30,8 @@ class UserApplicationService:
                  user_repo: UserRepository,
                  user_access_service: UserAccessService,
                  dept_access_service: DeptAccessService,
+                 dept_repo: DeptRepository,
+                 user_role_repo: UserRoleRepository,
                  event_bus: EventBus):
 
         self.in_transaction = in_transaction
@@ -34,6 +39,8 @@ class UserApplicationService:
 
         self.user_access_service = user_access_service
         self.dept_access_service = dept_access_service
+        self.dept_repo = dept_repo
+        self.user_role_repo = user_role_repo
 
         self.event_bus = event_bus
 
@@ -106,7 +113,7 @@ class UserApplicationService:
         if not await self.user_access_service.can_access(data.id, current_user):
             raise PermissionDeniedException('无权访问该用户')
 
-        user = await self.user_repo.get(data.id)
+        user = await self._load(data.id)
 
         # 如果涉及部门，检验权限
         if data.dept_id:
@@ -128,5 +135,55 @@ class UserApplicationService:
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
         return user
 
+    @requires_permission('iam:user:delete')
+    async def delete_user(self, user_id: UserId, current_user: CurrentUser) -> None:
+        async with self.in_transaction():
+            user = await self._load(user_id)
+            if not await self.user_access_service.can_access(user.id, current_user):
+                raise PermissionDeniedException('无权访问该用户')
+            user.delete(current_user.user_id)
+            await self.user_repo.update(user)
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
-    # async def delete_users(self,user_ids: list[int], current_user: CurrentUser) -> None:
+    @requires_permission('iam:user:delete')
+    async def restore_user(self, user_id: UserId, current_user: CurrentUser) -> None:
+        """从回收站恢复（复用 `delete` 权限码）。"""
+        async with self.in_transaction():
+            user = await self._load_any(user_id)
+            if not await self.user_access_service.can_access(
+                    user.id, current_user, include_deleted=True):
+                raise PermissionDeniedException('无权访问该用户')
+            user.restore(current_user.user_id)
+            await self.user_repo.update(user)
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
+
+    @requires_permission('iam:user:hard_delete')
+    async def hard_delete_user(self, user_id: UserId, current_user: CurrentUser) -> None:
+        """彻底删除（物理）——只允许对已软删用户做；级联清悬空引用。"""
+        async with self.in_transaction():
+            user = await self._load_any(user_id)
+            if user.status is not StatusEnum.DELETED:
+                raise UserNotDeletedException('只能彻底删除已删除的用户')
+            if not await self.user_access_service.can_access(
+                    user.id, current_user, include_deleted=True):
+                raise PermissionDeniedException('无权访问该用户')
+            await self.user_role_repo.hard_delete_by_user(user.id)
+            await self.dept_repo.clear_leader(user.id)
+            await self.user_repo.hard_delete(user.id)
+        # 行已不在；清快照让持有者会话按「用户不可用」失效
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
+
+    # ---------------- 内部 ----------------
+    async def _load(self, user_id: UserId) -> User:
+        """写侧加载：已删视为不存在（写拒已删；回收站操作走 `_load_any`）。"""
+        user = await self.user_repo.get(user_id)
+        if user is None or user.status is StatusEnum.DELETED:
+            raise UserNotExistException(f'用户不存在：{user_id}')
+        return user
+
+    async def _load_any(self, user_id: UserId) -> User:
+        """读侧加载：不惧已删（回收站恢复 / 彻底删除用）。"""
+        user = await self.user_repo.get(user_id)
+        if user is None:
+            raise UserNotExistException(f'用户不存在：{user_id}')
+        return user

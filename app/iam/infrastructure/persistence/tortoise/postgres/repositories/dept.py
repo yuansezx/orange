@@ -80,11 +80,12 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         models = await qs.order_by('name')
         return [to_domain(m) for m in models]
 
-    async def get_descendants(self, dept_id: DeptId) -> list[Dept]:
-        # ancestors @> [dept_id]（走 GIN 索引）；软删的子孙不参与移动重写
-        models = await DeptModel.filter(
-            ancestors__contains=[dept_id.value], status__not=StatusEnum.DELETED)
-        return [to_domain(m) for m in models]
+    async def get_descendants(self, dept_id: DeptId, include_deleted: bool = False) -> list[Dept]:
+        # ancestors @> [dept_id]（走 GIN 索引）；软删的子孙默认不参与移动重写
+        qs = DeptModel.filter(ancestors__contains=[dept_id.value])
+        if not include_deleted:
+            qs = qs.filter(status__not=StatusEnum.DELETED)
+        return [to_domain(m) for m in await qs]
 
     async def get_by_parent_and_name(self, parent_id: DeptId | None, name: str) -> Dept | None:
         """同级同名查（**含已删**——软删仍占位，恢复时才不会撞名）。"""
@@ -99,9 +100,16 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         models = await DeptModel.filter(id__in=ids, status__not=StatusEnum.DELETED)
         return [to_domain(m) for m in models]
 
-    async def get_allowed_dept_ids(self, current_user: CurrentUser) -> set[DeptId]:
+    async def get_allowed_dept_ids(self, current_user: CurrentUser,
+                                   include_deleted: bool = False) -> set[DeptId]:
         spec = current_user.data_scope_spec
         if spec.kind is DataScopeEnum.ALL:
-            ids = await DeptModel.filter(status__not=StatusEnum.DELETED).values_list('id', flat=True)
+            qs = DeptModel.all()
+            if not include_deleted:
+                qs = qs.filter(status__not=StatusEnum.DELETED)
+            ids = await qs.values_list('id', flat=True)
             return {DeptId(i) for i in ids}
         return set(spec.dept_ids)
+
+    async def clear_leader(self, user_id: UserId) -> int:
+        return await DeptModel.filter(leader_id=user_id.value).update(leader_id=None)

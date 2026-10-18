@@ -16,3 +16,9 @@ class UserImmutableException(IAMBusinessBaseException):
 class ReservedUsernameException(IAMBusinessBaseException):
     code = 'IAM_RESERVED_USERNAME'
     kind = ErrorKindEnum.VALIDATION
+
+
+class UserNotDeletedException(IAMBusinessBaseException):
+    """对象未处于已删状态：恢复 / 彻底删除的前提不成立。"""
+    code = 'IAM_USER_NOT_DELETED'
+    kind = ErrorKindEnum.CONFLICT

@@ -42,19 +42,27 @@ _CRUD = (
 )
 
 
-def _crud_permissions(label: str) -> list[RegisterPermissionIn]:
-    return [RegisterPermissionIn(action=action, name=f'{verb}{label}') for action, verb in _CRUD]
+def _crud_permissions(label: str, *, hard_delete: bool = False) -> list[RegisterPermissionIn]:
+    """CRUD 四码；回收站资源再加 `hard_delete`（彻底删除，独立于软删的 `delete`）。"""
+    permissions = [RegisterPermissionIn(action=action, name=f'{verb}{label}')
+                   for action, verb in _CRUD]
+    if hard_delete:
+        permissions.append(RegisterPermissionIn(action='hard_delete', name=f'彻底删除{label}'))
+    return permissions
 
 
 IAM_RESOURCE_DECLARATIONS: list[RegisterResourceIn] = [
     RegisterResourceIn(
-        module=IAM_MODULE, code='user', name='用户资源', permissions=_crud_permissions('用户'),
+        module=IAM_MODULE, code='user', name='用户资源',
+        permissions=_crud_permissions('用户', hard_delete=True),
     ),
     RegisterResourceIn(
-        module=IAM_MODULE, code='role', name='角色资源', permissions=_crud_permissions('角色'),
+        module=IAM_MODULE, code='role', name='角色资源',
+        permissions=_crud_permissions('角色', hard_delete=True),
     ),
     RegisterResourceIn(
-        module=IAM_MODULE, code='dept', name='部门资源', permissions=_crud_permissions('部门'),
+        module=IAM_MODULE, code='dept', name='部门资源',
+        permissions=_crud_permissions('部门', hard_delete=True),
     ),
     RegisterResourceIn(
         module=IAM_MODULE, code='resource', name='资源目录', permissions=_crud_permissions('资源'),

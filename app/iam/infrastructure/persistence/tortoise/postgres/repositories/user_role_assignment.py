@@ -73,3 +73,9 @@ class UserRoleRepositoryTortoiseImpl(UserRoleRepository):
         rows = await UserRoleAssignmentModel.filter(
             role_id=role_id.value, status=StatusEnum.ACTIVE).values_list('user_id', flat=True)
         return [UserId(u) for u in rows]
+
+    async def hard_delete_by_user(self, user_id: UserId) -> int:
+        return await UserRoleAssignmentModel.filter(user_id=user_id.value).delete()
+
+    async def hard_delete_by_role(self, role_id: RoleId) -> int:
+        return await UserRoleAssignmentModel.filter(role_id=role_id.value).delete()

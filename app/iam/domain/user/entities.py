@@ -6,7 +6,12 @@ from app.core.domain.entities import AuditableEntity
 from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
-from app.iam.domain.user.exceptions import PasswordPolicyViolationException, ReservedUsernameException, UserImmutableException
+from app.iam.domain.user.exceptions import (
+    PasswordPolicyViolationException,
+    ReservedUsernameException,
+    UserImmutableException,
+    UserNotDeletedException,
+)
 from app.core.utils.password_hash import hash_password, verify_password
 
 
@@ -89,3 +94,16 @@ class User(AuditableEntity[UserId]):
         self.status = StatusEnum.DELETED
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
+
+    def restore(self, operator_id: UserId) -> None:
+        """从回收站恢复：置 ACTIVE、清删除痕迹。
+
+        不记录删除前状态，故曾停用的用户恢复后为 ACTIVE，需要时再停用。
+        """
+        if self.status is not StatusEnum.DELETED:
+            raise UserNotDeletedException('用户未被删除，无需恢复')
+        self.status = StatusEnum.ACTIVE
+        self.deleted_at = None
+        self.deleted_by = None
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
