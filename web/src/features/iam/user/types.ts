@@ -99,6 +99,8 @@ export interface UserTableProps extends UserListViewProps {
   total: number
   page: number
   pageSize: number
+  /** 当前登录用户 id（超管自己那行禁用状态开关）。 */
+  selfId?: string
   statusPendingId?: string
   onStatusChange: (user: UserListItem, status: UserStatus) => void
   onPageChange: (page: number, pageSize: number) => void

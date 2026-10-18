@@ -9,6 +9,7 @@ from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 from app.iam.domain.user.exceptions import (
     PasswordPolicyViolationException,
     ReservedUsernameException,
+    SuperAdminSelfDisableException,
     UserImmutableException,
 )
 from app.core.utils.password_hash import hash_password, verify_password
@@ -79,6 +80,11 @@ class User(AuditableEntity[UserId]):
     def change_status(self, status: StatusEnum, update_by: UserId):
         if not self.can_update():
             raise UserImmutableException('用户不可更改')
+        # 超管自停是唯一不可恢复的路径（没有其他账号能再启用它）→ 必须由别人操作
+        if (status is StatusEnum.DISABLED
+                and self.user_type is UserTypeEnum.SUPER_ADMIN
+                and self.id == update_by):
+            raise SuperAdminSelfDisableException('超级管理员不能停用自己，请先创建日常管理员')
         self.status = status
         self.updated_by = update_by
         self.updated_at = datetime.now(UTC)

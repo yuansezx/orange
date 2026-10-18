@@ -21,6 +21,7 @@ export function UserTable({
   page,
   pageSize,
   recycleMode,
+  selfId,
   onView,
   onEdit,
   onDelete,
@@ -68,14 +69,20 @@ export function UserTable({
     {
       title: '状态',
       dataIndex: 'status',
-      render: (_, record) => (
-        <StatusSwitch
-          status={record.status}
-          disabled={recycleMode}
-          loading={statusPendingId === record.id}
-          onChange={(status) => onStatusChange(record, status)}
-        />
-      ),
+      render: (_, record) => {
+        const selfSuperAdmin = record.user_type === 'super_admin' && record.id === selfId
+        return (
+          <StatusSwitch
+            status={record.status}
+            disabled={recycleMode || selfSuperAdmin}
+            disabledReason={
+              selfSuperAdmin ? '超级管理员不能停用自己（请先创建日常管理员）' : undefined
+            }
+            loading={statusPendingId === record.id}
+            onChange={(status) => onStatusChange(record, status)}
+          />
+        )
+      },
     },
     {
       title: '创建人',

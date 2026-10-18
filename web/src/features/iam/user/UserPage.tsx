@@ -2,6 +2,7 @@ import { App } from 'antd'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { usePermission } from '@features/auth'
 import { Platform } from '@shared/platform'
 
 import { UserDetailDrawer } from './components/UserDetailDrawer'
@@ -34,6 +35,7 @@ export default function UserPage() {
   const [viewingId, setViewingId] = useState<string>()
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const { modal } = App.useApp()
+  const { me } = usePermission()
   const { create, update, remove, setStatus, restore, hardDelete } = useUserMutations()
 
   const page = Number(params.get('page') ?? '1') || 1
@@ -157,6 +159,7 @@ export default function UserPage() {
             page={page}
             pageSize={pageSize}
             recycleMode={recycleMode}
+            selfId={me?.user_id}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
