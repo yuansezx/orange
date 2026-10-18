@@ -9,7 +9,7 @@ import type { ApiErrorBody } from './types'
 
 /**
  * 唯一 HTTP 客户端（六边形里的「适配器」）：注入令牌 + 归一后端错误体。
- * baseURL 为 `/`，dev 下经 vite proxy 转发到 FastAPI（模块前缀 /iam）。
+ * baseURL 为 `/`，dev 下经 vite proxy 转发到 FastAPI（全局前缀 /api）。
  */
 export const http = axios.create({
   baseURL: '/',

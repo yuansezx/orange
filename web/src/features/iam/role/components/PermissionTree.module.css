@@ -1,0 +1,9 @@
+/*
+ * 只读：仅屏蔽勾选框的点击，保留展开/收起。
+ * 不用节点 `disabled`——rc-tree 从叶子推导父节点 checked/halfChecked 时会跳过
+ * disabled 节点，父节点将永远显示未选。
+ */
+.readonly :global(.ant-tree-checkbox) {
+  pointer-events: none;
+  cursor: default;
+}
