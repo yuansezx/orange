@@ -23,6 +23,7 @@ from app.iam.interface.http.dept.schemas import (
     GetDeptsReq,
     UpdateDeptReq,
 )
+from app.iam.interface.http.schemas import UpdateStatusReq
 
 dept_router = APIRouter(prefix='/depts', tags=['部门'])
 
@@ -86,6 +87,17 @@ async def update_dept(
     data = UpdateDeptIn(id=DeptId(dept_id), **body.model_dump(exclude_unset=True))
     dept = await dept_app_service.update_dept(data, current_user)
     return DeptResp.model_validate(dept, from_attributes=True)
+
+
+@dept_router.put('/{dept_id}/status', status_code=status.HTTP_204_NO_CONTENT,
+                 summary='启用/停用部门（停用级联子树，启用级联祖先）')
+async def set_dept_status(
+    dept_id: UUID,
+    body: UpdateStatusReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> None:
+    await dept_app_service.set_dept_status(DeptId(dept_id), body.status, current_user)
 
 
 @dept_router.delete('/{dept_id}', status_code=status.HTTP_204_NO_CONTENT,

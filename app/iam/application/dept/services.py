@@ -148,9 +148,7 @@ class DeptApplicationService:
     async def update_dept(self, data: UpdateDeptIn, current_user: CurrentUser) -> Dept:
         affected: set[DeptId] = set()
         async with self.in_transaction():
-            dept = await self._load(data.id)
-            if not await self.dept_access_service.can_access(dept.id, current_user):
-                raise PermissionDeniedException('无权访问该部门')
+            dept = await self._load_accessible(data.id, current_user)
             provided = data.model_fields_set
             operator = current_user.user_id
 
@@ -190,6 +188,16 @@ class DeptApplicationService:
             await self.dept_repo.update(dept)
         await self._notify_structure_changed(affected)
         return dept
+
+    @requires_permission('iam:dept:update')
+    async def set_dept_status(self, dept_id: DeptId, status: StatusEnum,
+                              current_user: CurrentUser) -> None:
+        """统一启用/停用入口——与更新共用 `_cascade_status`（停用子树 / 启用祖先）。"""
+        async with self.in_transaction():
+            dept = await self._load_accessible(dept_id, current_user)
+            await self._cascade_status(dept, status, current_user)
+            await self.dept_repo.update(dept)
+        # 状态变化不影响结构与数据范围，不发结构事件
 
     @requires_permission('iam:dept:delete')
     async def delete_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
@@ -330,6 +338,12 @@ class DeptApplicationService:
         if affected:
             await self.event_bus.publish(
                 DeptStructureChanged(id=EventId.new(), affected_dept_ids=frozenset(affected)))
+
+    async def _load_accessible(self, dept_id: DeptId, current_user: CurrentUser) -> Dept:
+        dept = await self._load(dept_id)
+        if not await self.dept_access_service.can_access(dept.id, current_user):
+            raise PermissionDeniedException('无权访问该部门')
+        return dept
 
     async def _load(self, dept_id: DeptId) -> Dept:
         dept = await self.dept_repo.get(dept_id)  # 仓储默认不返回已删

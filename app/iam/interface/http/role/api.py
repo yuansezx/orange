@@ -20,6 +20,7 @@ from app.iam.interface.http.role.schemas import (
     RoleResp,
     UpdateRoleReq,
 )
+from app.iam.interface.http.schemas import UpdateStatusReq
 
 role_router = APIRouter(prefix='/roles', tags=['角色'])
 
@@ -79,6 +80,17 @@ async def update_role(
 ) -> None:
     data = UpdateRoleIn(id=RoleId(role_id), **body.model_dump())
     await role_app_service.update_role(data, current_user)
+
+
+@role_router.put('/{role_id}/status', status_code=status.HTTP_204_NO_CONTENT,
+                 summary='启用/停用角色')
+async def set_role_status(
+    role_id: UUID,
+    body: UpdateStatusReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    role_app_service: RoleApplicationService = Depends(get_role_app_service),
+) -> None:
+    await role_app_service.set_role_status(RoleId(role_id), body.status, current_user)
 
 
 @role_router.delete('/{role_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除角色（软删）')

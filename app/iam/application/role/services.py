@@ -107,12 +107,22 @@ class RoleApplicationService:
             if dept_ids:
                 await self._ensure_depts_exist(dept_ids)
             role.change(data.name, data.data_scope, data.description, current_user.user_id)
-            role.change_status(data.status, current_user.user_id)
+            await self._change_status(role, data.status, current_user)
             role.set_permissions(permission_ids, current_user.user_id)
             role.set_depts(dept_ids, current_user.user_id)
             await self.role_repo.update(role)
         # 整体替换：名称/权限/数据范围变更都影响持有者快照（多清无害）
         await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role.id))
+
+    @requires_permission('iam:role:update')
+    async def set_role_status(self, role_id: RoleId, status: StatusEnum,
+                              current_user: CurrentUser) -> None:
+        """统一启用/停用入口——与整体更新共用加载/鉴权/状态变更逻辑。"""
+        async with self.in_transaction():
+            role = await self._load_accessible(role_id, current_user)
+            await self._change_status(role, status, current_user)
+            await self.role_repo.update(role)
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
 
     @requires_permission('iam:role:delete')
     async def delete_role(self, role_id: RoleId, current_user: CurrentUser) -> None:
@@ -180,6 +190,11 @@ class RoleApplicationService:
         return RoleDetailOut(**fields, dept_refs=dept_refs)
 
     # ---------------- 内部 ----------------
+    async def _change_status(self, role: Role, status: StatusEnum,
+                             current_user: CurrentUser) -> None:
+        """状态变更的唯一应用层入口（整体更新 / 专用状态接口共用）。"""
+        role.change_status(status, current_user.user_id)
+
     async def _load_any(self, role_id: RoleId) -> Role:
         """读侧加载：不惧已删（回收站恢复 / 彻底删除用）。"""
         role = await self.role_repo.get(role_id, include_deleted=True)

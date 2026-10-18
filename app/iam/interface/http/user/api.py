@@ -16,6 +16,7 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.interface.dependences import get_user_app_service, get_user_role_app_service
 from app.iam.interface.http.dependencies import get_current_user
+from app.iam.interface.http.schemas import UpdateStatusReq
 from app.iam.interface.http.user.schemas import (
     CreateUserReq,
     GetUsersReq,
@@ -76,6 +77,17 @@ async def update_user(
     data = UpdateUserIn(id=UserId(user_id), **body.model_dump())
     user = await user_app_service.update_user(data, current_user, user_role_app_service)
     return UserResp.model_validate(user, from_attributes=True)
+
+
+@user_router.put('/{user_id}/status', status_code=status.HTTP_204_NO_CONTENT,
+                 summary='启用/停用用户')
+async def set_user_status(
+    user_id: UUID,
+    body: UpdateStatusReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    user_app_service: UserApplicationService = Depends(get_user_app_service),
+) -> None:
+    await user_app_service.set_user_status(UserId(user_id), body.status, current_user)
 
 
 @user_router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除用户（软删）')

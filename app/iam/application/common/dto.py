@@ -3,7 +3,13 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, RoleSummary, UserId
+
+
+class UpdateStatusIn(BaseModel):
+    """启用/停用——统一状态变更入口的请求体。"""
+    status: StatusEnum
 
 
 @dataclass(frozen=True)

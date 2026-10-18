@@ -160,11 +160,7 @@ class UserApplicationService:
     async def update_user(self, data: UpdateUserIn, current_user: CurrentUser,
                           user_role_app_service: UserRoleApplicationService) -> User:
 
-        # 当前用户是否有权限操作目标用户
-        if not await self.user_access_service.can_access(data.id, current_user):
-            raise PermissionDeniedException('无权访问该用户')
-
-        user = await self._load(data.id)
+        user = await self._load_accessible(data.id, current_user)
 
         # 如果涉及部门，检验权限
         if data.dept_id:
@@ -174,7 +170,7 @@ class UserApplicationService:
         # 调用实体方法更改
         user.change_profile(nickname=data.nickname, email=data.email, phone=data.phone,
                             description=data.description, dept_id=data.dept_id, operator_id=current_user.user_id)
-        user.change_status(data.status, current_user.user_id)
+        await self._change_status(user, data.status, current_user)
 
         async with self.in_transaction():
             # 存储实体
@@ -186,12 +182,20 @@ class UserApplicationService:
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
         return user
 
+    @requires_permission('iam:user:update')
+    async def set_user_status(self, user_id: UserId, status: StatusEnum,
+                              current_user: CurrentUser) -> None:
+        """统一启用/停用入口——与 `update_user` 共用加载/鉴权/状态变更逻辑。"""
+        async with self.in_transaction():
+            user = await self._load_accessible(user_id, current_user)
+            await self._change_status(user, status, current_user)
+            await self.user_repo.update(user)
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
+
     @requires_permission('iam:user:delete')
     async def delete_user(self, user_id: UserId, current_user: CurrentUser) -> None:
         async with self.in_transaction():
-            user = await self._load(user_id)
-            if not await self.user_access_service.can_access(user.id, current_user):
-                raise PermissionDeniedException('无权访问该用户')
+            user = await self._load_accessible(user_id, current_user)
             user.delete(current_user.user_id)
             await self.user_repo.update(user)
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
@@ -227,6 +231,17 @@ class UserApplicationService:
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     # ---------------- 内部 ----------------
+    async def _load_accessible(self, user_id: UserId, current_user: CurrentUser) -> User:
+        user = await self._load(user_id)
+        if not await self.user_access_service.can_access(user.id, current_user):
+            raise PermissionDeniedException('无权访问该用户')
+        return user
+
+    async def _change_status(self, user: User, status: StatusEnum,
+                             current_user: CurrentUser) -> None:
+        """状态变更的唯一应用层入口（更新 / 专用状态接口共用）。"""
+        user.change_status(status, current_user.user_id)
+
     async def _load(self, user_id: UserId) -> User:
         """写侧加载：仓储默认不返回已删（回收站操作走 `_load_any`）。"""
         user = await self.user_repo.get(user_id)
