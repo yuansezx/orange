@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 from pydantic import Field, model_validator
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.role.exceptions import InvalidRoleCodeException, RoleNotDeletedException
+from app.iam.domain.role.exceptions import InvalidRoleCodeException
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
 
@@ -58,15 +58,15 @@ class Role(AuditableEntity[UserId]):
         self.updated_at = datetime.now(UTC)
 
     def delete(self, operator_id: UserId) -> None:
-        """软删除：只置 status=DELETED 并记录删除人/时间，不物理删除。关系集合不动。"""
-        self.change_status(StatusEnum.DELETED, operator_id)
+        """软删除：只写 deleted_at/by，不物理删除，**不动 status**。关系集合亦不动。"""
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
 
     def restore(self, operator_id: UserId) -> None:
-        """从回收站恢复：置 ACTIVE、清删除痕迹。权限集/部门集在软删时未动，原样保留。"""
-        if self.status is not StatusEnum.DELETED:
-            raise RoleNotDeletedException('角色未被删除，无需恢复')
-        self.change_status(StatusEnum.ACTIVE, operator_id)
+        """清删除痕迹（恢复）——现有 status 原样保留。权限集/部门集软删时未动，原样带回。"""
         self.deleted_by = None
         self.deleted_at = None
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)

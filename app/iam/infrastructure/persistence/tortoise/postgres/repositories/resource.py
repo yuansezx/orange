@@ -87,11 +87,14 @@ def to_model_fields(r: Resource) -> dict:
     )
 
 
-async def _load_permissions(resource_ids: list) -> dict[ResourceId, list[Permission]]:
-    """批量装配各资源的权限（**含软删行**——身份要稳定）。"""
-    rows = await PermissionModel.filter(resource_id__in=resource_ids)
+async def _load_permissions(resource_ids: list,
+                            include_deleted: bool = False) -> dict[ResourceId, list[Permission]]:
+    """批量装配各资源的权限。默认只装配未删；声明/写路径显式含软删（保 action 身份）。"""
+    qs = PermissionModel.filter(resource_id__in=resource_ids)
+    if not include_deleted:
+        qs = qs.filter(deleted_at__isnull=True)
     grouped: dict[ResourceId, list[Permission]] = {}
-    for m in rows:
+    for m in await qs:
         grouped.setdefault(ResourceId(m.resource_id), []).append(_permission_to_domain(m))
     return grouped
 
@@ -111,33 +114,52 @@ async def _upsert_permissions(resource: Resource) -> None:
 
 class ResourceRepositoryTortoiseImpl(ResourceRepository):
 
-    async def get(self, entity_id: ResourceId) -> Resource | None:
-        m = await ResourceModel.get_or_none(id=entity_id.value)
+    async def get(self, entity_id: ResourceId, *, include_deleted: bool = False,
+                  include_deleted_permissions: bool = False) -> Resource | None:
+        qs = ResourceModel.filter(id=entity_id.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         if m is None:
             return None
-        permissions = (await _load_permissions([m.id])).get(ResourceId(m.id), [])
+        permissions = (await _load_permissions(
+            [m.id], include_deleted_permissions)).get(ResourceId(m.id), [])
         return to_domain(m, permissions)
 
-    async def get_by_module_and_code(self, module: str, code: str) -> Resource | None:
-        m = await ResourceModel.get_or_none(module=module, code=code)
+    async def get_by_module_and_code(self, module: str, code: str, *,
+                                     include_deleted: bool = False,
+                                     include_deleted_permissions: bool = False) -> Resource | None:
+        qs = ResourceModel.filter(module=module, code=code)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         if m is None:
             return None
-        permissions = (await _load_permissions([m.id])).get(ResourceId(m.id), [])
+        permissions = (await _load_permissions(
+            [m.id], include_deleted_permissions)).get(ResourceId(m.id), [])
         return to_domain(m, permissions)
 
-    async def get_by_permission_id(self, permission_id: PermissionId) -> Resource | None:
-        m = await PermissionModel.get_or_none(id=permission_id.value)
+    async def get_by_permission_id(self, permission_id: PermissionId, *,
+                                   include_deleted: bool = False) -> Resource | None:
+        qs = PermissionModel.filter(id=permission_id.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         if m is None:
             return None
-        return await self.get(ResourceId(m.resource_id))
+        return await self.get(ResourceId(m.resource_id), include_deleted=include_deleted,
+                              include_deleted_permissions=include_deleted)
 
-    async def get_all(self, status: StatusEnum | None = None) -> list[Resource]:
-        qs = (ResourceModel.filter(status=status) if status is not None
-              else ResourceModel.filter(status__not=StatusEnum.DELETED))
+    async def get_all(self, status: StatusEnum | None = None, deleted: bool = False,
+                      include_deleted_permissions: bool = False) -> list[Resource]:
+        qs = (ResourceModel.filter(deleted_at__isnull=False) if deleted
+              else ResourceModel.filter(deleted_at__isnull=True))
+        if status is not None:
+            qs = qs.filter(status=status)
         models = await qs.order_by('module', 'code')
         if not models:
             return []
-        grouped = await _load_permissions([m.id for m in models])
+        grouped = await _load_permissions([m.id for m in models], include_deleted_permissions)
         return [to_domain(m, grouped.get(ResourceId(m.id), [])) for m in models]
 
     async def create(self, entity: Resource) -> Resource:

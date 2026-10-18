@@ -37,7 +37,8 @@ class UserRoleApplicationService:
             if not await self.role_access_service.can_access(role_ids, current_user):
                 raise PermissionDeniedException('授予的角色中存在您无权访问的角色')
             by_role = await self._existing_map(user_id)
-            active = {r for r, a in by_role.items() if a.status is StatusEnum.ACTIVE}
+            active = {r for r, a in by_role.items()
+                      if not a.is_deleted and a.status is StatusEnum.ACTIVE}
             await self._add_roles(user_id, role_ids - active, by_role, current_user.user_id)
         await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user_id))
 
@@ -47,7 +48,8 @@ class UserRoleApplicationService:
         role_ids = set(role_ids)
         async with self.in_transaction():
             by_role = await self._existing_map(user_id)
-            active = {r for r, a in by_role.items() if a.status is StatusEnum.ACTIVE}
+            active = {r for r, a in by_role.items()
+                      if not a.is_deleted and a.status is StatusEnum.ACTIVE}
             to_add = role_ids - active
             to_remove = active - role_ids
 

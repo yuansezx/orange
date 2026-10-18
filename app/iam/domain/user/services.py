@@ -12,19 +12,20 @@ class CheckUserUniqueService:
         self.user_repo = user_repo
 
     async def check_username_unique(self, username: str, exclude_user_id: UserId | None = None) -> bool:
-        id_to_check = await self.user_repo.get_id_by_username(username)
+        # 软删仍占位：唯一性判定必须把已删行算进来
+        id_to_check = await self.user_repo.get_id_by_username(username, include_deleted=True)
         return check_unique(id_to_check, exclude_user_id)
 
     async def check_phone_unique(self, phone: Phone | None, exclude_user_id: UserId | None = None) -> bool:
         if not phone:
             return True
-        id_to_check = await self.user_repo.get_id_by_phone(phone)
+        id_to_check = await self.user_repo.get_id_by_phone(phone, include_deleted=True)
         return check_unique(id_to_check, exclude_user_id)
 
     async def check_email_unique(self, email: Email | None, exclude_user_id: UserId | None = None) -> bool:
         if not email:
             return True
-        id_to_check = await self.user_repo.get_id_by_email(email)
+        id_to_check = await self.user_repo.get_id_by_email(email, include_deleted=True)
         return check_unique(id_to_check, exclude_user_id)
 
 

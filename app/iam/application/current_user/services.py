@@ -34,6 +34,7 @@ class CurrentUserApplicationService:
     async def login(self, data: LoginIn) -> LoginOut:
         user = await self.user_repo.get_by_username(data.username)
         # 凭据错/不存在一律同一口径，不泄露存在性
+        # 仓储默认不返回已删用户：已删与不存在同一口径，不泄露存在性
         if user is None or not verify_password(data.password, user.password_hash):
             raise AuthenticationException('用户名或密码错误')
         if user.status is not StatusEnum.ACTIVE:
@@ -59,7 +60,7 @@ class CurrentUserApplicationService:
         if current_user is not None:
             return current_user
         # 快照缺失（过期/被清）→ 重解析并回填，不要求重登
-        user = await self.user_repo.get(user_id)
+        user = await self.user_repo.get(user_id)  # 仓储默认不返回已删
         if user is None or user.status is not StatusEnum.ACTIVE:
             raise InvalidTokenException('用户不可用')
         current_user = await self._build_current_user(user)

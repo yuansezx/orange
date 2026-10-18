@@ -16,14 +16,15 @@ class RoleRepository(BaseRepository[RoleId, Role]):
     """
 
     @abstractmethod
-    async def get_by_code(self, code: str) -> Role | None: ...
+    async def get_by_code(self, code: str, *, include_deleted: bool = False) -> Role | None: ...
 
     @abstractmethod
-    async def get_by_ids(self, role_ids: list[RoleId]) -> list[Role]: ...
+    async def get_by_ids(self, role_ids: list[RoleId], *,
+                         include_deleted: bool = False) -> list[Role]: ...
 
     @abstractmethod
-    async def get_all(self, status: StatusEnum | None = None) -> list[Role]:
-        """`status` 缺省 = 全部未删；给了就按该状态过滤（含 `DELETED`，供回收站）。"""
+    async def get_all(self, status: StatusEnum | None = None, deleted: bool = False) -> list[Role]:
+        """`deleted=False` 只看未删、`True` 只看回收站；`status` 只筛业务状态。"""
         ...
 
     @abstractmethod

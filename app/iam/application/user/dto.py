@@ -12,7 +12,8 @@ class GetUsersIn(BaseModel):
     page: int
     keyword: str | None = None                          # 跨 用户名/昵称/邮箱/手机号 模糊
     user_type: UserTypeEnum | None = None
-    status: StatusEnum | None = None
+    status: StatusEnum | None = None                    # 业务状态（ACTIVE/DISABLED）
+    deleted: bool = False                               # True = 只看回收站
     dept_id: DeptId | None = None
     need_change_password: bool | None = None
     created_at_start: datetime | None = None            # 时间：start/end 各自可选

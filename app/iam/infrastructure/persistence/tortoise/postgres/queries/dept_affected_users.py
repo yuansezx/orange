@@ -19,16 +19,18 @@ class UsersAffectedByDeptChangeQueryTortoiseImpl(UsersAffectedByDeptChangeQuery)
         if not affected_dept_ids:
             return set()
         dac_role_ids = list(await RoleModel.filter(
-            data_scope=DataScopeEnum.DEPT_AND_CHILD, status=StatusEnum.ACTIVE
+            data_scope=DataScopeEnum.DEPT_AND_CHILD, status=StatusEnum.ACTIVE,
+            deleted_at__isnull=True,
         ).values_list('id', flat=True))
         if not dac_role_ids:
             return set()
         candidate_user_ids = list(await UserModel.filter(
-            dept_id__in=[d.value for d in affected_dept_ids], status__not=StatusEnum.DELETED
+            dept_id__in=[d.value for d in affected_dept_ids], deleted_at__isnull=True
         ).values_list('id', flat=True))
         if not candidate_user_ids:
             return set()
         hit = await UserRoleAssignmentModel.filter(
-            role_id__in=dac_role_ids, user_id__in=candidate_user_ids, status=StatusEnum.ACTIVE
+            role_id__in=dac_role_ids, user_id__in=candidate_user_ids,
+            status=StatusEnum.ACTIVE, deleted_at__isnull=True,
         ).values_list('user_id', flat=True)
         return {UserId(u) for u in hit}

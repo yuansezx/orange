@@ -56,7 +56,9 @@ class ResourceApplicationService:
     # ---------------- 后台补充 ----------------
     async def create_resource(self, data: CreateResourceIn, operator_id: UserId) -> ResourceId:
         async with self.in_transaction():
-            if await self.resource_repo.get_by_module_and_code(data.module, data.code):
+            # 软删仍占位（唯一键仍在）→ 冲突判定显式含已删
+            if await self.resource_repo.get_by_module_and_code(
+                    data.module, data.code, include_deleted=True):
                 raise ResourceCodeConflictException(f'资源已存在：{data.module}:{data.code}')
             resource = await self.resource_repo.create(Resource(
                 id=ResourceId.new(),
@@ -73,7 +75,8 @@ class ResourceApplicationService:
 
     async def create_permission(self, data: CreatePermissionIn, operator_id: UserId) -> PermissionId:
         async with self.in_transaction():
-            resource = await self._load(data.resource_id)
+            # 全量装配：已删的 action 仍占身份，需给出冲突而非撞唯一键
+            resource = await self._load(data.resource_id, include_deleted_permissions=True)
             if resource.get_permission(data.action) is not None:
                 raise PermissionActionConflictException(
                     f'权限已存在：{resource.full_code()}:{data.action}')
@@ -126,8 +129,9 @@ class ResourceApplicationService:
         只排除**已删**；**停用的照列**（停用 ≠ 删除，管理时要看得到才能启用）。
         """
         modules: dict[str, CatalogModuleOut] = {}
-        for resource in await self.resource_repo.get_all():  # 缺省即排除已删
-            permissions = [p for p in resource.permissions if p.status is not StatusEnum.DELETED]
+        # 缺省即：资源、聚合内权限都只装配未删的
+        for resource in await self.resource_repo.get_all():
+            permissions = resource.permissions
             module_out = modules.setdefault(resource.module, CatalogModuleOut(module=resource.module))
             module_out.resources.append(CatalogResourceOut(
                 id=resource.id,
@@ -149,13 +153,17 @@ class ResourceApplicationService:
         return CatalogOut(modules=list(modules.values()))
 
     # ---------------- 内部方法 ----------------
-    async def _load(self, resource_id: ResourceId) -> Resource:
-        resource = await self.resource_repo.get(resource_id)
-        if resource is None or resource.status is StatusEnum.DELETED:
+    async def _load(self, resource_id: ResourceId, *,
+                    include_deleted_permissions: bool = False) -> Resource:
+        """写侧加载：仓储默认不返回已删资源/权限。"""
+        resource = await self.resource_repo.get(
+            resource_id, include_deleted_permissions=include_deleted_permissions)
+        if resource is None:
             raise ResourceNotFoundException(f'资源不存在：{resource_id}')
         return resource
 
     async def _load_permission(self, permission_id: PermissionId) -> tuple[Resource, Permission]:
+        # 仓储默认过滤已删资源/权限 → 已删即视为不存在
         resource = await self.resource_repo.get_by_permission_id(permission_id)
         permission = resource.get_permission_by_id(permission_id) if resource else None
         if resource is None or permission is None:
@@ -164,7 +172,9 @@ class ResourceApplicationService:
 
     async def _register_resource(self, data: RegisterResourceIn, operator_id: UserId) -> Resource:
         """幂等 upsert：按自然键查 → 建或改。假定事务已开。"""
-        resource = await self.resource_repo.get_by_module_and_code(data.module, data.code)
+        # 声明是写路径：已删资源要复活、已删权限要按 action 复活，故全量装配
+        resource = await self.resource_repo.get_by_module_and_code(
+            data.module, data.code, include_deleted=True, include_deleted_permissions=True)
         if resource is None:
             resource = Resource(
                 id=ResourceId.new(),
@@ -182,6 +192,8 @@ class ResourceApplicationService:
                     p.action, p.name, p.description, SourceTypeEnum.SYSTEM, operator_id)
             return await self.resource_repo.create(resource)
 
+        if resource.is_deleted:  # 代码重新声明 = 幂等复活
+            resource.restore(operator_id)
         if resource.name != data.name or resource.description != data.description:
             resource.change(data.name, data.description, operator_id)
         if resource.status is not StatusEnum.ACTIVE:

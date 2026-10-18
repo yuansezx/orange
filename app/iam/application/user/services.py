@@ -150,6 +150,8 @@ class UserApplicationService:
         """从回收站恢复（复用 `delete` 权限码）。"""
         async with self.in_transaction():
             user = await self._load_any(user_id)
+            if not user.is_deleted:
+                raise UserNotDeletedException('用户未被删除，无需恢复')
             if not await self.user_access_service.can_access(
                     user.id, current_user, include_deleted=True):
                 raise PermissionDeniedException('无权访问该用户')
@@ -162,7 +164,7 @@ class UserApplicationService:
         """彻底删除（物理）——只允许对已软删用户做；级联清悬空引用。"""
         async with self.in_transaction():
             user = await self._load_any(user_id)
-            if user.status is not StatusEnum.DELETED:
+            if not user.is_deleted:
                 raise UserNotDeletedException('只能彻底删除已删除的用户')
             if not await self.user_access_service.can_access(
                     user.id, current_user, include_deleted=True):
@@ -175,15 +177,15 @@ class UserApplicationService:
 
     # ---------------- 内部 ----------------
     async def _load(self, user_id: UserId) -> User:
-        """写侧加载：已删视为不存在（写拒已删；回收站操作走 `_load_any`）。"""
+        """写侧加载：仓储默认不返回已删（回收站操作走 `_load_any`）。"""
         user = await self.user_repo.get(user_id)
-        if user is None or user.status is StatusEnum.DELETED:
+        if user is None:
             raise UserNotExistException(f'用户不存在：{user_id}')
         return user
 
     async def _load_any(self, user_id: UserId) -> User:
-        """读侧加载：不惧已删（回收站恢复 / 彻底删除用）。"""
-        user = await self.user_repo.get(user_id)
+        """读侧加载：显式含已删（回收站恢复 / 彻底删除用）。"""
+        user = await self.user_repo.get(user_id, include_deleted=True)
         if user is None:
             raise UserNotExistException(f'用户不存在：{user_id}')
         return user

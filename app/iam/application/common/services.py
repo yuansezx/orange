@@ -29,7 +29,9 @@ class AuditService:
         for uid in (entity.created_by, entity.updated_by, entity.deleted_by):
             if uid is not None:
                 ids[uid] = None
-        users = {u.id: u for u in await self.user_repo.get_by_ids(list(ids))} if ids else {}
+        # 审计要能解析已删操作人（如 deleted_by），故显式含已删
+        users = {u.id: u for u in await self.user_repo.get_by_ids(
+            list(ids), include_deleted=True)} if ids else {}
 
         created_username, created_nickname = _names(users, entity.created_by)
         updated_username, updated_nickname = _names(users, entity.updated_by)

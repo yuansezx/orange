@@ -70,7 +70,7 @@ class RoleApplicationService:
     @requires_permission('iam:role:create')
     async def create_role(self, data: CreateRoleIn, current_user: CurrentUser) -> Role:
         async with self.in_transaction():
-            if await self.role_repo.get_by_code(data.code):
+            if await self.role_repo.get_by_code(data.code, include_deleted=True):
                 raise RoleCodeConflictException(f'角色 code 已存在：{data.code}')
             permission_ids = set(data.permission_ids)
             dept_ids = set(data.dept_ids)
@@ -123,6 +123,8 @@ class RoleApplicationService:
         """从回收站恢复（复用 `delete` 权限码）；权限集/部门集软删时未动，原样带回。"""
         async with self.in_transaction():
             role = await self._load_any(role_id)
+            if not role.is_deleted:
+                raise RoleNotDeletedException('角色未被删除，无需恢复')
             role.restore(current_user.user_id)
             await self.role_repo.update(role)
         # 恢复即重新授出该角色的权限，持有者快照需重解析
@@ -133,7 +135,7 @@ class RoleApplicationService:
         """彻底删除（物理）——只允许对已软删角色做；级联清用户角色分配。"""
         async with self.in_transaction():
             role = await self._load_any(role_id)
-            if role.status is not StatusEnum.DELETED:
+            if not role.is_deleted:
                 raise RoleNotDeletedException('只能彻底删除已删除的角色')
             # 分配行即将随角色删除，事后再查不到持有者 → 事务内预取
             affected_user_ids = frozenset(
@@ -146,19 +148,20 @@ class RoleApplicationService:
     # ---------------- 读 ----------------
     @requires_permission('iam:role:read')
     async def get_role(self, role_id: RoleId, current_user: CurrentUser) -> RoleOut:
-        role = await self.role_repo.get(role_id)
+        role = await self.role_repo.get(role_id, include_deleted=True)
         if role is None:  # 读不惧已删（回收站要能看）
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         return _to_out(role)
 
     @requires_permission('iam:role:read')
     async def get_all_roles(self, current_user: CurrentUser,
-                            status: StatusEnum | None = None) -> list[RoleOut]:
-        return [_to_out(r) for r in await self.role_repo.get_all(status)]
+                            status: StatusEnum | None = None,
+                            deleted: bool = False) -> list[RoleOut]:
+        return [_to_out(r) for r in await self.role_repo.get_all(status, deleted)]
 
     @requires_permission('iam:role:read')
     async def get_role_detail(self, role_id: RoleId, current_user: CurrentUser) -> RoleDetailOut:
-        role = await self.role_repo.get(role_id)
+        role = await self.role_repo.get(role_id, include_deleted=True)
         if role is None:  # 读不惧已删（回收站要能看）
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         audit = await self.audit_service.build(role)
@@ -170,14 +173,14 @@ class RoleApplicationService:
     # ---------------- 内部 ----------------
     async def _load_any(self, role_id: RoleId) -> Role:
         """读侧加载：不惧已删（回收站恢复 / 彻底删除用）。"""
-        role = await self.role_repo.get(role_id)
+        role = await self.role_repo.get(role_id, include_deleted=True)
         if role is None:
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         return role
 
     async def _load_accessible(self, role_id: RoleId, current_user: CurrentUser) -> Role:
-        role = await self.role_repo.get(role_id)
-        if role is None or role.status is StatusEnum.DELETED:
+        role = await self.role_repo.get(role_id)  # 仓储默认不返回已删
+        if role is None:
             raise RoleNotFoundException(f'角色不存在：{role_id}')
         if not await self.role_access_service.can_access([role_id], current_user):
             raise PermissionDeniedException('无权访问该角色')

@@ -8,7 +8,9 @@ EntityType = TypeVar("EntityType", bound=BaseModel)
 
 class BaseRepository[IdType, EntityType](ABC):
     @abstractmethod
-    async def get(self, entity_id: IdType) -> EntityType | None: ...
+    async def get(self, entity_id: IdType, *, include_deleted: bool = False) -> EntityType | None:
+        """按 id 取实体。**默认不返回软删对象**；回收站等确需已删时显式 `include_deleted=True`。"""
+        ...
 
     @abstractmethod
     async def create(self, entity: EntityType) -> EntityType: ...

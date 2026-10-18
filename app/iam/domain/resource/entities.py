@@ -52,10 +52,18 @@ class Permission(AuditableEntity[UserId]):
         self.updated_at = datetime.now(UTC)
 
     def delete(self, operator_id: UserId) -> None:
-        """软删除：只置 status=DELETED 并记录删除人/时间，不物理删除。"""
-        self.change_status(StatusEnum.DELETED, operator_id)
+        """软删除：只写 deleted_at/by，不物理删除，不动 status。"""
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
+
+    def restore(self, operator_id: UserId) -> None:
+        """清删除痕迹（代码重新声明时幂等复活）。"""
+        self.deleted_at = None
+        self.deleted_by = None
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
 
 
 class Resource(AuditableEntity[UserId]):
@@ -105,6 +113,8 @@ class Resource(AuditableEntity[UserId]):
         if existing is not None:
             existing.change(name, description, operator_id)
             existing.permission_type = permission_type
+            if existing.is_deleted:
+                existing.restore(operator_id)
             if existing.status is not StatusEnum.ACTIVE:
                 existing.change_status(StatusEnum.ACTIVE, operator_id)
             return existing
@@ -137,8 +147,16 @@ class Resource(AuditableEntity[UserId]):
 
     def delete(self, operator_id: UserId) -> None:
         """软删除自身，并**级联**软删聚合内权限（组合关系）。"""
-        self.change_status(StatusEnum.DELETED, operator_id)
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
         for permission in self.permissions:
             permission.delete(operator_id)
+
+    def restore(self, operator_id: UserId) -> None:
+        """清自身删除痕迹（代码重新声明时幂等复活）。聚合内权限各自按声明复活。"""
+        self.deleted_at = None
+        self.deleted_by = None
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)

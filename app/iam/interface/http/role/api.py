@@ -39,11 +39,12 @@ async def create_role(
 
 @role_router.get('', response_model=list[RoleResp], summary='角色列表')
 async def list_roles(
-    status: StatusEnum | None = Query(None, description='按状态过滤；不传默认排除已删除'),
+    status: StatusEnum | None = Query(None, description='按业务状态过滤（ACTIVE/DISABLED）'),
+    deleted: bool = Query(False, description='只看回收站（缺省只看未删）'),
     current_user: CurrentUser = Depends(get_current_user),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> list[RoleResp]:
-    roles = await role_app_service.get_all_roles(current_user, status)
+    roles = await role_app_service.get_all_roles(current_user, status, deleted)
     return [RoleResp.model_validate(r, from_attributes=True) for r in roles]
 
 

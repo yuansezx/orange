@@ -10,7 +10,6 @@ from app.iam.domain.user.exceptions import (
     PasswordPolicyViolationException,
     ReservedUsernameException,
     UserImmutableException,
-    UserNotDeletedException,
 )
 from app.core.utils.password_hash import hash_password, verify_password
 
@@ -85,24 +84,16 @@ class User(AuditableEntity[UserId]):
         self.updated_at = datetime.now(UTC)
 
     def delete(self, operator_id: UserId) -> None:
-        """软删除：只置 status=DELETED 并记录删除人/时间，不物理删除。
-
-        物理删除另行处理（见 StatusEnum.DELETED 的说明）。
-        """
+        """软删除：只写 deleted_at/by，不物理删除，**不动 status**（停用状态得以保留）。"""
         if not self.can_delete():
             raise UserImmutableException('用户不可删除')
-        self.status = StatusEnum.DELETED
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
 
     def restore(self, operator_id: UserId) -> None:
-        """从回收站恢复：置 ACTIVE、清删除痕迹。
-
-        不记录删除前状态，故曾停用的用户恢复后为 ACTIVE，需要时再停用。
-        """
-        if self.status is not StatusEnum.DELETED:
-            raise UserNotDeletedException('用户未被删除，无需恢复')
-        self.status = StatusEnum.ACTIVE
+        """清删除痕迹（恢复）——现有 status 原样保留。是否「必须已删」由用例层判定。"""
         self.deleted_at = None
         self.deleted_by = None
         self.updated_by = operator_id

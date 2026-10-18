@@ -50,8 +50,11 @@ def to_model_fields(d: Dept) -> dict:
 
 class DeptRepositoryTortoiseImpl(DeptRepository):
 
-    async def get(self, entity_id: DeptId) -> Dept | None:
-        m = await DeptModel.get_or_none(id=entity_id.value)
+    async def get(self, entity_id: DeptId, *, include_deleted: bool = False) -> Dept | None:
+        qs = DeptModel.filter(id=entity_id.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         return to_domain(m) if m else None
 
     async def create(self, entity: Dept) -> Dept:
@@ -74,9 +77,11 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         # 物理删除（tortoise QuerySet.delete 即为物理删）
         return await DeptModel.filter(id__in=ids).delete()
 
-    async def get_all(self, status: StatusEnum | None = None) -> list[Dept]:
-        qs = (DeptModel.filter(status=status) if status is not None
-              else DeptModel.exclude(status=StatusEnum.DELETED))
+    async def get_all(self, status: StatusEnum | None = None, deleted: bool = False) -> list[Dept]:
+        qs = (DeptModel.filter(deleted_at__isnull=False) if deleted
+              else DeptModel.filter(deleted_at__isnull=True))
+        if status is not None:
+            qs = qs.filter(status=status)
         models = await qs.order_by('name')
         return [to_domain(m) for m in models]
 
@@ -84,21 +89,23 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         # ancestors @> [dept_id]（走 GIN 索引）；软删的子孙默认不参与移动重写
         qs = DeptModel.filter(ancestors__contains=[dept_id.value])
         if not include_deleted:
-            qs = qs.filter(status__not=StatusEnum.DELETED)
+            qs = qs.filter(deleted_at__isnull=True)
         return [to_domain(m) for m in await qs]
 
-    async def get_by_parent_and_name(self, parent_id: DeptId | None, name: str) -> Dept | None:
-        """同级同名查（**含已删**——软删仍占位，恢复时才不会撞名）。"""
-        m = await DeptModel.get_or_none(
-            parent_id=parent_id.value if parent_id else None,
-            name=name,
-        )
+    async def get_by_parent_and_name(self, parent_id: DeptId | None, name: str, *,
+                                     include_deleted: bool = False) -> Dept | None:
+        qs = DeptModel.filter(parent_id=parent_id.value if parent_id else None, name=name)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         return to_domain(m) if m else None
 
-    async def get_by_ids(self, dept_ids: list[DeptId]) -> list[Dept]:
-        ids = [d.value for d in dept_ids]
-        models = await DeptModel.filter(id__in=ids, status__not=StatusEnum.DELETED)
-        return [to_domain(m) for m in models]
+    async def get_by_ids(self, dept_ids: list[DeptId], *,
+                         include_deleted: bool = False) -> list[Dept]:
+        qs = DeptModel.filter(id__in=[d.value for d in dept_ids])
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        return [to_domain(m) for m in await qs]
 
     async def get_allowed_dept_ids(self, current_user: CurrentUser,
                                    include_deleted: bool = False) -> set[DeptId]:
@@ -106,7 +113,7 @@ class DeptRepositoryTortoiseImpl(DeptRepository):
         if spec.kind is DataScopeEnum.ALL:
             qs = DeptModel.all()
             if not include_deleted:
-                qs = qs.filter(status__not=StatusEnum.DELETED)
+                qs = qs.filter(deleted_at__isnull=True)
             ids = await qs.values_list('id', flat=True)
             return {DeptId(i) for i in ids}
         return set(spec.dept_ids)

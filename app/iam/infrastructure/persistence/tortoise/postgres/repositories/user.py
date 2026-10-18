@@ -6,7 +6,7 @@ from tortoise.expressions import Q
 
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
+from app.iam.domain.shared.enums import DataScopeEnum
 from app.iam.domain.shared.value_objects import Email, Phone, UserId, DeptId, DataScopeSpec
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.enums import UserTypeEnum
@@ -64,8 +64,11 @@ def to_model_fields(u: User) -> dict:
 
 class UserRepositoryTortoiseImpl(UserRepository):
 
-    async def get(self, entity_id: UserId) -> User | None:
-        m = await UserModel.get_or_none(id=entity_id.value)
+    async def get(self, entity_id: UserId, *, include_deleted: bool = False) -> User | None:
+        qs = UserModel.filter(id=entity_id.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         return to_domain(m) if m else None
 
     async def create(self, entity: User) -> User:
@@ -88,25 +91,43 @@ class UserRepositoryTortoiseImpl(UserRepository):
         # 物理删除（tortoise QuerySet.delete 即为物理删）
         return await UserModel.filter(id__in=ids).delete()
 
-    async def get_by_ids(self, user_ids: list[UserId]) -> list[User]:
-        ids = [u.value for u in user_ids]
-        rows = await UserModel.filter(id__in=ids)
-        return [to_domain(m) for m in rows]
+    async def get_by_ids(self, user_ids: list[UserId], *,
+                         include_deleted: bool = False) -> list[User]:
+        qs = UserModel.filter(id__in=[u.value for u in user_ids])
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        return [to_domain(m) for m in await qs]
 
-    async def get_by_username(self, username: str) -> User | None:
-        m = await UserModel.get_or_none(username=username)
+    async def get_by_username(self, username: str, *,
+                              include_deleted: bool = False) -> User | None:
+        qs = UserModel.filter(username=username)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         return to_domain(m) if m else None
 
-    async def get_id_by_username(self, username: str) -> UserId | None:
-        ids = await UserModel.filter(username=username).values_list('id', flat=True)
+    async def get_id_by_username(self, username: str, *,
+                                 include_deleted: bool = False) -> UserId | None:
+        qs = UserModel.filter(username=username)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        ids = await qs.values_list('id', flat=True)
         return UserId(ids[0]) if ids else None
 
-    async def get_id_by_phone(self, phone: Phone) -> UserId | None:
-        ids = await UserModel.filter(phone=phone.value).values_list('id', flat=True)
+    async def get_id_by_phone(self, phone: Phone, *,
+                              include_deleted: bool = False) -> UserId | None:
+        qs = UserModel.filter(phone=phone.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        ids = await qs.values_list('id', flat=True)
         return UserId(ids[0]) if ids else None
 
-    async def get_id_by_email(self, email: Email) -> UserId | None:
-        ids = await UserModel.filter(email=email.value).values_list('id', flat=True)
+    async def get_id_by_email(self, email: Email, *,
+                              include_deleted: bool = False) -> UserId | None:
+        qs = UserModel.filter(email=email.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        ids = await qs.values_list('id', flat=True)
         return UserId(ids[0]) if ids else None
 
     async def exists_by_user_type(self, user_type: UserTypeEnum) -> bool:
@@ -114,7 +135,7 @@ class UserRepositoryTortoiseImpl(UserRepository):
 
     async def exists_by_dept(self, dept_id: DeptId) -> bool:
         return await UserModel.filter(
-            dept_id=dept_id.value, status__not=StatusEnum.DELETED).exists()
+            dept_id=dept_id.value, deleted_at__isnull=True).exists()
 
     async def get_allowed_user_ids(self, current_user: CurrentUser,
                                    include_deleted: bool = False) -> set[UserId]:
@@ -122,14 +143,14 @@ class UserRepositoryTortoiseImpl(UserRepository):
         if spec.kind is DataScopeEnum.ALL:
             qs = UserModel.all()
             if not include_deleted:
-                qs = qs.filter(status__not=StatusEnum.DELETED)
+                qs = qs.filter(deleted_at__isnull=True)
             ids = await qs.values_list('id', flat=True)
             return {UserId(i) for i in ids}
         if spec.kind is DataScopeEnum.SELF:
             return {current_user.user_id}
         qs = UserModel.filter(dept_id__in=[d.value for d in spec.dept_ids])
         if not include_deleted:
-            qs = qs.filter(status__not=StatusEnum.DELETED)
+            qs = qs.filter(deleted_at__isnull=True)
         ids = await qs.values_list('id', flat=True)
         return {UserId(i) for i in ids}
 
@@ -170,11 +191,11 @@ class UserRepositoryTortoiseImpl(UserRepository):
         if search_by.password_updated_at_end:
             qs = qs.filter(password_updated_at__lte=search_by.password_updated_at_end)
 
-        # status：给了就按给的（可查回收站 DELETED）；没给默认排除软删
+        # 删除与业务状态正交：deleted=True 只看回收站，缺省只看未删；status 只筛业务状态
+        qs = (qs.filter(deleted_at__isnull=False) if search_by.deleted
+              else qs.filter(deleted_at__isnull=True))
         if search_by.status:
             qs = qs.filter(status=search_by.status)
-        else:
-            qs = qs.exclude(status=StatusEnum.DELETED)
 
         total = await qs.count()
         rows = await qs.order_by('-created_at').offset((page - 1) * page_size).limit(page_size)

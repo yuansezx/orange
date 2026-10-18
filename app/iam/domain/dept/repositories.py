@@ -10,8 +10,8 @@ from app.iam.domain.shared.value_objects import DeptId, UserId
 class DeptRepository(BaseRepository[DeptId, Dept]):
 
     @abstractmethod
-    async def get_all(self, status: StatusEnum | None = None) -> list[Dept]:
-        """`status` 缺省 = 全部未删；给了就按该状态过滤（含 `DELETED`，供回收站）。"""
+    async def get_all(self, status: StatusEnum | None = None, deleted: bool = False) -> list[Dept]:
+        """`deleted=False` 只看未删、`True` 只看回收站；`status` 只筛业务状态。"""
         ...
 
     @abstractmethod
@@ -20,12 +20,14 @@ class DeptRepository(BaseRepository[DeptId, Dept]):
         ...
 
     @abstractmethod
-    async def get_by_parent_and_name(self, parent_id: DeptId | None, name: str) -> Dept | None:
-        """同级同名查（**含已删**——软删仍占位，恢复时才不会撞名）。"""
+    async def get_by_parent_and_name(self, parent_id: DeptId | None, name: str, *,
+                                     include_deleted: bool = False) -> Dept | None:
+        """同级同名查。唯一性占位需显式 `include_deleted=True`（软删仍占名）。"""
         ...
 
     @abstractmethod
-    async def get_by_ids(self, dept_ids: list[DeptId]) -> list[Dept]: ...
+    async def get_by_ids(self, dept_ids: list[DeptId], *,
+                         include_deleted: bool = False) -> list[Dept]: ...
 
     @abstractmethod
     async def get_allowed_dept_ids(self, current_user: CurrentUser,

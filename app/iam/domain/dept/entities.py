@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 from pydantic import Field
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.dept.exceptions import DeptCycleException, DeptNotDeletedException
+from app.iam.domain.dept.exceptions import DeptCycleException
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 
@@ -48,20 +48,16 @@ class Dept(AuditableEntity):
         self._stamp(operator_id)
 
     def delete(self, operator_id: UserId) -> None:
-        """软删除：置 status=DELETED 并记录删除人/时间，不物理删除。"""
-        self.status = StatusEnum.DELETED
+        """软删除：只写 deleted_at/by，不物理删除，**不动 status**（停用状态得以保留）。"""
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
         self._stamp(operator_id)
 
     def restore(self, operator_id: UserId) -> None:
-        """从回收站恢复：置 ACTIVE、清删除痕迹。
+        """清删除痕迹（恢复）——现有 status 原样保留。
 
         只恢复自身；子部门由调用方逐级恢复（父未恢复时子不可恢复）。
         """
-        if self.status is not StatusEnum.DELETED:
-            raise DeptNotDeletedException('部门未被删除，无需恢复')
-        self.status = StatusEnum.ACTIVE
         self.deleted_at = None
         self.deleted_by = None
         self._stamp(operator_id)

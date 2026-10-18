@@ -39,8 +39,12 @@ def to_model_fields(a: UserRoleAssignment) -> dict:
 
 class UserRoleRepositoryTortoiseImpl(UserRoleRepository):
 
-    async def get(self, entity_id: UserRoleId) -> UserRoleAssignment | None:
-        m = await UserRoleAssignmentModel.get_or_none(id=entity_id.value)
+    async def get(self, entity_id: UserRoleId, *,
+                  include_deleted: bool = False) -> UserRoleAssignment | None:
+        qs = UserRoleAssignmentModel.filter(id=entity_id.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         return to_domain(m) if m else None
 
     async def create(self, entity: UserRoleAssignment) -> UserRoleAssignment:
@@ -65,13 +69,14 @@ class UserRoleRepositoryTortoiseImpl(UserRoleRepository):
     async def get_by_user_id(self, user_id: UserId, include_deleted: bool = False) -> list[UserRoleAssignment]:
         qs = UserRoleAssignmentModel.filter(user_id=user_id.value)
         if not include_deleted:
-            qs = qs.filter(status__not=StatusEnum.DELETED)
+            qs = qs.filter(deleted_at__isnull=True)
         models = await qs
         return [to_domain(m) for m in models]
 
     async def get_user_ids_by_role(self, role_id: RoleId) -> list[UserId]:
         rows = await UserRoleAssignmentModel.filter(
-            role_id=role_id.value, status=StatusEnum.ACTIVE).values_list('user_id', flat=True)
+            role_id=role_id.value, status=StatusEnum.ACTIVE, deleted_at__isnull=True
+        ).values_list('user_id', flat=True)
         return [UserId(u) for u in rows]
 
     async def hard_delete_by_user(self, user_id: UserId) -> int:

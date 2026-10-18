@@ -30,7 +30,8 @@ class UpdateDeptIn(BaseModel):
 
 class GetDeptsIn(BaseModel):
     name: str | None = None                    # 部门名模糊
-    status: StatusEnum | None = None
+    status: StatusEnum | None = None           # 业务状态（ACTIVE/DISABLED）
+    deleted: bool = False                      # True = 只看回收站
 
 
 class DeptOut(BaseModel):

@@ -82,7 +82,7 @@ class DeptApplicationService:
 
     @requires_permission('iam:dept:read')
     async def get_depts(self, filters: GetDeptsIn, current_user: CurrentUser) -> list[DeptOut]:
-        depts = await self._visible_depts(current_user, filters.status)
+        depts = await self._visible_depts(current_user, filters.status, filters.deleted)
         if filters.name:
             depts = [d for d in depts if filters.name in d.name]
         return [_to_out(d) for d in depts]
@@ -214,6 +214,8 @@ class DeptApplicationService:
         """
         async with self.in_transaction():
             dept = await self._load_any(dept_id)
+            if not dept.is_deleted:
+                raise DeptNotDeletedException('部门未被删除，无需恢复')
             if not await self.dept_access_service.can_access(
                     dept.id, current_user, include_deleted=True):
                 raise PermissionDeniedException('无权访问该部门')
@@ -231,14 +233,14 @@ class DeptApplicationService:
         """
         async with self.in_transaction():
             dept = await self._load_any(dept_id)
-            if dept.status is not StatusEnum.DELETED:
+            if not dept.is_deleted:
                 raise DeptNotDeletedException('只能彻底删除已删除的部门')
             if not await self.dept_access_service.can_access(
                     dept.id, current_user, include_deleted=True):
                 raise PermissionDeniedException('无权访问该部门')
             subtree = [dept, *await self.dept_repo.get_descendants(dept.id, include_deleted=True)]
             # 不变式「父已删 ⇒ 子必删」被破坏时拒绝，避免级联杀掉未删的子树
-            if any(node.status is not StatusEnum.DELETED for node in subtree):
+            if any(not node.is_deleted for node in subtree):
                 raise DeptNotDeletedException('子树中存在未删除的部门，无法彻底删除')
             subtree_ids = [node.id for node in subtree]
             await self.role_repo.remove_custom_depts(subtree_ids)
@@ -251,15 +253,16 @@ class DeptApplicationService:
         """恢复前校验上级：上级不存在（已硬删）或已软删 → 拒绝，提示先恢复上级。"""
         if dept.parent_id is None:
             return None
-        parent = await self.dept_repo.get(dept.parent_id)
-        if parent is None or parent.status is StatusEnum.DELETED:
+        parent = await self.dept_repo.get(dept.parent_id, include_deleted=True)
+        if parent is None or parent.is_deleted:
             raise DeptParentUnavailableException('上级部门已被删除，请先恢复上级部门')
         return parent
 
     async def _visible_depts(self, current_user: CurrentUser,
-                             status: StatusEnum | None = None) -> list[Dept]:
-        """按数据范围过滤可见部门（ALL → 不过滤）；`status` 缺省排除已删。"""
-        depts = await self.dept_repo.get_all(status)
+                             status: StatusEnum | None = None,
+                             deleted: bool = False) -> list[Dept]:
+        """按数据范围过滤可见部门（ALL → 不过滤）；`deleted` 缺省只看未删。"""
+        depts = await self.dept_repo.get_all(status, deleted)
         spec = current_user.data_scope_spec
         if spec.kind is DataScopeEnum.ALL:
             return depts
@@ -271,14 +274,14 @@ class DeptApplicationService:
                 DeptStructureChanged(id=EventId.new(), affected_dept_ids=frozenset(affected)))
 
     async def _load(self, dept_id: DeptId) -> Dept:
-        dept = await self.dept_repo.get(dept_id)
-        if dept is None or dept.status is StatusEnum.DELETED:
+        dept = await self.dept_repo.get(dept_id)  # 仓储默认不返回已删
+        if dept is None:
             raise DeptNotFoundException(f'部门不存在：{dept_id}')
         return dept
 
     async def _load_any(self, dept_id: DeptId) -> Dept:
         """读侧加载：**不惧已删**（回收站详情要能看）。"""
-        dept = await self.dept_repo.get(dept_id)
+        dept = await self.dept_repo.get(dept_id, include_deleted=True)
         if dept is None:
             raise DeptNotFoundException(f'部门不存在：{dept_id}')
         return dept
@@ -286,14 +289,15 @@ class DeptApplicationService:
     async def _load_available_parent(self, parent_id: DeptId | None) -> Dept | None:
         if parent_id is None:
             return None
-        parent = await self.dept_repo.get(parent_id)
-        if parent is None or parent.status is StatusEnum.DELETED:
+        parent = await self.dept_repo.get(parent_id)  # 仓储默认不返回已删
+        if parent is None:
             raise DeptParentUnavailableException('上级部门不存在')
         if parent.status is not StatusEnum.ACTIVE:
             raise DeptParentUnavailableException('上级部门已停用')
         return parent
 
     async def _ensure_name_unique(self, parent_id: DeptId | None, name: str, exclude_id: DeptId | None) -> None:
-        found = await self.dept_repo.get_by_parent_and_name(parent_id, name)
+        # 软删仍占名 → 唯一性判定显式包含已删行
+        found = await self.dept_repo.get_by_parent_and_name(parent_id, name, include_deleted=True)
         if found is not None and found.id != exclude_id:
             raise DeptNameConflictException(f'同级下已存在部门：{name}')

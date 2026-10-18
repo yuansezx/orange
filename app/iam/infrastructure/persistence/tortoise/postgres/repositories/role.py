@@ -71,31 +71,43 @@ async def _replace_links(model, column: str, role_id, target: set) -> None:
 class RoleRepositoryTortoiseImpl(RoleRepository):
 
     # ---------------- 读（整体装配） ----------------
-    async def get(self, entity_id: RoleId) -> Role | None:
-        m = await RoleModel.get_or_none(id=entity_id.value)
+    async def get(self, entity_id: RoleId, *, include_deleted: bool = False) -> Role | None:
+        qs = RoleModel.filter(id=entity_id.value)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         if m is None:
             return None
         perms, depts = await self._load_relations([m.id])
         return _assemble(m, perms, depts)
 
-    async def get_by_code(self, code: str) -> Role | None:
-        m = await RoleModel.get_or_none(code=code)
+    async def get_by_code(self, code: str, *, include_deleted: bool = False) -> Role | None:
+        qs = RoleModel.filter(code=code)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        m = await qs.first()
         if m is None:
             return None
         perms, depts = await self._load_relations([m.id])
         return _assemble(m, perms, depts)
 
-    async def get_by_ids(self, role_ids: list[RoleId]) -> list[Role]:
+    async def get_by_ids(self, role_ids: list[RoleId], *,
+                         include_deleted: bool = False) -> list[Role]:
         ids = [r.value for r in role_ids]
-        models = await RoleModel.filter(id__in=ids, status__not=StatusEnum.DELETED)
+        qs = RoleModel.filter(id__in=ids)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        models = await qs
         if not models:
             return []
         perms, depts = await self._load_relations([m.id for m in models])
         return [_assemble(m, perms, depts) for m in models]
 
-    async def get_all(self, status: StatusEnum | None = None) -> list[Role]:
-        qs = (RoleModel.filter(status=status) if status is not None
-              else RoleModel.filter(status__not=StatusEnum.DELETED))
+    async def get_all(self, status: StatusEnum | None = None, deleted: bool = False) -> list[Role]:
+        qs = (RoleModel.filter(deleted_at__isnull=False) if deleted
+              else RoleModel.filter(deleted_at__isnull=True))
+        if status is not None:
+            qs = qs.filter(status=status)
         models = await qs.order_by('code')
         if not models:
             return []
@@ -143,8 +155,9 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
 
     # ---------------- 数据权限 ----------------
     async def get_allowed_role_ids(self, current_user: CurrentUser) -> set[RoleId]:
-        # 角色不受数据范围约束：有 iam:role:* 功能权限即可管理任意 ACTIVE 角色
-        ids = await RoleModel.filter(status=StatusEnum.ACTIVE).values_list('id', flat=True)
+        # 角色不受数据范围约束：有 iam:role:* 功能权限即可管理任意未删的 ACTIVE 角色
+        ids = await RoleModel.filter(
+            status=StatusEnum.ACTIVE, deleted_at__isnull=True).values_list('id', flat=True)
         return {RoleId(i) for i in ids}
 
     # ---------------- 内部 ----------------
