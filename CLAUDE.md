@@ -99,6 +99,9 @@ app/                               # 后端（本文件详述）；仓库根另�
 - 仓储继承 `BaseRepository`：`get / create / bulk_create / update / hard_delete`。**删除选择收敛在仓储边界**：`get(id, include_deleted=False)` 与列表/过滤方法默认不返回已删对象（SQL 层过滤）；要看已删必须显式 `include_deleted=True` / `deleted=True`，应用层不做二次过滤。
 - **删除语义统一**：`delete` = **软删**（实体方法，只写 `deleted_at/by`；**删除与业务状态正交**——`status` 只表可用性（`ACTIVE`/`DISABLED`），删除判别一律看 `deleted_at`，实体上 `is_deleted` 是派生属性）；`hard_delete` = **物理删**（仓储），悬空引用由**应用层**在同一事务内级联清理；`evict` = 缓存淘汰。**裸 `delete` 绝不表示物理删除。**
 - **列表读约定**：读接口**默认只返回未删**（`deleted_at is null`）；回收站走**显式 `?deleted=true`**（只看已删）。仓储统一为 `get_all(status: StatusEnum | None = None, deleted: bool = False)`；`status` 只筛业务状态。**派生视图**（如 catalog）不受此约定约束——按用途只给可用项，且**停用（`DISABLED`）≠ 删除**、照常列出。
+- **列表审计（iam）**：列表/详情响应带生命周期时间（属于数据 DTO）+ 操作人快照（`AuditOut` 嵌套 `{id, username, nickname}`；硬删操作人名字为 null 但 id 仍在）。列表用 `AuditService.build_many` 批量装配，避免 N+1。
+- **回收站（iam）**：软删对象恢复走 `POST /{id}/restore`（复用 `*:delete`）；彻底删除走 `DELETE /{id}/hard-delete`（`*:hard_delete`，仅限已删，应用层级联清悬空引用）。部门恢复父删则拒、祖先非全活跃则自身落 `DISABLED`；部门彻底删除级联整棵已删子树。
+- **启用 / 停用（iam）**：统一 `PUT /{users|roles|depts}/{id}/status`（body `{status}`，复用各自 `*:update`），与更新接口共用同一应用层状态变更逻辑（部门仍走 `_cascade_status` 级联）。**超管不能停用自己**（否则可能失去唯一能恢复系统的账号）。
 - 枚举统一 `str, Enum` 且以 `Enum` 结尾（`StatusEnum`、`UserTypeEnum`、`DataScopeEnum`）。
 - **异常与响应**：两条根（`core.exceptions`：`InfrastructureBaseException` 技术中立 / `BusinessBaseException` 业务合一）+ 统一错误体 `{code,message,details}`；HTTP 映射见 `app/core/interface/http/exception_handlers.py`。详见「异常与 HTTP 响应」。
 - `PageResult[DataType]`（`core/utils/schemas.py`）；`check_unique`（`core/utils/validators.py`）。
