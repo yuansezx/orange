@@ -162,6 +162,17 @@ class ResourceRepositoryTortoiseImpl(ResourceRepository):
         grouped = await _load_permissions([m.id for m in models], include_deleted_permissions)
         return [to_domain(m, grouped.get(ResourceId(m.id), [])) for m in models]
 
+    async def get_by_module(self, module: str, *, include_deleted: bool = False,
+                            include_deleted_permissions: bool = False) -> list[Resource]:
+        qs = ResourceModel.filter(module=module)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        models = await qs.order_by('code')
+        if not models:
+            return []
+        grouped = await _load_permissions([m.id for m in models], include_deleted_permissions)
+        return [to_domain(m, grouped.get(ResourceId(m.id), [])) for m in models]
+
     async def create(self, entity: Resource) -> Resource:
         await ResourceModel.create(**to_model_fields(entity))
         if entity.permissions:
@@ -190,3 +201,6 @@ class ResourceRepositoryTortoiseImpl(ResourceRepository):
         # 物理删资源连带物理删其聚合内权限（无 FK，应用层做）
         await PermissionModel.filter(resource_id__in=ids).delete()
         return await ResourceModel.filter(id__in=ids).delete()
+
+    async def hard_delete_permission(self, permission_id: PermissionId) -> int:
+        return await PermissionModel.filter(id=permission_id.value).delete()

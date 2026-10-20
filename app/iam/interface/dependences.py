@@ -18,6 +18,7 @@ from app.iam.application.common.queries import (
     EffectivePermissionQuery,
     PermissionExistsQuery,
     UsersAffectedByDeptChangeQuery,
+    UsersAffectedByPermissionChangeQuery,
 )
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.current_user.ports import TokenManagerPort
@@ -117,6 +118,10 @@ def get_resource_app_service() -> ResourceApplicationService:
     return ResourceApplicationService(
         in_transaction=get_in_transaction(),
         resource_repo=get_resource_repo(),
+        role_repo=get_role_repo(),
+        audit_service=get_audit_service(),
+        permission_users_query=get_permission_users_query(),
+        event_bus=get_event_bus(),
     )
 
 
@@ -169,6 +174,10 @@ def get_effective_permission_query() -> EffectivePermissionQuery:
 
 def get_affected_users_query() -> UsersAffectedByDeptChangeQuery:
     return _queries.UsersAffectedByDeptChangeQueryTortoiseImpl()
+
+
+def get_permission_users_query() -> UsersAffectedByPermissionChangeQuery:
+    return _queries.UsersAffectedByPermissionChangeQueryTortoiseImpl()
 
 
 def get_permission_exists_query() -> PermissionExistsQuery:

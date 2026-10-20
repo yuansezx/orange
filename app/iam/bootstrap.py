@@ -13,6 +13,7 @@ from app.core import get_event_bus
 from app.iam.application.current_user.event_handlers import CurrentUserCacheInvalidationHandler
 from app.iam.application.resource.dto import RegisterPermissionIn, RegisterResourceIn
 from app.iam.domain.dept.events import DeptStructureChanged
+from app.iam.domain.resource.events import ResourceChanged
 from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.user.entities import SUPER_ADMIN_USERNAME
 from app.iam.domain.user.events import UserChanged
@@ -20,6 +21,7 @@ from app.iam.domain.user_role_assignment.events import UserRolesChanged
 from app.iam.interface.dependences import (
     get_affected_users_query,
     get_current_user_repo,
+    get_permission_users_query,
     get_resource_app_service,
     get_user_app_service,
     get_user_repo,
@@ -65,16 +67,33 @@ IAM_RESOURCE_DECLARATIONS: list[RegisterResourceIn] = [
         permissions=_crud_permissions('部门', hard_delete=True),
     ),
     RegisterResourceIn(
-        module=IAM_MODULE, code='resource', name='资源目录', permissions=_crud_permissions('资源'),
+        module=IAM_MODULE, code='resource', name='资源目录',
+        permissions=_crud_permissions('资源', hard_delete=True),
     ),
     RegisterResourceIn(
-        module=IAM_MODULE, code='permission', name='权限目录', permissions=_crud_permissions('权限'),
+        module=IAM_MODULE, code='permission', name='权限目录',
+        permissions=_crud_permissions('权限', hard_delete=True),
     ),
 ]
 
 
 async def bootstrap() -> None:
-    """初始化首个超管（逃生舱），再按代码声明幂等注册资源/权限目录。"""
+    """初始化首个超管（逃生舱），再按代码声明幂等注册资源/权限目录并对账。
+
+    先订阅快照失效、后注册：对账软删条目也要能触发当前用户快照失效。
+    """
+    # 订阅 CurrentUser 快照的失效：用户/角色/部门/资源权限变动时清 iam:current_user:{uid}
+    bus = get_event_bus()
+    invalidation = CurrentUserCacheInvalidationHandler(
+        get_current_user_repo(), get_user_role_repo(),
+        get_affected_users_query(), get_permission_users_query())
+    bus.subscribe(UserChanged, invalidation)
+    bus.subscribe(UserRolesChanged, invalidation)
+    bus.subscribe(RoleChanged, invalidation)
+    bus.subscribe(DeptStructureChanged, invalidation)
+    bus.subscribe(ResourceChanged, invalidation)
+    logger.info('已订阅 CurrentUser 快照失效（User / UserRoles / Role / DeptStructure / Resource）')
+
     logger.info('初始化超管账户 {!r}（若不存在）', SUPER_ADMIN_USERNAME)
     await get_user_app_service().initialize_super_admin(
         username=SUPER_ADMIN_USERNAME,
@@ -88,16 +107,7 @@ async def bootstrap() -> None:
         logger.warning('未找到超管 id，跳过资源/权限目录注册')
         return
 
-    logger.info('同步 iam 资源/权限目录（声明 {} 个资源；幂等 upsert，仅变更时落库）',
+    logger.info('同步 iam 资源/权限目录（声明 {} 个资源；幂等 upsert + 对账软删）',
                 len(IAM_RESOURCE_DECLARATIONS))
-    await get_resource_app_service().register_resources(IAM_RESOURCE_DECLARATIONS, operator_id)
-
-    # 订阅 CurrentUser 快照的失效：用户/角色/部门结构变动时清 iam:current_user:{uid}
-    bus = get_event_bus()
-    invalidation = CurrentUserCacheInvalidationHandler(
-        get_current_user_repo(), get_user_role_repo(), get_affected_users_query())
-    bus.subscribe(UserChanged, invalidation)
-    bus.subscribe(UserRolesChanged, invalidation)
-    bus.subscribe(RoleChanged, invalidation)
-    bus.subscribe(DeptStructureChanged, invalidation)
-    logger.info('已订阅 CurrentUser 快照失效（UserChanged / UserRolesChanged / RoleChanged / DeptStructureChanged）')
+    await get_resource_app_service().register_resources(
+        IAM_MODULE, IAM_RESOURCE_DECLARATIONS, operator_id)

@@ -146,13 +146,17 @@ class Resource(AuditableEntity[UserId]):
         self.updated_at = datetime.now(UTC)
 
     def delete(self, operator_id: UserId) -> None:
-        """软删除自身，并**级联**软删聚合内权限（组合关系）。"""
+        """软删除自身，并**级联**软删聚合内仍存活的权限（组合关系）。
+
+        已单独软删的权限保持原删除时间：资源恢复时据此只复活「随资源一起删」的那批。
+        """
         self.deleted_by = operator_id
         self.deleted_at = datetime.now(UTC)
         self.updated_by = operator_id
         self.updated_at = datetime.now(UTC)
         for permission in self.permissions:
-            permission.delete(operator_id)
+            if not permission.is_deleted:
+                permission.delete(operator_id)
 
     def restore(self, operator_id: UserId) -> None:
         """清自身删除痕迹（代码重新声明时幂等复活）。聚合内权限各自按声明复活。"""

@@ -153,6 +153,12 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
             return 0
         return await RoleDeptModel.filter(dept_id__in=[d.value for d in dept_ids]).delete()
 
+    async def remove_permissions(self, permission_ids: list[PermissionId]) -> int:
+        if not permission_ids:
+            return 0
+        return await RolePermissionModel.filter(
+            permission_id__in=[p.value for p in permission_ids]).delete()
+
     # ---------------- 数据权限 ----------------
     async def get_allowed_role_ids(self, current_user: CurrentUser) -> set[RoleId]:
         # 角色不受数据范围约束：有 iam:role:* 功能权限即可管理任意未删的 ACTIVE 角色

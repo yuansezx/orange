@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 
 from app.iam.application.common.dto import EffectivePermissions
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, UserId
@@ -33,3 +34,13 @@ class PermissionExistsQuery(ABC):
 
     @abstractmethod
     async def filter_existing(self, permission_ids: list[PermissionId]) -> set[PermissionId]: ...
+
+
+class UsersAffectedByPermissionChangeQuery(ABC):
+    """权限条目（状态 / 删除 / 恢复）变更 → 快照需失效的用户（CQRS 读侧）。
+
+    = 通过角色持有这些权限、且用户角色分配仍 ACTIVE 未删的用户。
+    """
+
+    @abstractmethod
+    async def resolve(self, permission_ids: Iterable[PermissionId]) -> set[UserId]: ...

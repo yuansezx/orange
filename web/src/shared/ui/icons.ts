@@ -6,6 +6,7 @@
  * · 尺寸/粗细：由调用方按需传 `size` / `stroke`（菜单项一般 16）。
  */
 export {
+  IconBox,
   IconBuildingPlus,
   IconEdit,
   IconLayoutDashboard,

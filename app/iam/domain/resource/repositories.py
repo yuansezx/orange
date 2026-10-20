@@ -30,3 +30,14 @@ class ResourceRepository(BaseRepository[ResourceId, Resource]):
         聚合内权限默认只装配未删的；声明/回收站确需全量时显式置位。
         """
         ...
+
+    @abstractmethod
+    async def get_by_module(self, module: str, *, include_deleted: bool = False,
+                            include_deleted_permissions: bool = False) -> list[Resource]:
+        """按模块取聚合（对账 pass 用；`include_deleted=True` 含已删）。"""
+        ...
+
+    @abstractmethod
+    async def hard_delete_permission(self, permission_id: PermissionId) -> int:
+        """物理删聚合内单条权限（仅限已软删；调用方先清角色引用）。"""
+        ...

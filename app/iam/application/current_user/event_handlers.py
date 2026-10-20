@@ -8,9 +8,13 @@ from loguru import logger
 
 from app.core.domain.event_bus import EventHandler
 from app.core.domain.events import BaseEvent
-from app.iam.application.common.queries import UsersAffectedByDeptChangeQuery
+from app.iam.application.common.queries import (
+    UsersAffectedByDeptChangeQuery,
+    UsersAffectedByPermissionChangeQuery,
+)
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.events import DeptStructureChanged
+from app.iam.domain.resource.events import ResourceChanged
 from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.events import UserChanged
@@ -21,10 +25,12 @@ from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 class CurrentUserCacheInvalidationHandler(EventHandler):
     def __init__(self, current_user_repo: CurrentUserRepository,
                  user_role_repo: UserRoleRepository,
-                 affected_users_query: UsersAffectedByDeptChangeQuery):
+                 affected_users_query: UsersAffectedByDeptChangeQuery,
+                 permission_users_query: UsersAffectedByPermissionChangeQuery):
         self.current_user_repo = current_user_repo
         self.user_role_repo = user_role_repo
         self.affected_users_query = affected_users_query
+        self.permission_users_query = permission_users_query
 
     async def handle(self, event: BaseEvent) -> None:
         try:
@@ -43,4 +49,8 @@ class CurrentUserCacheInvalidationHandler(EventHandler):
             return set(await self.user_role_repo.get_user_ids_by_role(event.role_id))
         if isinstance(event, DeptStructureChanged):
             return await self.affected_users_query.resolve(event.affected_dept_ids)
+        if isinstance(event, ResourceChanged):
+            if event.affected_user_ids is not None:
+                return set(event.affected_user_ids)
+            return await self.permission_users_query.resolve(event.permission_ids)
         return None

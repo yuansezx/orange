@@ -97,13 +97,18 @@ class RoleApplicationService:
 
     @requires_permission('iam:role:update')
     async def update_role(self, data: UpdateRoleIn, current_user: CurrentUser) -> None:
-        """整体替换角色（PUT 语义）：属性 / 权限集 / 数据范围部门集一次提交，单事务原子。"""
+        """整体替换角色（PUT 语义）：属性 / 权限集 / 数据范围部门集一次提交，单事务原子。
+
+        权限 id 先按「未删」过滤：权限被软删后角色仍持有其 id，前端权限树也看不到；
+        若照原样提交会报「无效权限 id」。更新时忽略失效 id 并顺带清理悬空引用。
+        """
         async with self.in_transaction():
             role = await self._load_accessible(data.id, current_user)
             permission_ids = set(data.permission_ids)
             dept_ids = set(data.dept_ids)
             if permission_ids:
-                await self._ensure_permissions_exist(permission_ids)
+                permission_ids = await self.permission_exists_query.filter_existing(
+                    list(permission_ids))
             if dept_ids:
                 await self._ensure_depts_exist(dept_ids)
             role.change(data.name, data.data_scope, data.description, current_user.user_id)

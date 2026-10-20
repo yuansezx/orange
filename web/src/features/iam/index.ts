@@ -1,11 +1,12 @@
 import { createElement, lazy } from 'react'
 
 import type { FeatureModule } from '@shared/navigation'
-import { IconShieldLock, IconSitemap, IconUsers } from '@shared/ui'
+import { IconBox, IconShieldLock, IconSitemap, IconUsers } from '@shared/ui'
 
 const UserPage = lazy(() => import('./user/UserPage'))
 const RolePage = lazy(() => import('./role/RolePage'))
 const DeptPage = lazy(() => import('./dept/DeptPage'))
+const ResourcePage = lazy(() => import('./resource/ResourcePage'))
 
 /**
  * iam 模块门面：声明本模块递给应用壳的**菜单分组**（对齐后端 iam 模块）。
@@ -44,6 +45,14 @@ export const feature: FeatureModule = {
           permission: 'iam:dept:read',
           icon: createElement(IconSitemap, { size: 16 }),
           element: createElement(DeptPage),
+        },
+        {
+          key: 'iam-resource',
+          label: '资源管理',
+          path: 'resources',
+          permission: 'iam:resource:read',
+          icon: createElement(IconBox, { size: 16 }),
+          element: createElement(ResourcePage),
         },
       ],
     },
