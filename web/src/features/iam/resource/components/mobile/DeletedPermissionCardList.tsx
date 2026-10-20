@@ -42,9 +42,7 @@ export function DeletedPermissionCardList({
               : '-'}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-            {permission.permission_type === 'system' ? (
-              <span style={{ color: '#999' }}>系统声明由代码维护</span>
-            ) : (
+            {permission.permission_type === 'custom' ? (
               <>
                 <Button size="mini" onClick={() => onRestore(permission)}>
                   恢复
@@ -58,6 +56,15 @@ export function DeletedPermissionCardList({
                   彻底删除
                 </Button>
               </>
+            ) : (
+              <Button
+                size="mini"
+                color="danger"
+                fill="outline"
+                onClick={() => onHardDelete(permission)}
+              >
+                清理系统残留
+              </Button>
             )}
           </div>
         </List.Item>

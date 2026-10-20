@@ -231,10 +231,19 @@ export function ResourceTable({
       title: '操作',
       width: recycleMode ? 100 : 120,
       render: (_, record) => {
-        if (record.resource_type === 'system') {
-          return <span style={{ color: '#999' }}>代码维护</span>
-        }
         if (recycleMode) {
+          if (record.resource_type === 'system') {
+            return (
+              <Tooltip title="彻底删除系统残留">
+                <Button
+                  type="text"
+                  danger
+                  icon={<IconTrashX size={16} />}
+                  onClick={() => onHardDelete(record)}
+                />
+              </Tooltip>
+            )
+          }
           return (
             <Space size={8}>
               <Tooltip title="恢复">
@@ -254,6 +263,9 @@ export function ResourceTable({
               </Tooltip>
             </Space>
           )
+        }
+        if (record.resource_type === 'system') {
+          return <span style={{ color: '#999' }}>代码维护</span>
         }
         return (
           <Space size={8}>

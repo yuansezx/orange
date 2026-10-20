@@ -68,7 +68,16 @@ export function DeletedPermissionTable({
       width: 100,
       render: (_, record) => {
         if (record.permission_type === 'system') {
-          return <span style={{ color: '#999' }}>代码维护</span>
+          return (
+            <Tooltip title="彻底删除系统残留">
+              <Button
+                type="text"
+                danger
+                icon={<IconTrashX size={16} />}
+                onClick={() => onHardDelete(record)}
+              />
+            </Tooltip>
+          )
         }
         return (
           <Space size={8}>

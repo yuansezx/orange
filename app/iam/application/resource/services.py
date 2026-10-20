@@ -206,12 +206,11 @@ class ResourceApplicationService:
 
     @requires_permission('iam:resource:hard_delete')
     async def hard_delete_resource(self, resource_id: ResourceId, current_user: CurrentUser) -> None:
-        """彻底删除（物理）——只允许对已软删的自定义资源做；级联清角色引用。"""
+        """彻底删除（物理）——只允许对已软删行做；SYSTEM 墓碑也可清理，级联清角色引用。"""
         async with self.in_transaction():
             resource = await self._load_any(resource_id)
             if not resource.is_deleted:
                 raise ResourceNotDeletedException('只能彻底删除已删除的资源')
-            _ensure_custom_resource(resource)
             permission_ids = [p.id for p in resource.permissions]
             # 引用行即将随权限删除，事后再查不到持有者 → 事务内预取
             affected_user_ids = frozenset(
@@ -280,12 +279,11 @@ class ResourceApplicationService:
     @requires_permission('iam:permission:hard_delete')
     async def hard_delete_permission(self, permission_id: PermissionId,
                                      current_user: CurrentUser) -> None:
-        """彻底删除（物理）——只允许对已软删的自定义权限做；级联清角色引用。"""
+        """彻底删除（物理）——只允许对已软删行做；SYSTEM 墓碑也可清理，级联清角色引用。"""
         async with self.in_transaction():
             _, permission = await self._load_permission(permission_id, include_deleted=True)
             if not permission.is_deleted:
                 raise PermissionNotDeletedException('只能彻底删除已删除的权限')
-            _ensure_custom_permission(permission)
             affected_user_ids = frozenset(
                 await self.permission_users_query.resolve([permission_id]))
             await self.role_repo.remove_permissions([permission_id])

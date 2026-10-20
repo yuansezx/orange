@@ -159,13 +159,19 @@ export default function ResourcePage() {
       onOk: () => mutations.restore.mutateAsync(resource.id),
     })
 
-  const confirmHardDelete = (resource: Resource) =>
-    modal.confirm({
-      title: `彻底删除资源「${resource.name}」？`,
-      content: '会连其下所有权限（含此前单独删除的）一起物理删除，并清理角色引用。',
+  const confirmHardDelete = (resource: Resource) => {
+    const isSystem = resource.resource_type === 'system'
+    return modal.confirm({
+      title: isSystem
+        ? `清理系统残留「${resource.name}」？`
+        : `彻底删除资源「${resource.name}」？`,
+      content: isSystem
+        ? '代码声明已移除；彻底删除后若重新声明会创建新 id，角色原有授权不会自动恢复。'
+        : '会连其下所有权限（含此前单独删除的）一起物理删除，并清理角色引用。',
       okButtonProps: { danger: true },
       onOk: () => mutations.hardDelete.mutateAsync(resource.id),
     })
+  }
 
   const openCreatePermission = (resource: Resource) =>
     setPermissionDialog({ open: true, mode: 'create', resource })
@@ -188,13 +194,19 @@ export default function ResourcePage() {
       onOk: () => mutations.restorePerm.mutateAsync(permission.id),
     })
 
-  const confirmHardDeleteDeletedPermission = (permission: PermissionListItem) =>
-    modal.confirm({
-      title: `彻底删除权限「${permission.name}」？`,
-      content: '会同时清理角色中的引用，此操作不可恢复。',
+  const confirmHardDeleteDeletedPermission = (permission: PermissionListItem) => {
+    const isSystem = permission.permission_type === 'system'
+    return modal.confirm({
+      title: isSystem
+        ? `清理系统残留「${permission.name}」？`
+        : `彻底删除权限「${permission.name}」？`,
+      content: isSystem
+        ? '代码声明已移除；彻底删除后若重新声明会创建新 id，角色原有授权不会自动恢复。'
+        : '会同时清理角色中的引用，此操作不可恢复。',
       okButtonProps: { danger: true },
       onOk: () => mutations.hardDeletePerm.mutateAsync(permission.id),
     })
+  }
 
   const changeResourceStatus = (resource: Resource, status: 'active' | 'disabled') =>
     mutations.setStatus.mutate({ id: resource.id, status })

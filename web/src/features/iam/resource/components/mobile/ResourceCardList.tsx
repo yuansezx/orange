@@ -93,17 +93,19 @@ export function ResourceCardList({
             )}
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              {isSystem ? (
-                <span style={{ color: '#999' }}>系统资源由代码维护</span>
-              ) : recycleMode ? (
+              {recycleMode ? (
                 <>
-                  <Button size="mini" onClick={() => onRestore(resource)}>
-                    恢复
-                  </Button>
+                  {!isSystem && (
+                    <Button size="mini" onClick={() => onRestore(resource)}>
+                      恢复
+                    </Button>
+                  )}
                   <Button size="mini" color="danger" fill="outline" onClick={() => onHardDelete(resource)}>
-                    彻底删除
+                    {isSystem ? '清理系统残留' : '彻底删除'}
                   </Button>
                 </>
+              ) : isSystem ? (
+                <span style={{ color: '#999' }}>系统资源由代码维护</span>
               ) : (
                 <>
                   <Button size="mini" onClick={() => onEdit(resource)}>
