@@ -1,4 +1,4 @@
-"""monitor 对外 Python API（供其他模块 infrastructure 适配器调用）。
+"""monitor 对外 Python API（供其他模块 infrastructure 适配器调用）。"""
+from app.monitor.interface.python.audit_log import AuditLogIn, write_audit_log
 
-当前为空骨架；审计写入入口后续放这里（如 `enqueue_audit`）。
-"""
+__all__ = ['AuditLogIn', 'write_audit_log']

@@ -1,7 +1,4 @@
-"""monitor 模块的启动钩子。
-
-当前只注册本模块的资源/权限目录；审计日志写入、outbox relay 等后续在此启动。
-"""
+"""monitor 模块的启动钩子：注册本模块的资源/权限目录。"""
 from loguru import logger
 
 from app.iam.interface.python import (
