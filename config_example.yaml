@@ -9,8 +9,10 @@ core:
   # 日志存放位置，默认是项目根目录下的logs目录
   logs_dir: ./logs
   # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{后端}.models 汇总模型）
+  # iam 是平台底座，monitor 依赖它，顺序保持在 iam 之后
   modules:
     - iam
+    - monitor
   # 持久化（数据库）配置
   persistence:
     # 选择 ORM 后端
