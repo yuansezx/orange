@@ -9,6 +9,7 @@ export {
   IconBox,
   IconBuildingPlus,
   IconEdit,
+  IconFileText,
   IconLayoutDashboard,
   IconRestore,
   IconShieldLock,

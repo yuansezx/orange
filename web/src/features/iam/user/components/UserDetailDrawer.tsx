@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Descriptions, Space, Spin, Tag } from 'antd'
 
+import { DetailDrawer } from '@shared/ui'
+
 import { auditItems } from '../../components/auditItems'
-import { DetailDrawer } from '../../components/DetailDrawer'
 import { STATUS_COLORS, STATUS_LABELS } from '../../constants'
 import { getUserDetail } from '../api/userApi'
 import { USER_TYPE_LABELS } from '../constants'
