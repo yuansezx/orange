@@ -60,7 +60,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   ├── login_log/             #     entities.py
 │   │   └── current_user/          #     entities.py（CurrentUser.has_permission / data_scope_spec）/ repositories.py（当前用户缓存）
 │   ├── application/
-│   │   ├── common/               #     decorators.py（@requires_permission）/ exceptions.py / dto.py / queries.py（CQRS 读侧）/ services.py（共用读侧装配）
+│   │   ├── common/               #     decorators.py / exceptions.py / dto.py / queries.py / services.py / ports.py（审计写入端口）
 │   │   ├── current_user/          #     dto.py / services.py（CurrentUserApplicationService）/ ports.py（TokenManagerPort）/ event_handlers.py（快照失效订阅）
 │   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
 │   │   ├── dept/                  #     dto.py / services.py（DeptApplicationService）/ exceptions.py
@@ -69,7 +69,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   └── user_role_assignment/  #     services.py
 │   ├── infrastructure/
 │   │   ├── settings.py            #   IAMSettings / JWTConfig / CurrentUserConfig / IAM_SETTINGS
-│   │   ├── adapters/              #   端口实现：token_manager_adapter.py（JWT + Redis 白名单）
+│   │   ├── adapters/              #   端口实现：token_manager_adapter.py（JWT + Redis）/ audit_log_writer_adapter.py（审计防腐）
 │   │   ├── cache/                 #   current_user_repo.py（CurrentUserRepositoryRedisImpl）
 │   │   └── persistence/tortoise/{dialect}/  # 按方言分目录（后端解耦）
 │   │       ├── models/            #     __init__.py / user.py / dept.py / ...（每实体一文件）

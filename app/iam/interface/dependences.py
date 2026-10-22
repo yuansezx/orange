@@ -20,6 +20,7 @@ from app.iam.application.common.queries import (
     UsersAffectedByDeptChangeQuery,
     UsersAffectedByPermissionChangeQuery,
 )
+from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.current_user.ports import TokenManagerPort
 from app.iam.application.current_user.services import CurrentUserApplicationService
@@ -38,6 +39,7 @@ from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
+from app.iam.infrastructure.adapters.audit_log_writer_adapter import AuditLogWriterAdapter
 from app.iam.infrastructure.adapters.token_manager_adapter import TokenManagerJWTRedisAdapter
 from app.iam.infrastructure.cache.current_user_repo import CurrentUserRepositoryRedisImpl
 
@@ -82,6 +84,10 @@ def get_audit_service() -> AuditService:
     return AuditService(get_user_repo())
 
 
+def get_audit_log_writer() -> AuditLogWriterPort:
+    return AuditLogWriterAdapter()
+
+
 def get_dept_ref_service() -> DeptRefService:
     return DeptRefService(get_dept_repo())
 
@@ -109,6 +115,7 @@ def get_user_app_service() -> UserApplicationService:
         user_role_repo=get_user_role_repo(),
         role_repo=get_role_repo(),
         audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
         dept_ref_service=get_dept_ref_service(),
         event_bus=get_event_bus(),
     )

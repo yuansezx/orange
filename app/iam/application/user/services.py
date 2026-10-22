@@ -11,6 +11,7 @@ from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.password_hash import hash_password
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.ports import AuditLogIn, AuditLogWriterPort
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.user.exceptions import UserExistsException, UserNotExistException
 from app.iam.application.user.dto import (
@@ -44,6 +45,7 @@ class UserApplicationService:
                  user_role_repo: UserRoleRepository,
                  role_repo: RoleRepository,
                  audit_service: AuditService,
+                 audit_log_writer: AuditLogWriterPort,
                  dept_ref_service: DeptRefService,
                  event_bus: EventBus):
 
@@ -56,6 +58,7 @@ class UserApplicationService:
         self.user_role_repo = user_role_repo
         self.role_repo = role_repo
         self.audit_service = audit_service
+        self.audit_log_writer = audit_log_writer
         self.dept_ref_service = dept_ref_service
 
         self.event_bus = event_bus
@@ -154,6 +157,21 @@ class UserApplicationService:
             # 有角色创建用户角色关系，那边会检验权限
             if data.role_ids:
                 await user_role_app_service.assign_roles_to_user(user.id, data.role_ids, current_user)
+            await self.audit_log_writer.write(AuditLogIn(
+                resource='user',
+                action='create',
+                summary=f'创建用户 {user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={
+                    'username': user.username,
+                    'user_type': user.user_type.value,
+                    'dept_id': str(user.dept_id.value) if user.dept_id else None,
+                    'role_ids': [str(r) for r in (data.role_ids or [])],
+                },
+                **self._operator_fields(current_user),
+            ))
         return user
 
     @requires_permission('iam:user:update')
@@ -168,9 +186,14 @@ class UserApplicationService:
                 raise PermissionDeniedException('无权访问该部门')
 
         # 调用实体方法更改
+        before = self._user_snapshot(user)
         user.change_profile(nickname=data.nickname, email=data.email, phone=data.phone,
                             description=data.description, dept_id=data.dept_id, operator_id=current_user.user_id)
         await self._change_status(user, data.status, current_user)
+        after = self._user_snapshot(user)
+        changed = [field for field in before if before[field] != after[field]]
+        if data.role_ids is not None:
+            changed.append('role_ids')
 
         async with self.in_transaction():
             # 存储实体
@@ -178,6 +201,19 @@ class UserApplicationService:
             # 设置角色：`[]` 也要处理（清空全部角色），故判 None 而非真假
             if data.role_ids is not None:
                 await user_role_app_service.set_user_roles(user.id, data.role_ids, current_user)
+            detail = {'before': before, 'after': after, 'changed': changed}
+            if data.role_ids is not None:
+                detail['role_ids'] = [str(r) for r in data.role_ids]
+            await self.audit_log_writer.write(AuditLogIn(
+                resource='user',
+                action='update',
+                summary=f'更新用户 {user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail=detail,
+                **self._operator_fields(current_user),
+            ))
         # 事务已提交，通知订阅方失效该用户的快照（如昵称/部门/状态变更）
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
         return user
@@ -188,16 +224,38 @@ class UserApplicationService:
         """统一启用/停用入口——与 `update_user` 共用加载/鉴权/状态变更逻辑。"""
         async with self.in_transaction():
             user = await self._load_accessible(user_id, current_user)
+            previous_status = user.status
             await self._change_status(user, status, current_user)
             await self.user_repo.update(user)
+            await self.audit_log_writer.write(AuditLogIn(
+                resource='user',
+                action='change_status',
+                summary=f'{"启用" if status is StatusEnum.ACTIVE else "停用"}用户 {user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={'from': previous_status.value, 'to': status.value},
+                **self._operator_fields(current_user),
+            ))
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     @requires_permission('iam:user:delete')
     async def delete_user(self, user_id: UserId, current_user: CurrentUser) -> None:
         async with self.in_transaction():
             user = await self._load_accessible(user_id, current_user)
+            previous_status = user.status
             user.delete(current_user.user_id)
             await self.user_repo.update(user)
+            await self.audit_log_writer.write(AuditLogIn(
+                resource='user',
+                action='delete',
+                summary=f'删除用户 {user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={'previous_status': previous_status.value},
+                **self._operator_fields(current_user),
+            ))
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     @requires_permission('iam:user:delete')
@@ -212,6 +270,16 @@ class UserApplicationService:
                 raise PermissionDeniedException('无权访问该用户')
             user.restore(current_user.user_id)
             await self.user_repo.update(user)
+            await self.audit_log_writer.write(AuditLogIn(
+                resource='user',
+                action='restore',
+                summary=f'恢复用户 {user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={'status': user.status.value},
+                **self._operator_fields(current_user),
+            ))
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     @requires_permission('iam:user:hard_delete')
@@ -224,13 +292,43 @@ class UserApplicationService:
             if not await self.user_access_service.can_access(
                     user.id, current_user, include_deleted=True):
                 raise PermissionDeniedException('无权访问该用户')
+            previous_status = user.status
             await self.user_role_repo.hard_delete_by_user(user.id)
             await self.dept_repo.clear_leader(user.id)
             await self.user_repo.hard_delete(user.id)
+            await self.audit_log_writer.write(AuditLogIn(
+                resource='user',
+                action='hard_delete',
+                summary=f'彻底删除用户 {user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={'previous_status': previous_status.value},
+                **self._operator_fields(current_user),
+            ))
         # 行已不在；清快照让持有者会话按「用户不可用」失效
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     # ---------------- 内部 ----------------
+    @staticmethod
+    def _user_snapshot(user: User) -> dict:
+        return {
+            'nickname': user.nickname,
+            'email': str(user.email) if user.email else None,
+            'phone': str(user.phone) if user.phone else None,
+            'description': user.description,
+            'dept_id': str(user.dept_id.value) if user.dept_id else None,
+            'status': user.status.value,
+        }
+
+    @staticmethod
+    def _operator_fields(current_user: CurrentUser) -> dict:
+        return {
+            'operator_id': current_user.user_id,
+            'operator_username': current_user.username,
+            'operator_nickname': current_user.nickname,
+        }
+
     async def _load_accessible(self, user_id: UserId, current_user: CurrentUser) -> User:
         user = await self._load(user_id)
         if not await self.user_access_service.can_access(user.id, current_user):
