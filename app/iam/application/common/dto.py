@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -12,8 +11,7 @@ class UpdateStatusIn(BaseModel):
     status: StatusEnum
 
 
-@dataclass(frozen=True)
-class EffectivePermissions:
+class EffectivePermissions(BaseModel):
     """某用户「有效」的角色与权限（逐级按 ACTIVE 过滤后的结果）。"""
     roles: frozenset[RoleSummary]
     permission_codes: frozenset[str]  # module:resource:action

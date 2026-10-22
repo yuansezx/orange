@@ -41,7 +41,7 @@ class TokenManagerJWTRedisAdapter(TokenManagerPort):
             payload = jwt.decode(token, self.jwt_secret_key, [self.jwt_algorithm])
         except jwt.exceptions.InvalidTokenError:
             raise TokenVerificationException('无效 token')
-        user_id = UserId(value=payload['user_id'])
+        user_id = UserId(payload['user_id'])
         if not await self.redis_conn.hexists(self._key(user_id), token):
             raise TokenVerificationException('token 已失效')
         return user_id
@@ -53,7 +53,7 @@ class TokenManagerJWTRedisAdapter(TokenManagerPort):
                                  options={'verify_exp': False})
         except jwt.exceptions.InvalidTokenError:
             raise TokenVerificationException('无效 token')
-        user_id = UserId(value=payload['user_id'])
+        user_id = UserId(payload['user_id'])
         await self.redis_conn.hdel(self._key(user_id), token)
 
     async def revoke_all(self, user_id: UserId) -> None:

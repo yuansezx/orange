@@ -1,14 +1,10 @@
-from dataclasses import dataclass
-
 from app.core.domain.value_objects import BaseEntityId
 
 
-@dataclass(frozen=True)
 class AuditLogId(BaseEntityId):
     pass
 
 
-@dataclass(frozen=True)
 class OperatorId(BaseEntityId):
     """审计记录的操作人 id（跨模块快照）。
 

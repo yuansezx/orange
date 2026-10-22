@@ -1,18 +1,19 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 
 
-@dataclass(frozen=True)
-class AuditLogIn:
+class AuditLogIn(BaseModel):
     """iam 应用层的审计写入输入（端口私有 DTO，不是实体）。
 
     不引用 monitor 的公开 DTO：由 infrastructure 的防腐适配器负责映射。
     """
+
     resource: str
     action: str
     summary: str
@@ -35,7 +36,7 @@ class AuditLogIn:
     ip: str | None = None
     user_agent: str | None = None
 
-    detail: dict[str, Any] = field(default_factory=dict)
+    detail: dict[str, Any] = Field(default_factory=dict)
 
 
 def make_audit_log(*, current_user: CurrentUser, resource: str, action: str,

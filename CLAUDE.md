@@ -30,7 +30,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   ├── event_bus.py           #     EventBus / EventHandler
 │   │   ├── repositories.py        #     BaseRepository：get/create/bulk_create/update/hard_delete
 │   │   ├── units_of_work.py       #     TransactionContext / InTransactionType
-│   │   └── value_objects.py       #     BaseEntityId（value: uuid.UUID + new()）/ EventId
+│   │   └── value_objects.py       #     SingleValueObject（RootModel）/ BaseEntityId（root: uuid.UUID + value/new()）/ EventId
 │   ├── infrastructure/
 │   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS（含 persistence / cache 段）
 │   │   ├── event_bus_impl.py      #     EventBusMemoryImpl
@@ -104,8 +104,8 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **配置**：分节 YAML（`core` / `iam`）+ `.env`；优先级 **`init > env > dotenv > yaml > secret`**（env 高于文件，容器里可用环境变量覆盖）。
   - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、**`modules`**（启用模块清单）、`persistence`
   - `persistence`：`backend`（ORM）+ `auto_migrate` + `use_tz`/`timezone` + `options`（**连接映射** `{连接名: {dialect, credentials}}`；每个连接**自带引擎** `dialect`，`engine` 由方言层补、不写进配置）
-- 实体用 pydantic `BaseModel`；值对象用 `@dataclass(frozen=True)`（带 `__post_init__` 校验 + 脱敏 property）。
-- **值对象序列化（pydantic）**：单值 VO 继承 `SingleValueObject[value]`（`core/domain/value_objects.py`）——**出入裸值**（校验接受 裸值 / `{"value":..}` / 实例；序列化 `str(self)`），OpenAPI 展示为 `string`（`BaseEntityId` 带 `format: uuid`）。**多字段（结构化）VO 不套它**（如 `RoleSummary`），交给 pydantic 默认按对象序列化，要自定义形态再手动转。脱敏等按字段用 `Annotated[...]` 声明。
+- 实体与值对象统一用 pydantic：实体 `BaseModel`；值对象 `frozen=True`（校验用 `model_validator` / `field_validator`，脱敏等用 property）。**应用层 DTO 用普通 `BaseModel`，不加 `frozen`**（不可变/可哈希是值对象语义，DTO 不承担）。**项目内不用 dataclass 作为 DTO/值对象**。
+- **值对象序列化（pydantic）**：单值 VO 继承 `SingleValueObject[value]`（`core/domain/value_objects.py`，基于 `RootModel`）——**出入裸值**（校验接受 裸值 / 同类型实例；嵌套序列化同为裸值），OpenAPI 展示为 `string`（`BaseEntityId` 带 `format: uuid`）。**构造传裸值**（如 `UserId(uuid)`），**读取用 `.value`**（领域访问器；`.root` 是 RootModel 实现细节，仅供值对象自身实现内部使用，外部调用端不用）。**多字段（结构化）VO 不套它**（如 `RoleSummary` / `DataScopeSpec`），用 frozen `BaseModel` 按对象序列化。
 - **实体 ID**：`BaseEntityId`（持有 `uuid.UUID`）及其子类 `UserId`/`RoleId`/`DeptId`/`UserRoleId`/`ResourceId`/`PermissionId`/`EventId`；用 `XxxId.new()` 生成（UUIDv7）。**不设 IdProvider 端口**。
 - `AuditableEntity[IdType]` 泛型审计基类（created/updated/deleted 的 at/by；`is_deleted` 是 `deleted_at` 的派生属性，不落库）。
 - 仓储继承 `BaseRepository`：`get / create / bulk_create / update / hard_delete`。**删除选择收敛在仓储边界**：`get(id, include_deleted=False)` 与列表/过滤方法默认不返回已删对象（SQL 层过滤）；要看已删必须显式 `include_deleted=True` / `deleted=True`，应用层不做二次过滤。
@@ -117,7 +117,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - 枚举统一 `str, Enum` 且以 `Enum` 结尾（`StatusEnum`、`UserTypeEnum`、`DataScopeEnum`）。
 - **异常与响应**：两条根（`core.exceptions`：`InfrastructureBaseException` 技术中立 / `BusinessBaseException` 业务合一）+ 统一错误体 `{code,message,details}`；HTTP 映射见 `app/core/interface/http/exception_handlers.py`。详见「异常与 HTTP 响应」。
 - `PageResult[DataType]`（`core/utils/schemas.py`）；`check_unique`（`core/utils/validators.py`）。
-- interface/schemas 可直接引用 domain 值对象作字段类型（pydantic 自动走 `__post_init__`）。
+- interface/schemas 可直接引用 domain 值对象作字段类型（pydantic 自动校验/序列化，裸值出入）。
 - 应用服务接 DTO（`CreateUserIn` 等）并调用领域服务完成业务逻辑。
 - **事务**：`TransactionContext` + `InTransactionType`（DI）；实现由持久化后端提供，经 `core.infrastructure.persistence.get_in_transaction()` 取用；应用层 `async with in_transaction():`（tortoise 事务连接按 task ContextVar 自动绑定）。
 - **领域事件**：`EventBus` / `EventHandler` 抽象，`BaseEvent` 在 `core/domain/events.py`。**事件类按聚合归属放各子域 `domain/*/events.py`**（`UserChanged` / `RoleChanged` / `UserRolesChanged` / `DeptStructureChanged` / `ResourceChanged`）；**订阅者（副作用，如清 CurrentUser 快照）放应用层**（`application/current_user/event_handlers.py`）。资源/权限的状态、软删、恢复、硬删都会改变有效权限，故发 `ResourceChanged`（带受影响权限 id；硬删时预取受影响用户 id）清快照。进程内 `EventBusMemoryImpl` 是**临时实现**（`publish` fire-and-forget、不等 handler），预期后续接消息系统替换。

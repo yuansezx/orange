@@ -24,7 +24,7 @@ class EffectivePermissionQueryTortoiseImpl(EffectivePermissionQuery):
             user_id=user_id.value, status=StatusEnum.ACTIVE,
             deleted_at__isnull=True).values_list('role_id', flat=True))
         if not link_role_ids:
-            return EffectivePermissions(frozenset(), frozenset())
+            return EffectivePermissions(roles=frozenset(), permission_codes=frozenset())
 
         # 2) 必须「未删且 ACTIVE」的角色（保住零权限角色）→ (id, code, name)
         role_rows = await RoleModel.filter(
