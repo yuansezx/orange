@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 
 
@@ -35,6 +36,25 @@ class AuditLogIn:
     user_agent: str | None = None
 
     detail: dict[str, Any] = field(default_factory=dict)
+
+
+def make_audit_log(*, current_user: CurrentUser, resource: str, action: str,
+                   summary: str, target_type: str | None = None,
+                   target_id: str | None = None, target_name: str | None = None,
+                   detail: dict[str, Any] | None = None) -> AuditLogIn:
+    """构造审计写入输入，统一带操作人快照。"""
+    return AuditLogIn(
+        resource=resource,
+        action=action,
+        summary=summary,
+        target_type=target_type,
+        target_id=target_id,
+        target_name=target_name,
+        detail=detail or {},
+        operator_id=current_user.user_id,
+        operator_username=current_user.username,
+        operator_nickname=current_user.nickname,
+    )
 
 
 class AuditLogWriterPort(ABC):

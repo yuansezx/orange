@@ -99,6 +99,7 @@ def get_dept_app_service() -> DeptApplicationService:
         user_repo=get_user_repo(),
         dept_access_service=get_dept_access_service(),
         audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
         dept_ref_service=get_dept_ref_service(),
         role_repo=get_role_repo(),
         event_bus=get_event_bus(),
@@ -127,6 +128,7 @@ def get_resource_app_service() -> ResourceApplicationService:
         resource_repo=get_resource_repo(),
         role_repo=get_role_repo(),
         audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
         permission_users_query=get_permission_users_query(),
         event_bus=get_event_bus(),
     )
@@ -148,6 +150,7 @@ def get_role_app_service() -> RoleApplicationService:
         dept_repo=get_dept_repo(),
         role_access_service=get_role_access_service(),
         audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
         dept_ref_service=get_dept_ref_service(),
         user_role_repo=get_user_role_repo(),
         event_bus=get_event_bus(),
@@ -163,6 +166,7 @@ def get_user_role_app_service() -> UserRoleApplicationService:
         in_transaction=get_in_transaction(),
         user_role_repo=get_user_role_repo(),
         role_access_service=get_role_access_service(),
+        audit_log_writer=get_audit_log_writer(),
         event_bus=get_event_bus(),
     )
 

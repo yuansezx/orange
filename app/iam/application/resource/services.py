@@ -8,6 +8,7 @@ from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.dto import AuditOut
+from app.iam.application.common.ports import AuditLogWriterPort, make_audit_log
 from app.iam.application.common.queries import UsersAffectedByPermissionChangeQuery
 from app.iam.application.common.services import AuditService
 from app.iam.application.resource.dto import (
@@ -101,12 +102,14 @@ class ResourceApplicationService:
                  resource_repo: ResourceRepository,
                  role_repo: RoleRepository,
                  audit_service: AuditService,
+                 audit_log_writer: AuditLogWriterPort,
                  permission_users_query: UsersAffectedByPermissionChangeQuery,
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.resource_repo = resource_repo
         self.role_repo = role_repo
         self.audit_service = audit_service
+        self.audit_log_writer = audit_log_writer
         self.permission_users_query = permission_users_query
         self.event_bus = event_bus
 
@@ -153,6 +156,16 @@ class ResourceApplicationService:
                 created_at=datetime.now(UTC),
                 created_by=current_user.user_id,
             ))
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='create',
+                summary=f'创建资源 {resource.name}',
+                target_type='resource',
+                target_id=str(resource.id.value),
+                target_name=resource.name,
+                detail={'key': resource.full_code(), 'module': resource.module},
+            ))
         return _resource_out(resource, await self.audit_service.build(resource))
 
     @requires_permission('iam:resource:update')
@@ -160,8 +173,24 @@ class ResourceApplicationService:
         async with self.in_transaction():
             resource = await self._load(data.id)
             _ensure_custom_resource(resource)
+            before = self._resource_snapshot(resource)
             resource.change(data.name, data.description, current_user.user_id)
             await self.resource_repo.update(resource)
+            after = self._resource_snapshot(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='update',
+                summary=f'更新资源 {resource.name}',
+                target_type='resource',
+                target_id=str(resource.id.value),
+                target_name=resource.name,
+                detail={
+                    'before': before,
+                    'after': after,
+                    'changed': [f for f in before if before[f] != after[f]],
+                },
+            ))
 
     @requires_permission('iam:resource:update')
     async def set_resource_status(self, resource_id: ResourceId, status: StatusEnum,
@@ -169,8 +198,19 @@ class ResourceApplicationService:
         async with self.in_transaction():
             resource = await self._load(resource_id)
             _ensure_custom_resource(resource)
+            previous_status = resource.status
             resource.change_status(status, current_user.user_id)
             await self.resource_repo.update(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='change_status',
+                summary=f'{"启用" if status is StatusEnum.ACTIVE else "停用"}资源 {resource.name}',
+                target_type='resource',
+                target_id=str(resource.id.value),
+                target_name=resource.name,
+                detail={'from': previous_status.value, 'to': status.value},
+            ))
         await self._publish(p.id for p in resource.permissions)
 
     @requires_permission('iam:resource:delete')
@@ -178,8 +218,23 @@ class ResourceApplicationService:
         async with self.in_transaction():
             resource = await self._load(resource_id)
             _ensure_custom_resource(resource)
+            previous_status = resource.status
+            permission_ids = [p.id for p in resource.permissions]
             resource.delete(current_user.user_id)  # 级联软删聚合内权限
             await self.resource_repo.update(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='delete',
+                summary=f'删除资源 {resource.name}',
+                target_type='resource',
+                target_id=str(resource.id.value),
+                target_name=resource.name,
+                detail={
+                    'previous_status': previous_status.value,
+                    'permission_ids': sorted(str(p.value) for p in permission_ids),
+                },
+            ))
         await self._publish(p.id for p in resource.permissions)
 
     @requires_permission('iam:resource:delete')
@@ -202,6 +257,19 @@ class ResourceApplicationService:
                     permission.restore(current_user.user_id)
                     restored_ids.append(permission.id)
             await self.resource_repo.update(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='restore',
+                summary=f'恢复资源 {resource.name}',
+                target_type='resource',
+                target_id=str(resource.id.value),
+                target_name=resource.name,
+                detail={
+                    'status': resource.status.value,
+                    'restored_permission_ids': sorted(str(p.value) for p in restored_ids),
+                },
+            ))
         await self._publish(restored_ids)
 
     @requires_permission('iam:resource:hard_delete')
@@ -217,6 +285,20 @@ class ResourceApplicationService:
                 await self.permission_users_query.resolve(permission_ids))
             await self.role_repo.remove_permissions(permission_ids)
             await self.resource_repo.hard_delete(resource.id)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='hard_delete',
+                summary=f'彻底删除资源 {resource.name}',
+                target_type='resource',
+                target_id=str(resource.id.value),
+                target_name=resource.name,
+                detail={
+                    'key': resource.full_code(),
+                    'permission_ids': sorted(str(p.value) for p in permission_ids),
+                    'affected_user_ids': sorted(str(u.value) for u in affected_user_ids),
+                },
+            ))
         await self._publish(permission_ids, affected_user_ids=affected_user_ids)
 
     # ---------------- 后台补充：权限 ----------------
@@ -233,6 +315,20 @@ class ResourceApplicationService:
                 data.action, data.name, data.description, SourceTypeEnum.CUSTOM,
                 current_user.user_id)
             await self.resource_repo.update(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='create_permission',
+                summary=f'创建权限 {permission.name}',
+                target_type='permission',
+                target_id=str(permission.id.value),
+                target_name=permission.name,
+                detail={
+                    'resource_id': str(resource.id.value),
+                    'resource_key': resource.full_code(),
+                    'action': permission.action,
+                },
+            ))
         return _permission_out(
             resource, permission, await self.audit_service.build(permission))
 
@@ -241,8 +337,26 @@ class ResourceApplicationService:
         async with self.in_transaction():
             resource, permission = await self._load_permission(data.id)
             _ensure_custom_permission(permission)
+            before = self._permission_snapshot(permission)
             permission.change(data.name, data.description, current_user.user_id)
             await self.resource_repo.update(resource)
+            after = self._permission_snapshot(permission)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='update_permission',
+                summary=f'更新权限 {permission.name}',
+                target_type='permission',
+                target_id=str(permission.id.value),
+                target_name=permission.name,
+                detail={
+                    'resource_id': str(resource.id.value),
+                    'resource_key': resource.full_code(),
+                    'before': before,
+                    'after': after,
+                    'changed': [f for f in before if before[f] != after[f]],
+                },
+            ))
 
     @requires_permission('iam:permission:update')
     async def set_permission_status(self, permission_id: PermissionId, status: StatusEnum,
@@ -250,8 +364,24 @@ class ResourceApplicationService:
         async with self.in_transaction():
             resource, permission = await self._load_permission(permission_id)
             _ensure_custom_permission(permission)
+            previous_status = permission.status
             permission.change_status(status, current_user.user_id)
             await self.resource_repo.update(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='change_permission_status',
+                summary=f'{"启用" if status is StatusEnum.ACTIVE else "停用"}权限 {permission.name}',
+                target_type='permission',
+                target_id=str(permission.id.value),
+                target_name=permission.name,
+                detail={
+                    'resource_id': str(resource.id.value),
+                    'resource_key': resource.full_code(),
+                    'from': previous_status.value,
+                    'to': status.value,
+                },
+            ))
         await self._publish([permission_id])
 
     @requires_permission('iam:permission:delete')
@@ -260,8 +390,24 @@ class ResourceApplicationService:
         async with self.in_transaction():
             resource, permission = await self._load_permission(permission_id)
             _ensure_custom_permission(permission)
+            previous_status = permission.status
             permission.delete(current_user.user_id)
             await self.resource_repo.update(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='delete_permission',
+                summary=f'删除权限 {permission.name}',
+                target_type='permission',
+                target_id=str(permission.id.value),
+                target_name=permission.name,
+                detail={
+                    'resource_id': str(resource.id.value),
+                    'resource_key': resource.full_code(),
+                    'action': permission.action,
+                    'previous_status': previous_status.value,
+                },
+            ))
         await self._publish([permission_id])
 
     @requires_permission('iam:permission:delete')
@@ -274,6 +420,21 @@ class ResourceApplicationService:
             _ensure_custom_permission(permission)
             permission.restore(current_user.user_id)
             await self.resource_repo.update(resource)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='restore_permission',
+                summary=f'恢复权限 {permission.name}',
+                target_type='permission',
+                target_id=str(permission.id.value),
+                target_name=permission.name,
+                detail={
+                    'resource_id': str(resource.id.value),
+                    'resource_key': resource.full_code(),
+                    'action': permission.action,
+                    'status': permission.status.value,
+                },
+            ))
         await self._publish([permission_id])
 
     @requires_permission('iam:permission:hard_delete')
@@ -281,13 +442,28 @@ class ResourceApplicationService:
                                      current_user: CurrentUser) -> None:
         """彻底删除（物理）——只允许对已软删行做；SYSTEM 墓碑也可清理，级联清角色引用。"""
         async with self.in_transaction():
-            _, permission = await self._load_permission(permission_id, include_deleted=True)
+            resource, permission = await self._load_permission(permission_id, include_deleted=True)
             if not permission.is_deleted:
                 raise PermissionNotDeletedException('只能彻底删除已删除的权限')
             affected_user_ids = frozenset(
                 await self.permission_users_query.resolve([permission_id]))
             await self.role_repo.remove_permissions([permission_id])
             await self.resource_repo.hard_delete_permission(permission_id)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='resource',
+                action='hard_delete_permission',
+                summary=f'彻底删除权限 {permission.name}',
+                target_type='permission',
+                target_id=str(permission.id.value),
+                target_name=permission.name,
+                detail={
+                    'resource_id': str(resource.id.value),
+                    'resource_key': resource.full_code(),
+                    'action': permission.action,
+                    'affected_user_ids': sorted(str(u.value) for u in affected_user_ids),
+                },
+            ))
         await self._publish([permission_id], affected_user_ids=affected_user_ids)
 
     # ---------------- 读取 ----------------
@@ -368,6 +544,22 @@ class ResourceApplicationService:
         return items
 
     # ---------------- 内部方法 ----------------
+    @staticmethod
+    def _resource_snapshot(resource: Resource) -> dict:
+        return {
+            'name': resource.name,
+            'description': resource.description,
+            'status': resource.status.value,
+        }
+
+    @staticmethod
+    def _permission_snapshot(permission: Permission) -> dict:
+        return {
+            'name': permission.name,
+            'description': permission.description,
+            'status': permission.status.value,
+        }
+
     async def _publish(self, permission_ids: Iterable[PermissionId], *,
                        affected_user_ids: frozenset[UserId] | None = None) -> None:
         ids = frozenset(permission_ids)

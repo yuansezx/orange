@@ -4,6 +4,7 @@ from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
 from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.ports import AuditLogWriterPort, make_audit_log
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.shared.enums import StatusEnum
@@ -23,10 +24,12 @@ class UserRoleApplicationService:
     def __init__(self, in_transaction: InTransactionType,
                  user_role_repo: UserRoleRepository,
                  role_access_service: RoleAccessService,
+                 audit_log_writer: AuditLogWriterPort,
                  event_bus: EventBus) -> None:
         self.in_transaction = in_transaction
         self.user_role_repo = user_role_repo
         self.role_access_service = role_access_service
+        self.audit_log_writer = audit_log_writer
         self.event_bus = event_bus
 
     async def assign_roles_to_user(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
@@ -39,7 +42,20 @@ class UserRoleApplicationService:
             by_role = await self._existing_map(user_id)
             active = {r for r, a in by_role.items()
                       if not a.is_deleted and a.status is StatusEnum.ACTIVE}
-            await self._add_roles(user_id, role_ids - active, by_role, current_user.user_id)
+            added = role_ids - active
+            await self._add_roles(user_id, added, by_role, current_user.user_id)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='user_role',
+                action='assign',
+                summary=f'为用户 {user_id} 分配角色',
+                target_type='user',
+                target_id=str(user_id.value),
+                detail={
+                    'role_ids': sorted(str(r.value) for r in role_ids),
+                    'added_role_ids': sorted(str(r.value) for r in added),
+                },
+            ))
         await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user_id))
 
     async def set_user_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
@@ -63,6 +79,19 @@ class UserRoleApplicationService:
                 assignment.delete(current_user.user_id)
                 await self.user_role_repo.update(assignment)
             await self._add_roles(user_id, to_add, by_role, current_user.user_id)
+            await self.audit_log_writer.write(make_audit_log(
+                current_user=current_user,
+                resource='user_role',
+                action='set',
+                summary=f'设置用户 {user_id} 的角色',
+                target_type='user',
+                target_id=str(user_id.value),
+                detail={
+                    'role_ids': sorted(str(r.value) for r in role_ids),
+                    'added_role_ids': sorted(str(r.value) for r in to_add),
+                    'removed_role_ids': sorted(str(r.value) for r in to_remove),
+                },
+            ))
         await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user_id))
 
     # ---------------- 内部 ----------------
