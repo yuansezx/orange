@@ -172,7 +172,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 
 **异常归属**：具体业务异常按**语义**放各子域（`domain/*/exceptions.py`、`application/*/exceptions.py`）；模块业务根 `IAMBusinessBaseException` 在 `iam/domain/shared/exceptions.py`。
 
-**跨模块（python api）**：模块的公开 Python API 统一放 **`interface/python/`**，其他模块只从 **infrastructure adapter** 调用它（application/domain 不 import 其他模块；基础设施依赖是可替换边缘，不是核心耦合）。公开入参/出参在 `interface/python/{api}/schemas.py` 定义 **`XxxReq` / `XxxResp`** 契约层，不直接暴露应用层 DTO。调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根与异常类型不对外发布**。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。
+**跨模块（python api）**：模块的公开 Python API 统一放 **`interface/python/`**，其他模块只从 **infrastructure adapter** 调用它（application/domain 不 import 其他模块；基础设施依赖是可替换边缘，不是核心耦合）。公开入参/出参在 `interface/python/{api}/schemas.py` 定义 **`XxxReq` / `XxxResp`** 契约层，不直接暴露应用层 DTO。调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根与异常类型不对外发布**。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。**受控例外**：模块 `bootstrap.py` 的资源/权限目录注册可直接调用 iam 的公开注册 API——iam 在此是权限注册中心，bootstrap 是专用初始化位置；前提是不引入循环 import。
 
 ## 运行
 
