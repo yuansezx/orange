@@ -1,8 +1,8 @@
 from datetime import datetime, UTC
 
 from app.core.utils.schemas import PageResult
-from app.iam.application.common.decorators import requires_permission
-from app.iam.domain.current_user.entities import CurrentUser
+from app.monitor.application.common.decorators import requires_permission
+from app.monitor.application.common.dto import CurrentUser
 from app.monitor.application.audit_log.dto import AuditLogIn, AuditLogOut, GetAuditLogsIn
 from app.monitor.domain.audit_log.entities import AuditLog
 from app.monitor.domain.audit_log.repositories import AuditLogRepository

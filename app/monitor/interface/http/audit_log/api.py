@@ -4,11 +4,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.core.utils.schemas import PageResult
-from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.interface.http.dependencies import get_current_user
 from app.monitor.application.audit_log.services import AuditLogApplicationService
+from app.monitor.application.common.dto import CurrentUser
 from app.monitor.interface.dependences import get_audit_log_app_service
 from app.monitor.interface.http.audit_log.schemas import AuditLogResp, GetAuditLogsReq
+from app.monitor.interface.http.dependencies import get_current_user
 
 audit_log_router = APIRouter(prefix='/audit-logs', tags=['审计日志'])
 
