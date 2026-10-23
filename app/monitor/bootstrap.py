@@ -2,19 +2,19 @@
 from loguru import logger
 
 from app.iam.interface.python import (
-    RegisterPermissionIn,
-    RegisterResourceIn,
+    RegisterPermissionReq,
+    RegisterResourceReq,
     register_module_resources,
 )
 
 MONITOR_MODULE = 'monitor'
 
-MONITOR_RESOURCE_DECLARATIONS: list[RegisterResourceIn] = [
-    RegisterResourceIn(
+MONITOR_RESOURCE_DECLARATIONS: list[RegisterResourceReq] = [
+    RegisterResourceReq(
         module=MONITOR_MODULE,
         code='audit_log',
         name='审计日志',
-        permissions=[RegisterPermissionIn(action='read', name='查看审计日志')],
+        permissions=[RegisterPermissionReq(action='read', name='查看审计日志')],
     ),
 ]
 

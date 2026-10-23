@@ -79,7 +79,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │       └── queries/           #     effective_permission.py / dept_affected_users.py / permission_exists.py（CQRS 读侧查询）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
-│       ├── python/                #   对外 Python API（其他模块只经此调用；如 register_module_resources）
+│       ├── python/                #   对外 Python API（其他模块只经此调用）；按能力分包：{api}/{schemas,api}.py（如 resource/）
 │       └── http/
 │           ├── router.py          #     模块路由汇总（app 工厂按模块动态 include）
 │           ├── dependencies.py    #     get_current_user（Bearer → CurrentUser，只做身份提取）
@@ -96,7 +96,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   └── persistence/tortoise/{dialect}/  # models（audit_log）/ repositories
 │   └── interface/
 │       ├── dependences.py         #   组合根
-│       ├── python/audit_log.py    #   公开写入口 write_audit_log
+│       ├── python/audit_log/      #   公开写入口：schemas.py（AuditLogReq）/ api.py（write_audit_log）
 │       └── http/                  #   health + audit_log 查询
 ```
 
@@ -156,7 +156,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **数据类型的归属按语义定**（不按谁先用）：领域概念 → domain（entity / 值对象）；应用层通用数据（含查询结果）→ `dto.py`；端口私有契约类型 → 与端口同处 `ports.py`（过长时拆 `ports/` 包，一端口一文件）。
 - **查询（CQRS 读侧）不与聚合仓储混放**：跨聚合只读查询放**应用层**（接口 `common/queries.py`，实现 `infrastructure/persistence/tortoise/queries/`）；`repositories/` 只留聚合仓储（entity ↔ 表）。
 - 枚举统一 `XxxEnum`，且 `str, Enum`。
-- **接口层 schema 命名**：HTTP 的 `schemas.py` 用 `XxxReq`（请求）/ `XxxResp`（响应）；应用层 DTO 用 `XxxIn` / `XxxOut`。两套不混用。
+- **接口层 schema 命名**：接口层（HTTP 的 `schemas.py` 与 Python API 的 `interface/python`）用 `XxxReq`（入参）/ `XxxResp`（出参）；应用层 DTO 用 `XxxIn` / `XxxOut`。两套不混用。**Python API 的公开 schema 定义在 `interface/python/{api}/schemas.py`，当前用继承应用层 DTO 的空子类作为契约缝隙；不要直接 re-export 应用层 DTO。**
 
 ### 异常与 HTTP 响应
 
@@ -172,7 +172,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 
 **异常归属**：具体业务异常按**语义**放各子域（`domain/*/exceptions.py`、`application/*/exceptions.py`）；模块业务根 `IAMBusinessBaseException` 在 `iam/domain/shared/exceptions.py`。
 
-**跨模块（python api）**：模块的公开 Python API 统一放 **`interface/python/`**，其他模块只从 **infrastructure adapter** 调用它（application/domain 不 import 其他模块；基础设施依赖是可替换边缘，不是核心耦合）。调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根与异常类型不对外发布**。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。
+**跨模块（python api）**：模块的公开 Python API 统一放 **`interface/python/`**，其他模块只从 **infrastructure adapter** 调用它（application/domain 不 import 其他模块；基础设施依赖是可替换边缘，不是核心耦合）。公开入参/出参在 `interface/python/{api}/schemas.py` 定义 **`XxxReq` / `XxxResp`** 契约层，不直接暴露应用层 DTO。调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根与异常类型不对外发布**。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。
 
 ## 运行
 

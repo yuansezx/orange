@@ -11,7 +11,7 @@ from app.core.application.dto import RequestMeta
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.domain.current_user.entities import CurrentUser
 from app.monitor.interface.python.audit_log import (
-    AuditLogIn as MonitorAuditLogIn,
+    AuditLogReq as MonitorAuditLogReq,
     write_audit_log,
 )
 
@@ -26,7 +26,7 @@ class AuditLogWriterAdapter(AuditLogWriterPort):
                     target_id: str | None = None,
                     target_name: str | None = None,
                     detail: dict[str, Any] | None = None) -> None:
-        await write_audit_log(MonitorAuditLogIn(
+        await write_audit_log(MonitorAuditLogReq(
             module='iam',
             resource=resource,
             action=action,

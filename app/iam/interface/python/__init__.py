@@ -4,13 +4,13 @@
 不要在 application/domain 里直接 import 本模块。
 """
 from app.iam.interface.python.resource import (
-    RegisterPermissionIn,
-    RegisterResourceIn,
+    RegisterPermissionReq,
+    RegisterResourceReq,
     register_module_resources,
 )
 
 __all__ = [
-    'RegisterPermissionIn',
-    'RegisterResourceIn',
+    'RegisterPermissionReq',
+    'RegisterResourceReq',
     'register_module_resources',
 ]
