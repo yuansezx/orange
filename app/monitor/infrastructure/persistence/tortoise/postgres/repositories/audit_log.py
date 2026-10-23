@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from tortoise.expressions import Q
 from tortoise.queryset import QuerySet
 
 from app.core.exceptions import PersistenceException
@@ -39,10 +40,12 @@ def _apply_filters(qs: QuerySet[AuditLogModel], *,
                    resource: str | None,
                    action: str | None,
                    operator_id: OperatorId | None,
+                   operator_username: str | None,
                    target_type: str | None,
                    target_id: str | None,
                    result: AuditResultEnum | None,
                    request_id: str | None,
+                   keyword: str | None,
                    occurred_from: datetime | None,
                    occurred_to: datetime | None) -> QuerySet[AuditLogModel]:
     if module is not None:
@@ -53,6 +56,8 @@ def _apply_filters(qs: QuerySet[AuditLogModel], *,
         qs = qs.filter(action=action)
     if operator_id is not None:
         qs = qs.filter(operator_id=operator_id.value)
+    if operator_username is not None:
+        qs = qs.filter(operator_username__icontains=operator_username)
     if target_type is not None:
         qs = qs.filter(target_type=target_type)
     if target_id is not None:
@@ -61,6 +66,14 @@ def _apply_filters(qs: QuerySet[AuditLogModel], *,
         qs = qs.filter(result=result)
     if request_id is not None:
         qs = qs.filter(request_id=request_id)
+    if keyword is not None:
+        qs = qs.filter(
+            Q(summary__icontains=keyword)
+            | Q(target_name__icontains=keyword)
+            | Q(operator_username__icontains=keyword)
+            | Q(error_message__icontains=keyword)
+            | Q(request_id__icontains=keyword)
+        )
     if occurred_from is not None:
         qs = qs.filter(occurred_at__gte=occurred_from)
     if occurred_to is not None:
@@ -102,10 +115,12 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
                       resource: str | None = None,
                       action: str | None = None,
                       operator_id: OperatorId | None = None,
+                      operator_username: str | None = None,
                       target_type: str | None = None,
                       target_id: str | None = None,
                       result: AuditResultEnum | None = None,
                       request_id: str | None = None,
+                      keyword: str | None = None,
                       occurred_from: datetime | None = None,
                       occurred_to: datetime | None = None,
                       offset: int = 0,
@@ -113,8 +128,9 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
         qs = _apply_filters(
             AuditLogModel.all(),
             module=module, resource=resource, action=action,
-            operator_id=operator_id, target_type=target_type, target_id=target_id,
-            result=result, request_id=request_id,
+            operator_id=operator_id, operator_username=operator_username,
+            target_type=target_type, target_id=target_id,
+            result=result, request_id=request_id, keyword=keyword,
             occurred_from=occurred_from, occurred_to=occurred_to,
         )
         # occurred_at 相同用 UUIDv7 兜底，保证分页稳定且与入队顺序一致
@@ -126,17 +142,20 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
                     resource: str | None = None,
                     action: str | None = None,
                     operator_id: OperatorId | None = None,
+                    operator_username: str | None = None,
                     target_type: str | None = None,
                     target_id: str | None = None,
                     result: AuditResultEnum | None = None,
                     request_id: str | None = None,
+                    keyword: str | None = None,
                     occurred_from: datetime | None = None,
                     occurred_to: datetime | None = None) -> int:
         qs = _apply_filters(
             AuditLogModel.all(),
             module=module, resource=resource, action=action,
-            operator_id=operator_id, target_type=target_type, target_id=target_id,
-            result=result, request_id=request_id,
+            operator_id=operator_id, operator_username=operator_username,
+            target_type=target_type, target_id=target_id,
+            result=result, request_id=request_id, keyword=keyword,
             occurred_from=occurred_from, occurred_to=occurred_to,
         )
         return await qs.count()

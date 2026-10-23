@@ -76,10 +76,12 @@ class AuditLogApplicationService:
             resource=data.resource,
             action=data.action,
             operator_id=data.operator_id,
+            operator_username=data.operator_username,
             target_type=data.target_type,
             target_id=data.target_id,
             result=data.result,
             request_id=data.request_id,
+            keyword=data.keyword,
             occurred_from=data.occurred_from,
             occurred_to=data.occurred_to,
         )

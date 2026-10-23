@@ -36,6 +36,8 @@ export interface GetAuditLogsQuery {
   module?: string
   resource?: string
   action?: string
+  operator_username?: string
+  keyword?: string
   result?: AuditResult
   occurred_from?: string
   occurred_to?: string
@@ -45,6 +47,8 @@ export interface AuditLogFilters {
   module: string
   resource: string
   action: string
+  operator: string
+  keyword: string
   result?: AuditResult
   range: [Dayjs, Dayjs] | null
 }

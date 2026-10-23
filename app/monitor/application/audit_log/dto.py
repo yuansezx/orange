@@ -48,10 +48,12 @@ class GetAuditLogsIn(BaseModel):
     resource: str | None = None
     action: str | None = None
     operator_id: OperatorId | None = None
+    operator_username: str | None = None
     target_type: str | None = None
     target_id: str | None = None
     result: AuditResultEnum | None = None
     request_id: str | None = None
+    keyword: str | None = None
     occurred_from: datetime | None = None
     occurred_to: datetime | None = None
 

@@ -13,7 +13,7 @@ interface Props {
   onReset: () => void
 }
 
-/** 审计日志筛选：模块 / 资源 / 动作 / 结果 / 时间范围。 */
+/** 审计日志筛选：模块 / 资源 / 动作 / 操作人 / 关键词 / 结果 / 时间范围。 */
 export function AuditLogToolbar({ value, onChange, onReset }: Props) {
   return (
     <Space style={{ display: 'flex', marginBottom: 16 }} size={12} wrap>
@@ -37,6 +37,20 @@ export function AuditLogToolbar({ value, onChange, onReset }: Props) {
         placeholder="动作"
         style={{ width: 120 }}
         onChange={(event) => onChange({ ...value, action: event.target.value })}
+      />
+      <Input
+        allowClear
+        value={value.operator}
+        placeholder="操作人"
+        style={{ width: 140 }}
+        onChange={(event) => onChange({ ...value, operator: event.target.value })}
+      />
+      <Input
+        allowClear
+        value={value.keyword}
+        placeholder="关键词（摘要/目标/错误）"
+        style={{ width: 220 }}
+        onChange={(event) => onChange({ ...value, keyword: event.target.value })}
       />
       <Select<AuditResult>
         allowClear
