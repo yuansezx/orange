@@ -37,7 +37,7 @@ class AuditLogWriterAdapter(AuditLogWriterPort):
             target_type=target_type,
             target_id=target_id,
             target_name=target_name,
-            operator_id=current_user.user_id if current_user else None,
+            operator_id=current_user.user_id.value if current_user else None,
             operator_username=current_user.username if current_user else None,
             operator_nickname=current_user.nickname if current_user else None,
             result='success' if success else 'failure',

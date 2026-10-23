@@ -174,7 +174,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 
 **异常归属**：具体业务异常按**语义**放各子域（`domain/*/exceptions.py`、`application/*/exceptions.py`）；模块业务根 `IAMBusinessBaseException` 在 `iam/domain/shared/exceptions.py`。
 
-**跨模块（python api）**：模块的公开 Python API 统一放 **`interface/python/`**，其他模块只从 **infrastructure adapter** 调用它（application/domain 不 import 其他模块；基础设施依赖是可替换边缘，不是核心耦合）。公开入参/出参在 `interface/python/{api}/schemas.py` 定义 **`XxxReq` / `XxxResp`** 契约层，不直接暴露应用层 DTO。调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根与异常类型不对外发布**。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。**受控例外**：模块 `bootstrap.py` 的资源/权限目录注册可直接调用 iam 的公开注册 API——iam 在此是权限注册中心，bootstrap 是专用初始化位置；前提是不引入循环 import。iam 另经 `interface/python/auth` 暴露 `get_current_user(token) -> CurrentUserResp`（全量身份/权限字段）；消费方在 infrastructure adapter 解析一次，**功能/数据权限在本地判断**（分布式模型：iam 只发身份与权限快照，不逐次鉴权）。monitor 的 `AuthenticationPort` + 本地 `CurrentUser` / `requires_permission` 即此模式。
+**跨模块（python api）**：模块的公开 Python API 统一放 **`interface/python/`**，其他模块只从 **infrastructure adapter** 调用它（application/domain 不 import 其他模块；基础设施依赖是可替换边缘，不是核心耦合）。公开入参/出参在 `interface/python/{api}/schemas.py` 定义 **`XxxReq` / `XxxResp`** 契约层，不直接暴露应用层 DTO。调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根与异常类型不对外发布**。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。**受控例外**：模块 `bootstrap.py` 的资源/权限目录注册可直接调用 iam 的公开注册 API——iam 在此是权限注册中心，bootstrap 是专用初始化位置；前提是不引入循环 import。iam 另经 `interface/python/auth` 暴露 `get_current_user(token) -> CurrentUserResp`（全量身份/权限字段）；消费方在 infrastructure adapter 解析一次，**功能/数据权限在本地判断**（分布式模型：iam 只发身份与权限快照，不逐次鉴权）。monitor 的 `AuthenticationPort` + 本地 `CurrentUser` / `requires_permission` 即此模式。**跨模块 ID 一律传裸值（`UUID` / `str`）**，由各模块自己的值对象承接；禁止把本模块的 ID VO 实例直接传给另一模块。
 
 ## 运行
 
