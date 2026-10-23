@@ -1,9 +1,15 @@
 """审计日志写入的防腐适配器。
 
-iam application 只认识 `AuditLogWriterPort` / `AuditLogIn`；本适配器把本地输入
-映射成 monitor 的公开 DTO，再调用 `write_audit_log`。
+port 只认识调用方上下文；本适配器负责：
+- 操作人快照（`CurrentUser` → `operator_*`）；
+- 请求元数据（`RequestMeta` → `request_id` / `ip` / `user_agent`）；
+- 映射成 monitor 的公开 DTO 并调用 `write_audit_log`。
 """
-from app.iam.application.common.ports import AuditLogIn, AuditLogWriterPort
+from typing import Any
+
+from app.core.application.dto import RequestMeta
+from app.iam.application.common.ports import AuditLogWriterPort
+from app.iam.domain.current_user.entities import CurrentUser
 from app.monitor.interface.python.audit_log import (
     AuditLogIn as MonitorAuditLogIn,
     write_audit_log,
@@ -12,24 +18,28 @@ from app.monitor.interface.python.audit_log import (
 
 class AuditLogWriterAdapter(AuditLogWriterPort):
 
-    async def write(self, data: AuditLogIn) -> None:
+    async def write(self, *,
+                    resource: str, action: str, summary: str,
+                    current_user: CurrentUser | None = None,
+                    request_meta: RequestMeta | None = None,
+                    target_type: str | None = None,
+                    target_id: str | None = None,
+                    target_name: str | None = None,
+                    detail: dict[str, Any] | None = None) -> None:
         await write_audit_log(MonitorAuditLogIn(
-            occurred_at=data.occurred_at,
             module='iam',
-            resource=data.resource,
-            action=data.action,
-            summary=data.summary,
-            target_type=data.target_type,
-            target_id=data.target_id,
-            target_name=data.target_name,
-            operator_id=data.operator_id.value if data.operator_id else None,
-            operator_username=data.operator_username,
-            operator_nickname=data.operator_nickname,
-            result='success' if data.success else 'failure',
-            error_code=data.error_code,
-            error_message=data.error_message,
-            request_id=data.request_id,
-            ip=data.ip,
-            user_agent=data.user_agent,
-            detail=data.detail,
+            resource=resource,
+            action=action,
+            summary=summary,
+            target_type=target_type,
+            target_id=target_id,
+            target_name=target_name,
+            operator_id=current_user.user_id if current_user else None,
+            operator_username=current_user.username if current_user else None,
+            operator_nickname=current_user.nickname if current_user else None,
+            result='success',
+            request_id=request_meta.request_id if request_meta else None,
+            ip=request_meta.ip if request_meta else None,
+            user_agent=request_meta.user_agent if request_meta else None,
+            detail=detail or {},
         ))

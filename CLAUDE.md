@@ -120,7 +120,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **异常与响应**：两条根（`core.exceptions`：`InfrastructureBaseException` 技术中立 / `BusinessBaseException` 业务合一）+ 统一错误体 `{code,message,details}`；HTTP 映射见 `app/core/interface/http/exception_handlers.py`。详见「异常与 HTTP 响应」。
 - `PageResult[DataType]`（`core/utils/schemas.py`）；`check_unique`（`core/utils/validators.py`）。
 - interface/schemas 可直接引用 domain 值对象作字段类型（pydantic 自动校验/序列化，裸值出入）。
-- **请求元数据**：`RequestMeta`（`request_id` / `ip` / `user_agent`）在 `core/application/dto.py`；由 `core/interface/http/dependencies.py::get_request_meta` 从请求构造，**显式传给写用例**（不用中间件/ContextVar），不进 `CurrentUser` / 缓存。
+- **请求元数据**：`RequestMeta`（`request_id` / `ip` / `user_agent`）在 `core/application/dto.py`；由 `core/interface/http/dependencies.py::get_request_meta` 从请求构造，**显式传给写用例**（不用中间件/ContextVar），不进 `CurrentUser` / 缓存。写用例签名为 `request_meta: RequestMeta | None = None`——`None` 表示非请求上下文（python api / 后台任务），HTTP 边界必传；审计**记录的组装**（操作人快照 + 请求元数据 + monitor DTO 映射）在 infrastructure adapter，port 只接收调用方上下文与业务事件字段。
 - 应用服务接 DTO（`CreateUserIn` 等）并调用领域服务完成业务逻辑。
 - **事务**：`TransactionContext` + `InTransactionType`（DI）；实现由持久化后端提供，经 `core.infrastructure.persistence.get_in_transaction()` 取用；应用层 `async with in_transaction():`（tortoise 事务连接按 task ContextVar 自动绑定）。
 - **领域事件**：`EventBus` / `EventHandler` 抽象，`BaseEvent` 在 `core/domain/events.py`。**事件类按聚合归属放各子域 `domain/*/events.py`**（`UserChanged` / `RoleChanged` / `UserRolesChanged` / `DeptStructureChanged` / `ResourceChanged`）；**订阅者（副作用，如清 CurrentUser 快照）放应用层**（`application/current_user/event_handlers.py`）。资源/权限的状态、软删、恢复、硬删都会改变有效权限，故发 `ResourceChanged`（带受影响权限 id；硬删时预取受影响用户 id）清快照。进程内 `EventBusMemoryImpl` 是**临时实现**（`publish` fire-and-forget、不等 handler），预期后续接消息系统替换。

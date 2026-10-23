@@ -8,6 +8,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.core.application.dto import RequestMeta
+from app.core.interface.http.dependencies import get_request_meta
 from app.core.utils.schemas import PageResult
 from app.iam.application.user.dto import UpdateUserIn
 from app.iam.application.user.services import UserApplicationService
@@ -33,10 +35,12 @@ user_router = APIRouter(prefix='/users', tags=['用户'])
 async def create_user(
     body: CreateUserReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
     user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
 ) -> UserResp:
-    user = await user_app_service.create_user_by_admin(body, current_user, user_role_app_service)
+    user = await user_app_service.create_user_by_admin(
+        body, current_user, user_role_app_service, request_meta)
     return UserResp.model_validate(user, from_attributes=True)
 
 
@@ -71,11 +75,13 @@ async def update_user(
     user_id: UUID,
     body: UpdateUserReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
     user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
 ) -> UserResp:
     data = UpdateUserIn(id=UserId(user_id), **body.model_dump())
-    user = await user_app_service.update_user(data, current_user, user_role_app_service)
+    user = await user_app_service.update_user(
+        data, current_user, user_role_app_service, request_meta)
     return UserResp.model_validate(user, from_attributes=True)
 
 
@@ -85,27 +91,31 @@ async def set_user_status(
     user_id: UUID,
     body: UpdateStatusReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
 ) -> None:
-    await user_app_service.set_user_status(UserId(user_id), body.status, current_user)
+    await user_app_service.set_user_status(
+        UserId(user_id), body.status, current_user, request_meta)
 
 
 @user_router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除用户（软删）')
 async def delete_user(
     user_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
 ) -> None:
-    await user_app_service.delete_user(UserId(user_id), current_user)
+    await user_app_service.delete_user(UserId(user_id), current_user, request_meta)
 
 
 @user_router.post('/{user_id}/restore', status_code=status.HTTP_204_NO_CONTENT, summary='恢复用户')
 async def restore_user(
     user_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
 ) -> None:
-    await user_app_service.restore_user(UserId(user_id), current_user)
+    await user_app_service.restore_user(UserId(user_id), current_user, request_meta)
 
 
 @user_router.delete('/{user_id}/hard-delete', status_code=status.HTTP_204_NO_CONTENT,
@@ -113,6 +123,7 @@ async def restore_user(
 async def hard_delete_user(
     user_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
 ) -> None:
-    await user_app_service.hard_delete_user(UserId(user_id), current_user)
+    await user_app_service.hard_delete_user(UserId(user_id), current_user, request_meta)

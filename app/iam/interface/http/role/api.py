@@ -6,6 +6,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.core.application.dto import RequestMeta
+from app.core.interface.http.dependencies import get_request_meta
 from app.iam.application.role.dto import UpdateRoleIn
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
@@ -29,9 +31,10 @@ role_router = APIRouter(prefix='/roles', tags=['角色'])
 async def create_role(
     body: CreateRoleReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> RoleResp:
-    role = await role_app_service.create_role(body, current_user)
+    role = await role_app_service.create_role(body, current_user, request_meta)
     return RoleResp(
         id=role.id, code=role.code, name=role.name, data_scope=role.data_scope,
         status=role.status, description=role.description,
@@ -76,10 +79,11 @@ async def update_role(
     role_id: UUID,
     body: UpdateRoleReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> None:
     data = UpdateRoleIn(id=RoleId(role_id), **body.model_dump())
-    await role_app_service.update_role(data, current_user)
+    await role_app_service.update_role(data, current_user, request_meta)
 
 
 @role_router.put('/{role_id}/status', status_code=status.HTTP_204_NO_CONTENT,
@@ -88,27 +92,31 @@ async def set_role_status(
     role_id: UUID,
     body: UpdateStatusReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> None:
-    await role_app_service.set_role_status(RoleId(role_id), body.status, current_user)
+    await role_app_service.set_role_status(
+        RoleId(role_id), body.status, current_user, request_meta)
 
 
 @role_router.delete('/{role_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除角色（软删）')
 async def delete_role(
     role_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> None:
-    await role_app_service.delete_role(RoleId(role_id), current_user)
+    await role_app_service.delete_role(RoleId(role_id), current_user, request_meta)
 
 
 @role_router.post('/{role_id}/restore', status_code=status.HTTP_204_NO_CONTENT, summary='恢复角色')
 async def restore_role(
     role_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> None:
-    await role_app_service.restore_role(RoleId(role_id), current_user)
+    await role_app_service.restore_role(RoleId(role_id), current_user, request_meta)
 
 
 @role_router.delete('/{role_id}/hard-delete', status_code=status.HTTP_204_NO_CONTENT,
@@ -116,6 +124,7 @@ async def restore_role(
 async def hard_delete_role(
     role_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
 ) -> None:
-    await role_app_service.hard_delete_role(RoleId(role_id), current_user)
+    await role_app_service.hard_delete_role(RoleId(role_id), current_user, request_meta)

@@ -6,6 +6,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.core.application.dto import RequestMeta
+from app.core.interface.http.dependencies import get_request_meta
 from app.iam.application.resource.dto import UpdatePermissionIn, UpdateResourceIn
 from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
@@ -60,9 +62,10 @@ async def list_resources(
 async def create_resource(
     body: CreateResourceReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> ResourceResp:
-    resource = await resource_app_service.create_resource(body, current_user)
+    resource = await resource_app_service.create_resource(body, current_user, request_meta)
     return ResourceResp(**resource.model_dump())
 
 
@@ -72,10 +75,11 @@ async def update_resource(
     resource_id: UUID,
     body: UpdateResourceReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
     data = UpdateResourceIn(id=ResourceId(resource_id), **body.model_dump())
-    await resource_app_service.update_resource(data, current_user)
+    await resource_app_service.update_resource(data, current_user, request_meta)
 
 
 @resource_router.put('/{resource_id}/status', status_code=status.HTTP_204_NO_CONTENT,
@@ -84,10 +88,11 @@ async def set_resource_status(
     resource_id: UUID,
     body: UpdateStatusReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
     await resource_app_service.set_resource_status(
-        ResourceId(resource_id), body.status, current_user)
+        ResourceId(resource_id), body.status, current_user, request_meta)
 
 
 @resource_router.delete('/{resource_id}', status_code=status.HTTP_204_NO_CONTENT,
@@ -95,9 +100,10 @@ async def set_resource_status(
 async def delete_resource(
     resource_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
-    await resource_app_service.delete_resource(ResourceId(resource_id), current_user)
+    await resource_app_service.delete_resource(ResourceId(resource_id), current_user, request_meta)
 
 
 @resource_router.post('/{resource_id}/restore', status_code=status.HTTP_204_NO_CONTENT,
@@ -105,9 +111,10 @@ async def delete_resource(
 async def restore_resource(
     resource_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
-    await resource_app_service.restore_resource(ResourceId(resource_id), current_user)
+    await resource_app_service.restore_resource(ResourceId(resource_id), current_user, request_meta)
 
 
 @resource_router.delete('/{resource_id}/hard-delete', status_code=status.HTTP_204_NO_CONTENT,
@@ -115,9 +122,11 @@ async def restore_resource(
 async def hard_delete_resource(
     resource_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
-    await resource_app_service.hard_delete_resource(ResourceId(resource_id), current_user)
+    await resource_app_service.hard_delete_resource(
+        ResourceId(resource_id), current_user, request_meta)
 
 
 # ---------------- 权限（聚合内实体） ----------------
@@ -137,9 +146,10 @@ async def list_permissions(
 async def create_permission(
     body: CreatePermissionReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> PermissionResp:
-    permission = await resource_app_service.create_permission(body, current_user)
+    permission = await resource_app_service.create_permission(body, current_user, request_meta)
     return PermissionResp(**permission.model_dump())
 
 
@@ -149,10 +159,11 @@ async def update_permission(
     permission_id: UUID,
     body: UpdatePermissionReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
     data = UpdatePermissionIn(id=PermissionId(permission_id), **body.model_dump())
-    await resource_app_service.update_permission(data, current_user)
+    await resource_app_service.update_permission(data, current_user, request_meta)
 
 
 @permission_router.put('/{permission_id}/status', status_code=status.HTTP_204_NO_CONTENT,
@@ -161,10 +172,11 @@ async def set_permission_status(
     permission_id: UUID,
     body: UpdateStatusReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
     await resource_app_service.set_permission_status(
-        PermissionId(permission_id), body.status, current_user)
+        PermissionId(permission_id), body.status, current_user, request_meta)
 
 
 @permission_router.delete('/{permission_id}', status_code=status.HTTP_204_NO_CONTENT,
@@ -172,9 +184,11 @@ async def set_permission_status(
 async def delete_permission(
     permission_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
-    await resource_app_service.delete_permission(PermissionId(permission_id), current_user)
+    await resource_app_service.delete_permission(
+        PermissionId(permission_id), current_user, request_meta)
 
 
 @permission_router.post('/{permission_id}/restore', status_code=status.HTTP_204_NO_CONTENT,
@@ -182,9 +196,11 @@ async def delete_permission(
 async def restore_permission(
     permission_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
-    await resource_app_service.restore_permission(PermissionId(permission_id), current_user)
+    await resource_app_service.restore_permission(
+        PermissionId(permission_id), current_user, request_meta)
 
 
 @permission_router.delete('/{permission_id}/hard-delete',
@@ -193,6 +209,8 @@ async def restore_permission(
 async def hard_delete_permission(
     permission_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     resource_app_service: ResourceApplicationService = Depends(get_resource_app_service),
 ) -> None:
-    await resource_app_service.hard_delete_permission(PermissionId(permission_id), current_user)
+    await resource_app_service.hard_delete_permission(
+        PermissionId(permission_id), current_user, request_meta)

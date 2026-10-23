@@ -1,5 +1,6 @@
 from datetime import datetime, UTC
 
+from app.core.application.dto import RequestMeta
 from app.core.domain.event_bus import EventBus
 from app.core.domain.value_objects import EventId
 from app.core.utils.schemas import PageResult
@@ -11,7 +12,7 @@ from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.password_hash import hash_password
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
-from app.iam.application.common.ports import AuditLogIn, AuditLogWriterPort
+from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.user.exceptions import UserExistsException, UserNotExistException
 from app.iam.application.user.dto import (
@@ -128,7 +129,8 @@ class UserApplicationService:
 
     @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,
-                                   user_role_app_service: UserRoleApplicationService) -> User:
+                                   user_role_app_service: UserRoleApplicationService,
+                                   request_meta: RequestMeta | None = None) -> User:
         # 用户唯一性检验
         # 竞态问题交给数据库唯一性检验，不做redis分布式锁了
         unique_service = CheckUserUniqueService(self.user_repo)
@@ -156,8 +158,11 @@ class UserApplicationService:
                                                     **data.model_dump()))
             # 有角色创建用户角色关系，那边会检验权限
             if data.role_ids:
-                await user_role_app_service.assign_roles_to_user(user.id, data.role_ids, current_user)
-            await self.audit_log_writer.write(AuditLogIn(
+                await user_role_app_service.assign_roles_to_user(
+                    user.id, data.role_ids, current_user, request_meta)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
                 resource='user',
                 action='create',
                 summary=f'创建用户 {user.username}',
@@ -170,13 +175,13 @@ class UserApplicationService:
                     'dept_id': str(user.dept_id.value) if user.dept_id else None,
                     'role_ids': [str(r) for r in (data.role_ids or [])],
                 },
-                **self._operator_fields(current_user),
-            ))
+            )
         return user
 
     @requires_permission('iam:user:update')
     async def update_user(self, data: UpdateUserIn, current_user: CurrentUser,
-                          user_role_app_service: UserRoleApplicationService) -> User:
+                          user_role_app_service: UserRoleApplicationService,
+                          request_meta: RequestMeta | None = None) -> User:
 
         user = await self._load_accessible(data.id, current_user)
 
@@ -200,11 +205,14 @@ class UserApplicationService:
             await self.user_repo.update(user)
             # 设置角色：`[]` 也要处理（清空全部角色），故判 None 而非真假
             if data.role_ids is not None:
-                await user_role_app_service.set_user_roles(user.id, data.role_ids, current_user)
+                await user_role_app_service.set_user_roles(
+                    user.id, data.role_ids, current_user, request_meta)
             detail = {'before': before, 'after': after, 'changed': changed}
             if data.role_ids is not None:
                 detail['role_ids'] = [str(r) for r in data.role_ids]
-            await self.audit_log_writer.write(AuditLogIn(
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
                 resource='user',
                 action='update',
                 summary=f'更新用户 {user.username}',
@@ -212,22 +220,23 @@ class UserApplicationService:
                 target_id=str(user.id.value),
                 target_name=user.username,
                 detail=detail,
-                **self._operator_fields(current_user),
-            ))
+            )
         # 事务已提交，通知订阅方失效该用户的快照（如昵称/部门/状态变更）
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
         return user
 
     @requires_permission('iam:user:update')
     async def set_user_status(self, user_id: UserId, status: StatusEnum,
-                              current_user: CurrentUser) -> None:
+                              current_user: CurrentUser, request_meta: RequestMeta | None = None) -> None:
         """统一启用/停用入口——与 `update_user` 共用加载/鉴权/状态变更逻辑。"""
         async with self.in_transaction():
             user = await self._load_accessible(user_id, current_user)
             previous_status = user.status
             await self._change_status(user, status, current_user)
             await self.user_repo.update(user)
-            await self.audit_log_writer.write(AuditLogIn(
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
                 resource='user',
                 action='change_status',
                 summary=f'{"启用" if status is StatusEnum.ACTIVE else "停用"}用户 {user.username}',
@@ -235,18 +244,20 @@ class UserApplicationService:
                 target_id=str(user.id.value),
                 target_name=user.username,
                 detail={'from': previous_status.value, 'to': status.value},
-                **self._operator_fields(current_user),
-            ))
+            )
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     @requires_permission('iam:user:delete')
-    async def delete_user(self, user_id: UserId, current_user: CurrentUser) -> None:
+    async def delete_user(self, user_id: UserId, current_user: CurrentUser,
+                          request_meta: RequestMeta | None = None) -> None:
         async with self.in_transaction():
             user = await self._load_accessible(user_id, current_user)
             previous_status = user.status
             user.delete(current_user.user_id)
             await self.user_repo.update(user)
-            await self.audit_log_writer.write(AuditLogIn(
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
                 resource='user',
                 action='delete',
                 summary=f'删除用户 {user.username}',
@@ -254,12 +265,12 @@ class UserApplicationService:
                 target_id=str(user.id.value),
                 target_name=user.username,
                 detail={'previous_status': previous_status.value},
-                **self._operator_fields(current_user),
-            ))
+            )
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     @requires_permission('iam:user:delete')
-    async def restore_user(self, user_id: UserId, current_user: CurrentUser) -> None:
+    async def restore_user(self, user_id: UserId, current_user: CurrentUser,
+                           request_meta: RequestMeta | None = None) -> None:
         """从回收站恢复（复用 `delete` 权限码）。"""
         async with self.in_transaction():
             user = await self._load_any(user_id)
@@ -270,7 +281,9 @@ class UserApplicationService:
                 raise PermissionDeniedException('无权访问该用户')
             user.restore(current_user.user_id)
             await self.user_repo.update(user)
-            await self.audit_log_writer.write(AuditLogIn(
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
                 resource='user',
                 action='restore',
                 summary=f'恢复用户 {user.username}',
@@ -278,12 +291,12 @@ class UserApplicationService:
                 target_id=str(user.id.value),
                 target_name=user.username,
                 detail={'status': user.status.value},
-                **self._operator_fields(current_user),
-            ))
+            )
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
     @requires_permission('iam:user:hard_delete')
-    async def hard_delete_user(self, user_id: UserId, current_user: CurrentUser) -> None:
+    async def hard_delete_user(self, user_id: UserId, current_user: CurrentUser,
+                               request_meta: RequestMeta | None = None) -> None:
         """彻底删除（物理）——只允许对已软删用户做；级联清悬空引用。"""
         async with self.in_transaction():
             user = await self._load_any(user_id)
@@ -296,7 +309,9 @@ class UserApplicationService:
             await self.user_role_repo.hard_delete_by_user(user.id)
             await self.dept_repo.clear_leader(user.id)
             await self.user_repo.hard_delete(user.id)
-            await self.audit_log_writer.write(AuditLogIn(
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
                 resource='user',
                 action='hard_delete',
                 summary=f'彻底删除用户 {user.username}',
@@ -304,8 +319,7 @@ class UserApplicationService:
                 target_id=str(user.id.value),
                 target_name=user.username,
                 detail={'previous_status': previous_status.value},
-                **self._operator_fields(current_user),
-            ))
+            )
         # 行已不在；清快照让持有者会话按「用户不可用」失效
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
 
@@ -319,14 +333,6 @@ class UserApplicationService:
             'description': user.description,
             'dept_id': str(user.dept_id.value) if user.dept_id else None,
             'status': user.status.value,
-        }
-
-    @staticmethod
-    def _operator_fields(current_user: CurrentUser) -> dict:
-        return {
-            'operator_id': current_user.user_id,
-            'operator_username': current_user.username,
-            'operator_nickname': current_user.nickname,
         }
 
     async def _load_accessible(self, user_id: UserId, current_user: CurrentUser) -> User:

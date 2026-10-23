@@ -1,11 +1,12 @@
 from datetime import datetime, UTC
 
+from app.core.application.dto import RequestMeta
 from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
-from app.iam.application.common.ports import AuditLogWriterPort, make_audit_log
+from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.dept.dto import (
     CreateDeptIn,
@@ -125,7 +126,8 @@ class DeptApplicationService:
 
     # ---------------- 写 ----------------
     @requires_permission('iam:dept:create')
-    async def create_dept(self, data: CreateDeptIn, current_user: CurrentUser) -> Dept:
+    async def create_dept(self, data: CreateDeptIn, current_user: CurrentUser,
+                          request_meta: RequestMeta | None = None) -> Dept:
         async with self.in_transaction():
             parent = await self._load_available_parent(data.parent_id)
             if parent is not None and not await self.dept_access_service.can_access(parent.id, current_user):
@@ -144,8 +146,9 @@ class DeptApplicationService:
                 created_at=datetime.now(UTC),
                 created_by=current_user.user_id,
             ))
-            await self.audit_log_writer.write(make_audit_log(
+            await self.audit_log_writer.write(
                 current_user=current_user,
+                request_meta=request_meta,
                 resource='dept',
                 action='create',
                 summary=f'创建部门 {dept.name}',
@@ -156,12 +159,13 @@ class DeptApplicationService:
                     'parent_id': str(dept.parent_id.value) if dept.parent_id else None,
                     'leader_id': str(dept.leader_id.value) if dept.leader_id else None,
                 },
-            ))
+            )
         await self._notify_structure_changed(parent_chain(parent))
         return dept
 
     @requires_permission('iam:dept:update')
-    async def update_dept(self, data: UpdateDeptIn, current_user: CurrentUser) -> Dept:
+    async def update_dept(self, data: UpdateDeptIn, current_user: CurrentUser,
+                          request_meta: RequestMeta | None = None) -> Dept:
         affected: set[DeptId] = set()
         async with self.in_transaction():
             dept = await self._load_accessible(data.id, current_user)
@@ -206,8 +210,9 @@ class DeptApplicationService:
             await self.dept_repo.update(dept)
             after = self._dept_snapshot(dept)
             changed = [field for field in before if before[field] != after[field]]
-            await self.audit_log_writer.write(make_audit_log(
+            await self.audit_log_writer.write(
                 current_user=current_user,
+                request_meta=request_meta,
                 resource='dept',
                 action='update',
                 summary=f'更新部门 {dept.name}',
@@ -222,21 +227,22 @@ class DeptApplicationService:
                     'new_parent_id': str(dept.parent_id.value) if dept.parent_id else None,
                     'moved': parent_changed,
                 },
-            ))
+            )
         await self._notify_structure_changed(affected)
         return dept
 
     @requires_permission('iam:dept:update')
     async def set_dept_status(self, dept_id: DeptId, status: StatusEnum,
-                              current_user: CurrentUser) -> None:
+                              current_user: CurrentUser, request_meta: RequestMeta | None = None) -> None:
         """统一启用/停用入口——与更新共用 `_cascade_status`（停用子树 / 启用祖先）。"""
         async with self.in_transaction():
             dept = await self._load_accessible(dept_id, current_user)
             previous_status = dept.status
             await self._cascade_status(dept, status, current_user)
             await self.dept_repo.update(dept)
-            await self.audit_log_writer.write(make_audit_log(
+            await self.audit_log_writer.write(
                 current_user=current_user,
+                request_meta=request_meta,
                 resource='dept',
                 action='change_status',
                 summary=f'{"启用" if status is StatusEnum.ACTIVE else "停用"}部门 {dept.name}',
@@ -244,11 +250,12 @@ class DeptApplicationService:
                 target_id=str(dept.id.value),
                 target_name=dept.name,
                 detail={'from': previous_status.value, 'to': status.value},
-            ))
+            )
         # 状态变化不影响结构与数据范围，不发结构事件
 
     @requires_permission('iam:dept:delete')
-    async def delete_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
+    async def delete_dept(self, dept_id: DeptId, current_user: CurrentUser,
+                          request_meta: RequestMeta | None = None) -> None:
         """删除部门 = **级联软删整棵子树**（不允许「只删父、留子」）。
 
         维持不变式「父已删 ⇒ 子必删」；子树内任一部门下有用户 → 整体拒绝（守卫）。
@@ -266,8 +273,9 @@ class DeptApplicationService:
             for node in subtree:
                 node.delete(operator)
                 await self.dept_repo.update(node)
-            await self.audit_log_writer.write(make_audit_log(
+            await self.audit_log_writer.write(
                 current_user=current_user,
+                request_meta=request_meta,
                 resource='dept',
                 action='delete',
                 summary=f'删除部门 {dept.name}',
@@ -278,11 +286,12 @@ class DeptApplicationService:
                     'subtree_ids': [str(node.id.value) for node in subtree],
                     'subtree_count': len(subtree),
                 },
-            ))
+            )
         await self._notify_structure_changed(parent_chain(parent))
 
     @requires_permission('iam:dept:delete')
-    async def restore_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
+    async def restore_dept(self, dept_id: DeptId, current_user: CurrentUser,
+                           request_meta: RequestMeta | None = None) -> None:
         """从回收站恢复（复用 `delete` 权限码）。
 
         只恢复自身；**父部门已删时拒绝**（提示先恢复父），以维持「父已删 ⇒ 子必删」。
@@ -301,8 +310,9 @@ class DeptApplicationService:
             if dept.status is StatusEnum.ACTIVE and not await self._ancestors_all_active(dept):
                 dept.change_status(StatusEnum.DISABLED, current_user.user_id)
             await self.dept_repo.update(dept)
-            await self.audit_log_writer.write(make_audit_log(
+            await self.audit_log_writer.write(
                 current_user=current_user,
+                request_meta=request_meta,
                 resource='dept',
                 action='restore',
                 summary=f'恢复部门 {dept.name}',
@@ -310,11 +320,12 @@ class DeptApplicationService:
                 target_id=str(dept.id.value),
                 target_name=dept.name,
                 detail={'status': dept.status.value},
-            ))
+            )
         await self._notify_structure_changed(parent_chain(parent))
 
     @requires_permission('iam:dept:hard_delete')
-    async def hard_delete_dept(self, dept_id: DeptId, current_user: CurrentUser) -> None:
+    async def hard_delete_dept(self, dept_id: DeptId, current_user: CurrentUser,
+                               request_meta: RequestMeta | None = None) -> None:
         """彻底删除（物理）——只允许对已软删部门做，**级联整棵子树**。
 
         级联清两类悬空引用：角色数据范围里对这些部门的引用（iam_role_dept 行）、
@@ -335,8 +346,9 @@ class DeptApplicationService:
             await self.role_repo.remove_custom_depts(subtree_ids)
             await self.user_repo.clear_dept(subtree_ids)
             await self.dept_repo.hard_delete(subtree_ids)
-            await self.audit_log_writer.write(make_audit_log(
+            await self.audit_log_writer.write(
                 current_user=current_user,
+                request_meta=request_meta,
                 resource='dept',
                 action='hard_delete',
                 summary=f'彻底删除部门 {dept.name}',
@@ -347,7 +359,7 @@ class DeptApplicationService:
                     'subtree_ids': [str(node_id.value) for node_id in subtree_ids],
                     'subtree_count': len(subtree_ids),
                 },
-            ))
+            )
         await self._notify_structure_changed(frozenset(subtree_ids))
 
     # ---------------- 内部 ----------------

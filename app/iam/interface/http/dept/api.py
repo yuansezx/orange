@@ -8,6 +8,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.core.application.dto import RequestMeta
+from app.core.interface.http.dependencies import get_request_meta
 from app.iam.application.dept.dto import UpdateDeptIn
 from app.iam.application.dept.services import DeptApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
@@ -32,9 +34,10 @@ dept_router = APIRouter(prefix='/depts', tags=['部门'])
 async def create_dept(
     body: CreateDeptReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
 ) -> DeptResp:
-    dept = await dept_app_service.create_dept(body, current_user)
+    dept = await dept_app_service.create_dept(body, current_user, request_meta)
     return DeptResp.model_validate(dept, from_attributes=True)
 
 
@@ -82,10 +85,11 @@ async def update_dept(
     dept_id: UUID,
     body: UpdateDeptReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
 ) -> DeptResp:
     data = UpdateDeptIn(id=DeptId(dept_id), **body.model_dump(exclude_unset=True))
-    dept = await dept_app_service.update_dept(data, current_user)
+    dept = await dept_app_service.update_dept(data, current_user, request_meta)
     return DeptResp.model_validate(dept, from_attributes=True)
 
 
@@ -95,9 +99,11 @@ async def set_dept_status(
     dept_id: UUID,
     body: UpdateStatusReq,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
 ) -> None:
-    await dept_app_service.set_dept_status(DeptId(dept_id), body.status, current_user)
+    await dept_app_service.set_dept_status(
+        DeptId(dept_id), body.status, current_user, request_meta)
 
 
 @dept_router.delete('/{dept_id}', status_code=status.HTTP_204_NO_CONTENT,
@@ -105,9 +111,10 @@ async def set_dept_status(
 async def delete_dept(
     dept_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
 ) -> None:
-    await dept_app_service.delete_dept(DeptId(dept_id), current_user)
+    await dept_app_service.delete_dept(DeptId(dept_id), current_user, request_meta)
 
 
 @dept_router.post('/{dept_id}/restore', status_code=status.HTTP_204_NO_CONTENT,
@@ -115,9 +122,10 @@ async def delete_dept(
 async def restore_dept(
     dept_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
 ) -> None:
-    await dept_app_service.restore_dept(DeptId(dept_id), current_user)
+    await dept_app_service.restore_dept(DeptId(dept_id), current_user, request_meta)
 
 
 @dept_router.delete('/{dept_id}/hard-delete', status_code=status.HTTP_204_NO_CONTENT,
@@ -125,6 +133,7 @@ async def restore_dept(
 async def hard_delete_dept(
     dept_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
     dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
 ) -> None:
-    await dept_app_service.hard_delete_dept(DeptId(dept_id), current_user)
+    await dept_app_service.hard_delete_dept(DeptId(dept_id), current_user, request_meta)
