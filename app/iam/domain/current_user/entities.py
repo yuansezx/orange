@@ -28,8 +28,8 @@ class CurrentUser(BaseModel):
           `has_permission(('a', 'b'), 'c')`     ⇔ (a ∧ b) ∨ c
           `has_permission('a')`                 ⇔ a
 
-        **空参恒 True**（空真：「拥有全部 0 个权限」）。此与 `requires_permission` 的
-        「空参报错」**有意不对称**——谓词问「是否满足要求」，闸门表达「这是一条要求」。
+        空参不是有效要求：`requires_permission` 在定义期拒绝空参，本谓词对空参返回 False。
+        谓词问「是否满足要求」，闸门表达「这是一条要求」。
 
         超管为逃生舱（不依赖角色分配）、沿用 `can_access` 的旁路约定，恒 True。
         """
