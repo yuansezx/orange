@@ -25,7 +25,10 @@ class AuditLogWriterAdapter(AuditLogWriterPort):
                     target_type: str | None = None,
                     target_id: str | None = None,
                     target_name: str | None = None,
-                    detail: dict[str, Any] | None = None) -> None:
+                    detail: dict[str, Any] | None = None,
+                    success: bool = True,
+                    error_code: str | None = None,
+                    error_message: str | None = None) -> None:
         await write_audit_log(MonitorAuditLogReq(
             module='iam',
             resource=resource,
@@ -37,7 +40,9 @@ class AuditLogWriterAdapter(AuditLogWriterPort):
             operator_id=current_user.user_id if current_user else None,
             operator_username=current_user.username if current_user else None,
             operator_nickname=current_user.nickname if current_user else None,
-            result='success',
+            result='success' if success else 'failure',
+            error_code=error_code,
+            error_message=error_message,
             request_id=request_meta.request_id if request_meta else None,
             ip=request_meta.ip if request_meta else None,
             user_agent=request_meta.user_agent if request_meta else None,

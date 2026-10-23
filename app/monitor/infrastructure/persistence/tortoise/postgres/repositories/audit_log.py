@@ -2,6 +2,7 @@ from datetime import datetime
 
 from tortoise.queryset import QuerySet
 
+from app.core.exceptions import PersistenceException
 from app.monitor.domain.audit_log.entities import AuditLog
 from app.monitor.domain.audit_log.enums import AuditResultEnum
 from app.monitor.domain.audit_log.repositories import AuditLogRepository
@@ -70,27 +71,30 @@ def _apply_filters(qs: QuerySet[AuditLogModel], *,
 class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
 
     async def create(self, audit_log: AuditLog) -> AuditLog:
-        await AuditLogModel.create(
-            id=audit_log.id.value,
-            occurred_at=audit_log.occurred_at,
-            module=audit_log.module,
-            resource=audit_log.resource,
-            action=audit_log.action,
-            summary=audit_log.summary,
-            target_type=audit_log.target_type,
-            target_id=audit_log.target_id,
-            target_name=audit_log.target_name,
-            operator_id=audit_log.operator_id.value if audit_log.operator_id else None,
-            operator_username=audit_log.operator_username,
-            operator_nickname=audit_log.operator_nickname,
-            result=audit_log.result,
-            error_code=audit_log.error_code,
-            error_message=audit_log.error_message,
-            request_id=audit_log.request_id,
-            ip=audit_log.ip,
-            user_agent=audit_log.user_agent,
-            detail=audit_log.detail,
-        )
+        try:
+            await AuditLogModel.create(
+                id=audit_log.id.value,
+                occurred_at=audit_log.occurred_at,
+                module=audit_log.module,
+                resource=audit_log.resource,
+                action=audit_log.action,
+                summary=audit_log.summary,
+                target_type=audit_log.target_type,
+                target_id=audit_log.target_id,
+                target_name=audit_log.target_name,
+                operator_id=audit_log.operator_id.value if audit_log.operator_id else None,
+                operator_username=audit_log.operator_username,
+                operator_nickname=audit_log.operator_nickname,
+                result=audit_log.result,
+                error_code=audit_log.error_code,
+                error_message=audit_log.error_message,
+                request_id=audit_log.request_id,
+                ip=audit_log.ip,
+                user_agent=audit_log.user_agent,
+                detail=audit_log.detail,
+            )
+        except Exception as exc:
+            raise PersistenceException('审计日志写入失败') from exc
         return audit_log
 
     async def get_all(self, *,

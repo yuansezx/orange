@@ -206,4 +206,6 @@ def get_current_user_app_service() -> CurrentUserApplicationService:
         effective_permission_query=get_effective_permission_query(),
         data_scope_service=get_data_scope_service(),
         token_manager=get_token_manager(),
+        audit_log_writer=get_audit_log_writer(),
+        in_transaction=get_in_transaction(),
     )

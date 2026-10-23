@@ -20,4 +20,7 @@ class AuditLogWriterPort(ABC):
                     target_type: str | None = None,
                     target_id: str | None = None,
                     target_name: str | None = None,
-                    detail: dict[str, Any] | None = None) -> None: ...
+                    detail: dict[str, Any] | None = None,
+                    success: bool = True,
+                    error_code: str | None = None,
+                    error_message: str | None = None) -> None: ...
