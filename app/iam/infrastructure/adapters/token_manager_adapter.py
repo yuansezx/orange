@@ -1,12 +1,14 @@
-"""令牌管理适配器：JWT（自包含有效期）+ Redis 白名单（吊销）。
+"""令牌管理适配器：JWT（自包含有效期）+ Redis 会话白名单（吊销）。
 
-白名单键 `iam:user_tokens:{uid}` 为 hash：field=token、value=占位 `'1'`，
-每个 field 用 HEXPIRE 设独立 TTL（=令牌有效期）。多端=多 field；
-单端登出 HDEL、全端登出 DEL。（依赖 Redis ≥7.4 的 HEXPIRE）
+键 `iam:user_sessions:{uid}` 为 hash：field=jti、value=占位 `'1'`
+（后续可放登录时间/IP/UA 等元数据）；每个 field 用 HEXPIRE 设独立 TTL
+（=令牌有效期）。多端=多 field；单端登出 HDEL、全端登出 DEL。
+Server 不保存 bearer token 本身，只保存会话 jti。（依赖 Redis ≥7.4 的 HEXPIRE）
 """
 from datetime import datetime, timedelta, UTC
 
 import jwt
+from future_uuid import uuid7
 from redis.asyncio import Redis
 
 from app.iam.application.current_user.ports import TokenManagerPort, TokenVerificationException
@@ -22,17 +24,19 @@ class TokenManagerJWTRedisAdapter(TokenManagerPort):
 
     @staticmethod
     def _key(user_id: UserId) -> str:
-        return f'iam:user_tokens:{user_id}'
+        return f'iam:user_sessions:{user_id}'
 
     async def create(self, user_id: UserId, ttl: int) -> str:
+        jti = str(uuid7())
         token = jwt.encode(
-            {'user_id': str(user_id.value), 'exp': datetime.now(UTC) + timedelta(seconds=ttl)},
+            {'user_id': str(user_id.value), 'jti': jti,
+             'exp': datetime.now(UTC) + timedelta(seconds=ttl)},
             self.jwt_secret_key,
             algorithm=self.jwt_algorithm,
         )
         key = self._key(user_id)
-        await self.redis_conn.hset(key, token, '1')
-        await self.redis_conn.hexpire(key, ttl, token)
+        await self.redis_conn.hset(key, jti, '1')
+        await self.redis_conn.hexpire(key, ttl, jti)
         return token
 
     async def authenticate(self, token: str) -> UserId:
@@ -42,7 +46,8 @@ class TokenManagerJWTRedisAdapter(TokenManagerPort):
         except jwt.exceptions.InvalidTokenError:
             raise TokenVerificationException('无效 token')
         user_id = UserId(payload['user_id'])
-        if not await self.redis_conn.hexists(self._key(user_id), token):
+        jti = payload.get('jti')
+        if not jti or not await self.redis_conn.hexists(self._key(user_id), jti):
             raise TokenVerificationException('token 已失效')
         return user_id
 
@@ -54,7 +59,10 @@ class TokenManagerJWTRedisAdapter(TokenManagerPort):
         except jwt.exceptions.InvalidTokenError:
             raise TokenVerificationException('无效 token')
         user_id = UserId(payload['user_id'])
-        await self.redis_conn.hdel(self._key(user_id), token)
+        jti = payload.get('jti')
+        if not jti:
+            raise TokenVerificationException('无效 token')
+        await self.redis_conn.hdel(self._key(user_id), jti)
 
     async def revoke_all(self, user_id: UserId) -> None:
         await self.redis_conn.delete(self._key(user_id))
