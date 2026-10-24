@@ -13,7 +13,8 @@ from app.iam.application.user.dto import (
     UserOut,
 )
 from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.value_objects import DeptId, Email, Phone, RoleId
+from app.iam.domain.shared.value_objects import DeptId, Email, Phone, RoleId, RoleSummary, UserId
+from app.iam.domain.user.enums import UserTypeEnum
 
 
 class CreateUserReq(CreateUserIn):
@@ -45,3 +46,14 @@ class UserListItemResp(UserListItemOut):
 
 class UserDetailResp(UserDetailOut):
     """用户详情响应——数据字段 + 审计 + 部门引用 + 角色。"""
+
+
+class CurrentUserResp(BaseModel):
+    """当前用户响应——显式声明对外字段，避免漏出内部状态（如 data_scope_spec）。"""
+    user_id: UserId
+    username: str
+    nickname: str
+    user_type: UserTypeEnum
+    roles: list[RoleSummary] | None = None
+    dept_id: DeptId | None = None
+    permission_codes: list[str] | None = None

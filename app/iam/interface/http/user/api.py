@@ -21,6 +21,7 @@ from app.iam.interface.http.dependencies import get_current_user
 from app.iam.interface.http.schemas import UpdateStatusReq
 from app.iam.interface.http.user.schemas import (
     CreateUserReq,
+    CurrentUserResp,
     GetUsersReq,
     UpdateUserReq,
     UserDetailResp,
@@ -57,6 +58,11 @@ async def list_users(
         total=page.total,
         data=[UserListItemResp(**item.model_dump()) for item in (page.data or [])],
     )
+
+
+@user_router.get('/me', response_model=CurrentUserResp, summary='当前用户')
+async def get_me(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUserResp:
+    return CurrentUserResp.model_validate(current_user, from_attributes=True)
 
 
 @user_router.get('/{user_id}/detail', response_model=UserDetailResp,

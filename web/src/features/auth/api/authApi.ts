@@ -2,7 +2,7 @@ import { get, post } from '@shared/api'
 
 import type { CurrentUser, LoginReq, LoginResp } from '../types'
 
-/** 认证三件套（对齐后端 `iam/interface/http/auth/api.py`）。 */
+/** 登录 / 登出（对齐后端 `auth/api.py`）；当前用户走 users 资源。 */
 export function login(body: LoginReq): Promise<LoginResp> {
   return post<LoginResp>('/api/iam/auth/login', body)
 }
@@ -12,5 +12,5 @@ export function logout(): Promise<void> {
 }
 
 export function getMe(): Promise<CurrentUser> {
-  return get<CurrentUser>('/api/iam/auth/me')
+  return get<CurrentUser>('/api/iam/users/me')
 }
