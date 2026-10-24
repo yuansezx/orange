@@ -22,7 +22,7 @@ from app.iam.application.common.queries import (
 )
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.services import AuditService, DeptRefService
-from app.iam.application.current_user.ports import TokenManagerPort
+from app.iam.application.current_user.ports import SessionManagerPort
 from app.iam.application.current_user.services import CurrentUserApplicationService
 from app.iam.application.dept.services import DeptApplicationService
 from app.iam.application.resource.services import ResourceApplicationService
@@ -40,7 +40,7 @@ from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 from app.iam.infrastructure.adapters.audit_log_writer_adapter import AuditLogWriterAdapter
-from app.iam.infrastructure.adapters.token_manager_adapter import TokenManagerJWTRedisAdapter
+from app.iam.infrastructure.adapters.session_manager_adapter import SessionManagerJWTRedisAdapter
 from app.iam.infrastructure.cache.current_user_repo import CurrentUserRepositoryRedisImpl
 
 # 按当前连接的方言解析 iam 的基础设施实现（models / repositories / queries）
@@ -195,8 +195,8 @@ def get_permission_exists_query() -> PermissionExistsQuery:
     return _queries.PermissionExistsQueryTortoiseImpl()
 
 
-def get_token_manager() -> TokenManagerPort:
-    return TokenManagerJWTRedisAdapter(get_cache_client())
+def get_session_manager() -> SessionManagerPort:
+    return SessionManagerJWTRedisAdapter(get_cache_client())
 
 
 def get_current_user_app_service() -> CurrentUserApplicationService:
@@ -205,7 +205,7 @@ def get_current_user_app_service() -> CurrentUserApplicationService:
         current_user_repo=get_current_user_repo(),
         effective_permission_query=get_effective_permission_query(),
         data_scope_service=get_data_scope_service(),
-        token_manager=get_token_manager(),
+        session_manager=get_session_manager(),
         audit_log_writer=get_audit_log_writer(),
         in_transaction=get_in_transaction(),
     )

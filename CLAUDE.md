@@ -63,7 +63,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   └── current_user/          #     entities.py（CurrentUser.has_permission / data_scope_spec）/ repositories.py（当前用户缓存）
 │   ├── application/
 │   │   ├── common/               #     decorators.py / exceptions.py / dto.py / queries.py / services.py / ports.py（审计写入端口）
-│   │   ├── current_user/          #     dto.py / services.py（CurrentUserApplicationService）/ ports.py（TokenManagerPort）/ event_handlers.py（快照失效订阅）
+│   │   ├── current_user/          #     dto.py / services.py（CurrentUserApplicationService）/ ports.py（SessionManagerPort）/ event_handlers.py（快照失效订阅）
 │   │   ├── user/                  #     dto.py / services.py（UserApplicationService）/ exceptions.py
 │   │   ├── dept/                  #     dto.py / services.py（DeptApplicationService）/ exceptions.py
 │   │   ├── resource/              #     dto.py / services.py（ResourceApplicationService）/ exceptions.py
@@ -71,7 +71,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   └── user_role_assignment/  #     services.py
 │   ├── infrastructure/
 │   │   ├── settings.py            #   IAMSettings / JWTConfig / CurrentUserConfig / IAM_SETTINGS
-│   │   ├── adapters/              #   端口实现：token_manager_adapter.py（JWT + Redis）/ audit_log_writer_adapter.py（审计防腐）
+│   │   ├── adapters/              #   端口实现：session_manager_adapter.py（JWT + Redis 会话白名单）/ audit_log_writer_adapter.py（审计防腐）
 │   │   ├── cache/                 #   current_user_repo.py（CurrentUserRepositoryRedisImpl）
 │   │   └── persistence/tortoise/{dialect}/  # 按方言分目录（后端解耦）
 │   │       ├── models/            #     __init__.py / user.py / dept.py / ...（每实体一文件）
@@ -146,7 +146,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **角色（iam）**：`code` 为唯一标识（不可改），`name` 仅作昵称。角色聚合跨三表：`iam_role` + 关系表 `iam_role_permission` / `iam_role_dept`（**裸映射：无 status/审计，移除即物理删**）。**聚合根 `Role` 持有 `permission_ids` / `custom_dept_ids`（其他聚合的 id 引用，非对象）**（`permission_ids` 引的是 Resource 聚合**内嵌实体**的 id——此处「跨聚合只引根 id」让位于「权限身份从属资源」），由 `RoleRepository` 整体装配/保存（`get`/`get_all` 连带集合，`create`/`update` 连带落库，关系做差集替换）；**跨聚合不级联**（**状态层面**：软删 / 禁用等状态变更不级联改其他聚合，一致性靠读路径按「未删 ∧ ACTIVE」过滤；**物理硬删**则显式级联清理从属行——无 FK，应用层做）。此约定的前提是「状态不级联**不影响业务判断**」，若日后发现有影响，软删也需级联（**待观察**）。`user_role` 才是实体（因需用户自助 DISABLED 某条授权；时限也挂它），**一行/状态翻转：`UNIQUE(user_id, role_id)`，重加曾移除的角色复活（清 `deleted_at`）已有行、不新插**。
 - **部门（iam）**：部门树用**物化路径** `ancestors uuid[]`（根→父的祖先 id、不含自己）+ GIN 索引（Tortoise `contrib.postgres` 的 `ArrayField` / `GinIndex`）——找子孙走 `ancestors__contains`（`@>`）单查询。**移动**在应用层事务内连带重写子孙 `ancestors`，实体 `move_under` 做**环路校验**、`shift_descendant_ancestors` 重算子孙路径。**删除 = 级联软删整棵子树**（不允许「只删父、留子」，维持不变式「父已删 ⇒ 子必删」），子树内任一部门下有用户则整体拒绝。**状态级联**（不变式「子 ACTIVE ⇒ 祖先全 ACTIVE」）：停用 → **未删**子树全部 DISABLED；启用 → 祖先链中非 ACTIVE 者一并 ACTIVE（只校验**真正会被修改**的祖先的可写权限，防向上越权）；恢复时若自身 ACTIVE 但祖先非全活跃 → **自身落 DISABLED**（不惊动祖先）。已删子树保留删除前状态；状态变化不影响数据范围（解析不看 status），故不发结构事件。同级同名唯一：应用层校验 + DB `(parent_id,name)` 唯一索引兜底（**根部门 `parent_id` 为 NULL，DB 拦不住，靠应用层**）；且**软删仍占位**（唯一性检查显式 `include_deleted=True`），故恢复时不会撞名。结构变更（增/移/删）提交后发 `DeptStructureChanged`（携带受影响部门 = 旧/新父祖先链的对称差），供快照失效**精确定位**。
 - **审计日志（monitor）**：`monitor_audit_log` **只追加**（无更新/软删）；动作码 `module:resource:action`，`resource` 是**聚合根码**（user / role / dept / resource / user_role / current_user），`target_type/target_id` 是具体对象；`summary` 人类可读，失败用 `error_code`（必填）+ `error_message`；`occurred_at` 业务发生时间，`persisted_at` 落库时间。写入经公开 Python API `write_audit_log` **在调用方业务事务内直接写 `audit_log`**（同库原子）；将来审计分库/接消息中间件时，由**生产方** outbox + relay 投递，monitor 作为消费方幂等落库（消费方不建 outbox）。查询：`GET /api/monitor/audit-logs`（权限 `monitor:audit_log:read`，支持 module/resource/action/operator(id/username)/target/result/keyword/时间范围过滤 + 分页）。iam 的 user / role / dept / resource（含 permission）/ user_role 写用例已接入（业务写用例只记成功）；登录成功/失败事件已接入（成功 fail-closed、失败 best-effort），登出/会话事件未接。其余业务失败不做审计，走访问日志（系统日志路线，不进审计表）。
-- **令牌 / CurrentUser（iam）**：令牌 = JWT（自包含 `exp` + `jti`）+ Redis **会话白名单** `iam:user_sessions:{uid}`（hash：jti→占位/元数据，**HEXPIRE** 每 field 独立 TTL）；服务端不保存 bearer token 本身；多端=多 field，单端 `HDEL`、全端 `DEL`。CurrentUser **快照** `iam:current_user:{uid}`（`snapshot_ttl_seconds` 缺省 = 令牌期）：含 `roles` / `permission_codes` / `data_scope_spec`；**变更只清快照、会话不掉线**，快照缺失则重解析回填。有效权限由 `EffectivePermissionQuery.resolve`、数据范围由 `DataScopeService.resolve` 解析（均**应用层 common / domain 共享**，非聚合仓储）；快照失效由领域事件驱动（`application/current_user/event_handlers.py`）。Redis 由 **core 门面** 管理（`core.cache`，同 persistence；未配置则不启动）。
+- **会话 / CurrentUser（iam）**：会话由 `SessionManagerPort` 管理——JWT（自包含 `exp` + `jti`）+ Redis **会话白名单** `iam:user_sessions:{uid}`（hash：`session_id`（即 JWT `jti`）→元数据，**HEXPIRE** 每 field 独立 TTL）；服务端不保存 bearer token 本身；多端=多 field，单端按 `session_id` HDEL、全端 DEL；业务层只使用 `session_id`，`jti` 只存在于适配器/JWT。CurrentUser **快照** `iam:current_user:{uid}`（`snapshot_ttl_seconds` 缺省 = 令牌期）：含 `roles` / `permission_codes` / `data_scope_spec`；**变更只清快照、会话不掉线**，快照缺失则重解析回填。有效权限由 `EffectivePermissionQuery.resolve`、数据范围由 `DataScopeService.resolve` 解析（均**应用层 common / domain 共享**，非聚合仓储）；快照失效由领域事件驱动（`application/current_user/event_handlers.py`）。Redis 由 **core 门面** 管理（`core.cache`，同 persistence；未配置则不启动）。
 - **认证 / 授权（iam，双入口）**：**身份提取在接口层**（`interface/http/dependencies.py::get_current_user`，`Authorization: Bearer` → CurrentUser，缺/坏 → 401）；**授权判定是业务规则、收敛到 application**——功能权限 `current_user.has_permission(*groups)`（**逗号分隔的参数之间「或」、元组内「与」**（DNF）；超管旁路）、数据权限调 access service（`can_access`），**http 与 python api 两入口一致**。功能权限门禁可用 `@requires_permission(*groups)`（`application/common/decorators.py`，**同款与/或模型**；**空参定义期报错**；**按名绑定 `current_user` 参数**，缺参数亦定义期报错）；数据权限随对象变、需查库，仍手动调。接口层只做 `kind→状态码` 映射（403），**不判权限**。
 - **数据权限（iam）**：数据范围在**快照构建时**解析成 `DataScopeSpec` 存进 `CurrentUser.data_scope_spec`（超管 → ALL；其余读「未删 ∧ ACTIVE」的 `user_role`→`role`，按「最宽松胜出、同模式并集」合并，`DEPT_AND_CHILD` 用部门树 `ancestors` 展开；无角色 / 仅 SELF → SELF）。读侧**直连** `current_user.data_scope_spec`（不再现场查库），仓储用 `scope_filter` 翻译成过滤条件。对象级判定走各 access service 的 `can_access`（`get_allowed_dept_ids` / `get_allowed_user_ids` / `get_allowed_role_ids`）。**角色不受数据范围管**；若要按部门管角色，需先有「数据可见性列」，未来再议。
 
@@ -165,7 +165,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 > 以下为**当前取舍**，随需求可变；调整时同步本节。
 
 **两条根**（都在 `core/exceptions.py`，层中立、纯定义）：
-- `InfrastructureBaseException`——**技术中立**。基础层负责「库异常 → 本族」，**跨边界禁止抛第三方库类型**。兜底就是根本身，某关切真实到要单独 catch 时才加子类。基础设施**不主动**包装库异常（默认让存储/缓存异常冒成 500、当 bug 处理），确有业务需要时才就地包。端口特有的中立异常继承本族、**放该 port 的 `ports.py`**（如 `TokenVerificationException`）。
+- `InfrastructureBaseException`——**技术中立**。基础层负责「库异常 → 本族」，**跨边界禁止抛第三方库类型**。兜底就是根本身，某关切真实到要单独 catch 时才加子类。基础设施**不主动**包装库异常（默认让存储/缓存异常冒成 500、当 bug 处理），确有业务需要时才就地包。端口特有的中立异常继承本族、**放该 port 的 `ports.py`**（如 `SessionVerificationException`）。
 - `BusinessBaseException`——**业务**。domain 与 application **合一**（不再分两棵）。类级 `code`（稳定机读码）+ 类级 `kind`（`ErrorKindEnum` 语义类别）+ 实例级可选 `details`。
 
 **翻译职责**（不许混）：基础层做「库异常 → 中立」；应用层做「中立 → 业务」（**唯一**做这跳的地方；仅当它有业务含义时）。**基础设施层不许 import 业务异常**（端口接口例外，可 lint）。

@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, UTC
+
 from loguru import logger
 
 from app.core.application.dto import RequestMeta
@@ -8,7 +10,11 @@ from app.iam.application.common.exceptions import AuthenticationException, Inval
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.queries import EffectivePermissionQuery
 from app.iam.application.current_user.dto import LoginIn, LoginOut
-from app.iam.application.current_user.ports import TokenManagerPort, TokenVerificationException
+from app.iam.application.current_user.ports import (
+    SessionManagerPort,
+    SessionMeta,
+    SessionVerificationException,
+)
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import StatusEnum
@@ -30,14 +36,14 @@ class CurrentUserApplicationService:
                  current_user_repo: CurrentUserRepository,
                  effective_permission_query: EffectivePermissionQuery,
                  data_scope_service: DataScopeService,
-                 token_manager: TokenManagerPort,
+                 session_manager: SessionManagerPort,
                  audit_log_writer: AuditLogWriterPort,
                  in_transaction: InTransactionType) -> None:
         self.user_repo = user_repo
         self.current_user_repo = current_user_repo
         self.effective_permission_query = effective_permission_query
         self.data_scope_service = data_scope_service
-        self.token_manager = token_manager
+        self.session_manager = session_manager
         self.audit_log_writer = audit_log_writer
         self.in_transaction = in_transaction
 
@@ -57,7 +63,14 @@ class CurrentUserApplicationService:
         await self._audit_login_success(current_user, request_meta)
 
         ttl = IAM_SETTINGS.jwt_config.expire_minutes * 60
-        token = await self.token_manager.create(user.id, ttl)
+        now = datetime.now(UTC)
+        meta = SessionMeta(
+            login_at=now,
+            expires_at=now + timedelta(seconds=ttl),
+            login_ip=request_meta.ip if request_meta else None,
+            login_user_agent=request_meta.user_agent if request_meta else None,
+        )
+        token = await self.session_manager.create(user.id, ttl, meta=meta)
         await self.current_user_repo.set(current_user)
         return LoginOut(
             access_token=token,
@@ -67,9 +80,10 @@ class CurrentUserApplicationService:
 
     async def get_current_user(self, token: str) -> CurrentUser:
         try:
-            user_id = await self.token_manager.authenticate(token)
-        except TokenVerificationException:
+            session = await self.session_manager.authenticate(token)
+        except SessionVerificationException:
             raise InvalidTokenException('无效令牌')
+        user_id = session.user_id
         current_user = await self.current_user_repo.get(user_id)
         if current_user is not None:
             return current_user
@@ -83,12 +97,13 @@ class CurrentUserApplicationService:
 
     async def logout(self, token: str) -> None:
         try:
-            await self.token_manager.revoke(token)
-        except TokenVerificationException:
+            session = await self.session_manager.authenticate(token)
+        except SessionVerificationException:
             raise InvalidTokenException('无效令牌')
+        await self.session_manager.revoke(session.user_id, session.session_id)
 
     async def logout_all(self, user_id: UserId) -> None:
-        await self.token_manager.revoke_all(user_id)
+        await self.session_manager.revoke_all(user_id)
         await self.current_user_repo.evict(user_id)
 
     # ---------------- 内部 ----------------
