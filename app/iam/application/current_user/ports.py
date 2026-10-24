@@ -52,11 +52,11 @@ class SessionManagerPort(ABC):
         ...
 
     @abstractmethod
-    async def revoke(self, user_id: UserId, session_id: str) -> bool:
-        """按会话 id 吊销；返回是否真的移除了该会话。"""
+    async def revoke(self, user_id: UserId, session_ids: set[str]) -> int:
+        """吊销该用户的指定会话；返回实际移除的会话数。"""
         ...
 
     @abstractmethod
-    async def revoke_all(self, user_id: UserId) -> None:
-        """吊销该用户全部会话。"""
+    async def revoke_users(self, user_ids: set[UserId]) -> int:
+        """吊销多个用户的全部会话；返回实际移除的 key 数。"""
         ...

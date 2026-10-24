@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.iam.interface.http.auth.api import auth_router
 from app.iam.interface.http.dept.api import dept_router
+from app.iam.interface.http.session.api import session_router
 from app.iam.interface.http.resource.api import permission_router, resource_router
 from app.iam.interface.http.role.api import role_router
 from app.iam.interface.http.user.api import user_router
@@ -17,3 +18,4 @@ router.include_router(dept_router)
 router.include_router(role_router)
 router.include_router(resource_router)
 router.include_router(permission_router)
+router.include_router(session_router)

@@ -6,11 +6,13 @@ from app.core.application.dto import RequestMeta
 from app.core.domain.units_of_work import InTransactionType
 from app.core.exceptions import PersistenceException
 from app.core.utils.password_hash import verify_password
+from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import AuthenticationException, InvalidTokenException
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.queries import EffectivePermissionQuery
-from app.iam.application.current_user.dto import LoginIn, LoginOut
+from app.iam.application.current_user.dto import LoginIn, LoginOut, SessionOut
 from app.iam.application.current_user.ports import (
+    SessionInfo,
     SessionManagerPort,
     SessionMeta,
     SessionVerificationException,
@@ -26,9 +28,9 @@ from app.iam.infrastructure.settings import IAM_SETTINGS
 
 
 class CurrentUserApplicationService:
-    """登录 / 当前用户。
+    """登录 / 当前用户 / 在线会话。
 
-    写只到 Redis（令牌白名单 + 快照），不在 DB 事务内，故不注入 in_transaction。
+    会话数据在 Redis（会话白名单 + 当前用户快照）；登录/踢下线审计需要 DB 事务。
     """
 
     def __init__(self, *,
@@ -100,11 +102,54 @@ class CurrentUserApplicationService:
             session = await self.session_manager.authenticate(token)
         except SessionVerificationException:
             raise InvalidTokenException('无效令牌')
-        await self.session_manager.revoke(session.user_id, session.session_id)
+        await self.session_manager.revoke(session.user_id, {session.session_id})
 
     async def logout_all(self, user_id: UserId) -> None:
-        await self.session_manager.revoke_all(user_id)
+        await self.session_manager.revoke_users({user_id})
         await self.current_user_repo.evict(user_id)
+
+    # ---------------- 在线会话 ----------------
+    @requires_permission('iam:current_user:read_sessions')
+    async def list_sessions(self, current_user: CurrentUser) -> list[SessionOut]:
+        sessions = await self.session_manager.get_all()
+        names = await self._resolve_user_names({s.user_id for s in sessions})
+        result = [_to_session_out(s, names.get(s.user_id, (None, None))) for s in sessions]
+        result.sort(key=lambda s: s.login_at, reverse=True)
+        return result
+
+    @requires_permission('iam:current_user:revoke_sessions')
+    async def revoke_sessions(self, user_id: UserId, session_ids: list[str] | set[str],
+                              current_user: CurrentUser,
+                              request_meta: RequestMeta | None = None) -> int:
+        ids = set(session_ids)
+        if not ids:
+            return 0
+        removed = await self.session_manager.revoke(user_id, ids)
+        if removed:
+            await self._audit_revoke(
+                target_id=str(user_id),
+                summary=f'踢下线：{user_id}',
+                action='revoke_sessions',
+                detail={'session_ids': sorted(ids)},
+                current_user=current_user, request_meta=request_meta)
+        return removed
+
+    @requires_permission('iam:current_user:revoke_users')
+    async def revoke_users(self, user_ids: list[UserId] | set[UserId],
+                           current_user: CurrentUser,
+                           request_meta: RequestMeta | None = None) -> int:
+        ids = set(user_ids)
+        if not ids:
+            return 0
+        deleted = await self.session_manager.revoke_users(ids)
+        if deleted:
+            await self._audit_revoke(
+                target_id=None,
+                summary=f'批量踢下线：{len(ids)} 个用户',
+                action='revoke_users',
+                detail={'user_ids': sorted(str(u) for u in ids)},
+                current_user=current_user, request_meta=request_meta)
+        return deleted
 
     # ---------------- 内部 ----------------
     async def _build_current_user(self, user: User) -> CurrentUser:
@@ -158,3 +203,53 @@ class CurrentUserApplicationService:
                 )
         except PersistenceException:
             logger.exception('写入登录失败审计时出错：username={!r}', username)
+
+    async def _resolve_user_names(
+            self, user_ids: set[UserId]) -> dict[UserId, tuple[str | None, str | None]]:
+        """快照优先、用户表回退；按 user_id 去重，避免 N+1。"""
+        names: dict[UserId, tuple[str | None, str | None]] = {}
+        missing: list[UserId] = []
+        for user_id in user_ids:
+            snapshot = await self.current_user_repo.get(user_id)
+            if snapshot is not None:
+                names[user_id] = (snapshot.username, snapshot.nickname)
+            else:
+                missing.append(user_id)
+        if missing:
+            for user in await self.user_repo.get_by_ids(missing, include_deleted=True):
+                names[user.id] = (user.username, user.nickname)
+        return names
+
+    async def _audit_revoke(self, *, target_id: str | None, summary: str,
+                            action: str, detail: dict | None,
+                            current_user: CurrentUser,
+                            request_meta: RequestMeta | None) -> None:
+        # 会话变更在 Redis，无法回滚；审计失败只记日志，不改变操作结果
+        try:
+            async with self.in_transaction():
+                await self.audit_log_writer.write(
+                    resource='current_user',
+                    action=action,
+                    summary=summary,
+                    current_user=current_user,
+                    request_meta=request_meta,
+                    target_type='user',
+                    target_id=target_id,
+                    detail=detail or {},
+                )
+        except PersistenceException:
+            logger.exception('写入踢下线审计失败：action={} target={}', action, target_id)
+
+
+def _to_session_out(info: SessionInfo,
+                    name: tuple[str | None, str | None]) -> SessionOut:
+    return SessionOut(
+        user_id=info.user_id,
+        username=name[0],
+        nickname=name[1],
+        session_id=info.session_id,
+        login_at=info.login_at,
+        expires_at=info.expires_at,
+        login_ip=info.login_ip,
+        login_user_agent=info.login_user_agent,
+    )

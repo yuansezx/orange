@@ -74,6 +74,14 @@ IAM_RESOURCE_DECLARATIONS: list[RegisterResourceIn] = [
         module=IAM_MODULE, code='permission', name='权限目录',
         permissions=_crud_permissions('权限', hard_delete=True),
     ),
+    RegisterResourceIn(
+        module=IAM_MODULE, code='current_user', name='当前用户 / 在线会话',
+        permissions=[
+            RegisterPermissionIn(action='read_sessions', name='查看在线会话'),
+            RegisterPermissionIn(action='revoke_sessions', name='踢下线（指定会话）'),
+            RegisterPermissionIn(action='revoke_users', name='踢下线（指定用户全部会话）'),
+        ],
+    ),
 ]
 
 

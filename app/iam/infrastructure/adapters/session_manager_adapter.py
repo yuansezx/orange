@@ -79,8 +79,13 @@ class SessionManagerJWTRedisAdapter(SessionManagerPort):
                 SessionInfo(user_id=user_id, session_id=session_id, **meta.model_dump()))
         return sessions
 
-    async def revoke(self, user_id: UserId, session_id: str) -> bool:
-        return bool(await self.redis_conn.hdel(self._key(user_id), session_id))
+    async def revoke(self, user_id: UserId, session_ids: set[str]) -> int:
+        if not session_ids:
+            return 0
+        return await self.redis_conn.hdel(self._key(user_id), *session_ids)
 
-    async def revoke_all(self, user_id: UserId) -> None:
-        await self.redis_conn.delete(self._key(user_id))
+    async def revoke_users(self, user_ids: set[UserId]) -> int:
+        deleted = 0
+        for user_id in user_ids:
+            deleted += await self.redis_conn.delete(self._key(user_id))
+        return deleted
