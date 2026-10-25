@@ -1,9 +1,10 @@
 import { createElement, lazy } from 'react'
 
 import type { FeatureModule } from '@shared/navigation'
-import { IconBox, IconShieldLock, IconSitemap, IconUsers } from '@shared/ui'
+import { IconBox, IconDevices, IconShieldLock, IconSitemap, IconUsers } from '@shared/ui'
 
 const UserPage = lazy(() => import('./user/UserPage'))
+const SessionPage = lazy(() => import('./session/SessionPage'))
 const RolePage = lazy(() => import('./role/RolePage'))
 const DeptPage = lazy(() => import('./dept/DeptPage'))
 const ResourcePage = lazy(() => import('./resource/ResourcePage'))
@@ -29,6 +30,14 @@ export const feature: FeatureModule = {
           permission: 'iam:user:read',
           icon: createElement(IconUsers, { size: 16 }),
           element: createElement(UserPage),
+        },
+        {
+          key: 'iam-session',
+          label: '在线会话',
+          path: 'sessions',
+          permission: 'iam:current_user:read_sessions',
+          icon: createElement(IconDevices, { size: 16 }),
+          element: createElement(SessionPage),
         },
         {
           key: 'iam-role',
