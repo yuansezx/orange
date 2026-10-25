@@ -6,6 +6,7 @@ from app.core.application.dto import RequestMeta
 from app.core.domain.units_of_work import InTransactionType
 from app.core.exceptions import PersistenceException
 from app.core.utils.password_hash import verify_password
+from app.core.utils.user_agent import parse_user_agent
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import AuthenticationException, InvalidTokenException
 from app.iam.application.common.ports import AuditLogWriterPort
@@ -243,6 +244,7 @@ class CurrentUserApplicationService:
 
 def _to_session_out(info: SessionInfo,
                     name: tuple[str | None, str | None]) -> SessionOut:
+    ua = parse_user_agent(info.login_user_agent)
     return SessionOut(
         user_id=info.user_id,
         username=name[0],
@@ -252,4 +254,8 @@ def _to_session_out(info: SessionInfo,
         expires_at=info.expires_at,
         login_ip=info.login_ip,
         login_user_agent=info.login_user_agent,
+        browser=ua.browser,
+        browser_version=ua.browser_version,
+        os=ua.os,
+        device=ua.device,
     )

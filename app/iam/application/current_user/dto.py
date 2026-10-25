@@ -26,3 +26,7 @@ class SessionOut(BaseModel):
     expires_at: datetime
     login_ip: str | None = None
     login_user_agent: str | None = None
+    browser: str | None = None
+    browser_version: str | None = None
+    os: str | None = None
+    device: str | None = None
