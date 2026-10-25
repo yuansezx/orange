@@ -12,9 +12,11 @@ import { useMe } from '../hooks/useMe'
 interface Props {
   /** 弹出方向；侧边栏底部用 `topLeft`，顶栏用默认 `bottomRight`。 */
   placement?: 'bottomRight' | 'topLeft' | 'top'
+  /** 侧栏折叠轨道：只显示头像。 */
+  compact?: boolean
 }
 
-export function UserMenu({ placement = 'bottomRight' }: Props) {
+export function UserMenu({ placement = 'bottomRight', compact = false }: Props) {
   const { data: me } = useMe()
   const { logout } = useLogout()
 
@@ -35,15 +37,19 @@ export function UserMenu({ placement = 'bottomRight' }: Props) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          maxWidth: 180,
+          justifyContent: compact ? 'center' : undefined,
+          gap: compact ? 0 : 8,
+          width: compact ? '100%' : undefined,
+          maxWidth: compact ? undefined : 180,
           cursor: 'pointer',
         }}
       >
         <UserAvatar name={me.nickname} src={me.avatar} size={28} />
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {me.nickname}
-        </span>
+        {!compact && (
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {me.nickname}
+          </span>
+        )}
       </div>
     </Dropdown>
   )

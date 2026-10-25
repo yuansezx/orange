@@ -1,98 +1,86 @@
-import { Layout, Menu } from 'antd'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Button, Tooltip } from 'antd'
+import { useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
-import { UserMenu, usePermission } from '@features/auth'
-import { appConfig } from '@shared/config'
-import { matchMenuLink } from '@shared/navigation'
+import { usePermission } from '@features/auth'
+import type { SystemNavState } from '@shared/navigation'
+import { DesktopShellFrame } from '@shared/shell'
 import { colorTokens } from '@shared/theme/tokens'
 import { BrandLogo } from '@shared/ui'
 
-import { ADMIN_PATH } from '../../navigation'
-import { menuGroups } from '../../routes'
+import {
+  filterWorkspacesByPermission,
+  workspaceHomePath,
+  workspaceOfPath,
+  workspaces,
+} from '../../routes'
+import { SystemNav } from '../components/SystemNav'
 
-const { Sider, Content } = Layout
+const DEFAULT_ALLOWED_STATES: SystemNavState[] = ['hidden', 'rail', 'expanded']
+const DEFAULT_STATE: SystemNavState = 'expanded'
 
-/** 后台管理壳 · 桌面：左侧常驻导航（logo / 菜单 / 底部用户区）+ 右侧内容区。 */
+/** 系统壳 · 桌面：workspace 栏（三态 × push/overlay）+ 内容区。 */
 export function DesktopAdminShell() {
-  const navigate = useNavigate()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { can } = usePermission()
+  const [stateByWorkspace, setStateByWorkspace] = useState<
+    Record<string, SystemNavState>
+  >({})
 
-  // 过滤：只留有权限的链接；组内空了整组不显示
-  const groups = menuGroups
-    .map((group) => ({ ...group, links: group.links.filter((link) => can(link.permission)) }))
-    .filter((group) => group.links.length > 0)
-  const links = groups.flatMap((group) => group.links)
+  const allowed = filterWorkspacesByPermission(workspaces, can)
+  const current = workspaceOfPath(allowed, pathname)
+  const preference = current?.systemNav
+  const behavior = preference?.behavior ?? 'push'
+  const allowedStates = preference?.allowedStates ?? DEFAULT_ALLOWED_STATES
+  const defaultState = preference?.defaultState ?? DEFAULT_STATE
+  const navState = (current ? stateByWorkspace[current.key] : undefined) ?? defaultState
+  const canHide = allowedStates.includes('hidden')
+  const restoreState = allowedStates.find((state) => state !== 'hidden') ?? 'rail'
 
-  // 当前路由 → 选中项 + 其所属分组（直接粘 URL / 回跳进来也对）
-  const selectedKey = matchMenuLink(links, pathname, ADMIN_PATH)?.key
-  const activeGroupKey = groups.find((group) =>
-    group.links.some((link) => link.key === selectedKey),
-  )?.key
+  const setState = (next: SystemNavState) => {
+    if (!current || !allowedStates.includes(next)) return
+    setStateByWorkspace((prev) => ({ ...prev, [current.key]: next }))
+  }
+
+  const trigger = (
+    <Tooltip title="打开系统导航">
+      <Button
+        type="text"
+        aria-label="打开系统导航"
+        onClick={() => setState(restoreState)}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 8,
+          background: colorTokens.bgContainer,
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
+        }}
+      >
+        <BrandLogo size={22} />
+      </Button>
+    </Tooltip>
+  )
 
   return (
-    <Layout style={{ height: '100vh' }}>
-      <Sider theme="light" width={220}>
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Link
-            to="/"
-            style={{
-              height: 56,
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              paddingInline: 20,
-              fontSize: 18,
-              fontWeight: 600,
-              color: colorTokens.brand,
-              textDecoration: 'none',
-            }}
-          >
-            <BrandLogo size={26} />
-            {appConfig.name}
-          </Link>
-          {/* 菜单单独滚动，底部用户区始终贴底 */}
-          <div style={{ flex: 1, overflow: 'auto' }}>
-            <Menu
-              // key 绑当前分组：路由换了分组就重挂，默认展开随之切到该分组
-              key={activeGroupKey ?? 'none'}
-              mode="inline"
-              style={{ borderInlineEnd: 0 }}
-              selectedKeys={selectedKey ? [selectedKey] : []}
-              defaultOpenKeys={activeGroupKey ? [activeGroupKey] : []}
-              items={groups.map((group) => ({
-                key: group.key,
-                label: group.label,
-                children: group.links.map((link) => ({
-                  key: link.key,
-                  icon: link.icon,
-                  label: link.label,
-                })),
-              }))}
-              onClick={({ key }) => {
-                const link = links.find((item) => item.key === key)
-                if (link) navigate(`${ADMIN_PATH}/${link.path}`)
-              }}
-            />
-          </div>
-          <div
-            style={{
-              flexShrink: 0,
-              borderTop: `1px solid ${colorTokens.borderSecondary}`,
-              padding: 12,
-            }}
-          >
-            <UserMenu placement="topLeft" />
-          </div>
-        </div>
-      </Sider>
-      <Layout>
-        {/* 横幅通知位：有横幅时渲染于此（内容列顶部；无横幅零高度，不影响侧边栏） */}
-        <Content style={{ padding: 24, overflow: 'auto', minHeight: 0 }}>
-          <Outlet />
-        </Content>
-      </Layout>
-    </Layout>
+    <DesktopShellFrame
+      navState={navState}
+      navBehavior={behavior}
+      nav={
+        <SystemNav
+          workspaces={allowed}
+          currentWorkspaceKey={current?.key}
+          state={navState === 'expanded' ? 'expanded' : 'rail'}
+          canHide={canHide}
+          onSelectWorkspace={(workspace) => navigate(workspaceHomePath(workspace))}
+          onCollapse={() => setState('rail')}
+          onExpand={() => setState('expanded')}
+          onHide={() => setState('hidden')}
+        />
+      }
+      trigger={trigger}
+    >
+      <Outlet />
+    </DesktopShellFrame>
   )
 }

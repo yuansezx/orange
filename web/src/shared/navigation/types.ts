@@ -20,21 +20,64 @@ export interface MenuLink {
 export interface MenuGroup {
   key: string
   label: string
+  /** 折叠轨道态下的分组图标。 */
+  icon?: ReactNode
   links: MenuLink[]
+}
+
+export type SystemNavState = 'hidden' | 'rail' | 'expanded'
+export type SystemNavBehavior = 'push' | 'overlay'
+
+/** 系统栏的允许形态与默认值（由 workspace 声明，用户只能在允许集合内切换）。 */
+export interface SystemNavPreference {
+  defaultState?: SystemNavState
+  behavior?: SystemNavBehavior
+  allowedStates?: SystemNavState[]
+}
+
+/**
+ * 用户视角的系统级模块（Workspace）。一个 workspace 可包含多个 feature：
+ * 后台管理包含 iam / monitor；独立 feature 可自成一 workspace。
+ * 路由：`{basePath}/{feature.name}/{path}`。
+ */
+export interface WorkspaceRef {
+  key: string
+  label: string
+  basePath: string
+  systemNav?: SystemNavPreference
+}
+
+/** 模块递给应用壳的布局偏好。 */
+export interface ShellPreference {
+  content?: 'standard' | 'full'
+  /** v1 只实现 push；overlay 留给后续沉浸模块。 */
+  leftMode?: 'push' | 'overlay'
 }
 
 /** 业务模块递给应用壳的菜单分组（由门面 `index.ts` 导出）。 */
 export interface FeatureModule {
   name: string
+  /** 模块级展示名（workspace 内部菜单用）；缺省回退到首个分组名或 name。 */
+  label?: string
+  icon?: ReactNode
+  /** 归属的用户视角 workspace；缺省自成一 workspace。 */
+  workspace?: WorkspaceRef
+  shell?: ShellPreference
   groups?: MenuGroup[]
 }
 
-/** 导航页的一个入口——对应一个应用壳。 */
-export interface NavEntry {
-  key: string
-  label: string
-  /** 应用壳路由（如 `/admin`）。 */
-  path: string
-  /** 入口图标（ReactNode）；缺省无图标。 */
-  icon?: ReactNode
+/** 聚合后的菜单项：在 MenuLink 基础上补完整路径与归属。 */
+export interface NavLink extends MenuLink {
+  /** 不含前导 `/` 的完整路径，如 `admin/iam/users`。 */
+  fullPath: string
+  /** 相对 workspace 的路径，如 `iam/users`。 */
+  featurePath: string
+  featureKey: string
+  workspaceKey: string
+  shell?: ShellPreference
+}
+
+/** 聚合后的菜单分组。 */
+export interface NavGroup extends Omit<MenuGroup, 'links'> {
+  links: NavLink[]
 }

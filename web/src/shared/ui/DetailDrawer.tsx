@@ -1,8 +1,11 @@
 import { Drawer } from 'antd'
 import { Popup } from 'antd-mobile'
+import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 import { Platform } from '@shared/platform'
+import { useShellRightPanel } from '@shared/shell'
 
 interface Props {
   open: boolean
@@ -11,8 +14,39 @@ interface Props {
   onClose: () => void
 }
 
-/** 详情弹层（只读展示）：桌面 Drawer / 移动全屏 Popup——与表单弹层分叉同构，收口于此。 */
+/**
+ * 详情弹层（只读展示）。
+ *
+ * 在应用壳内：内容 portal 到壳的**非模态右栏**（桌面不锁背景，移动为全屏 Popup）。
+ * 壳外（无 Provider）保留原 Drawer/Popup 行为。新建/编辑等表单不走这里。
+ */
 export function DetailDrawer({ open, title, children, onClose }: Props) {
+  const panel = useShellRightPanel()
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    if (!panel) return
+    if (open) {
+      panel.open({ title, onClose: () => onCloseRef.current() })
+    } else {
+      panel.close({ silent: true })
+    }
+  }, [open, title, panel])
+
+  useEffect(() => {
+    if (!panel) return
+    return () => panel.close({ silent: true })
+  }, [panel])
+
+  if (panel) {
+    if (!open || !panel.container) return null
+    return createPortal(children, panel.container)
+  }
+
   return (
     <Platform
       desktop={

@@ -5,6 +5,9 @@ export { DetailDrawer } from './DetailDrawer'
 export {
   IconBox,
   IconBuildingPlus,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
   IconDevices,
   IconEdit,
   IconFileText,
@@ -19,4 +22,5 @@ export {
   IconTrashX,
   IconUserX,
   IconUsers,
+  IconX,
 } from './icons'

@@ -4,12 +4,16 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useLogout, usePermission } from '@features/auth'
 import { appConfig } from '@shared/config'
-import { matchMenuLink } from '@shared/navigation'
+import { MobileShellFrame } from '@shared/shell'
 import { colorTokens } from '@shared/theme/tokens'
-import { BrandLogo, UserAvatar } from '@shared/ui'
+import { BrandLogo, IconBox, UserAvatar } from '@shared/ui'
 
-import { ADMIN_PATH } from '../../navigation'
-import { menuGroups } from '../../routes'
+import {
+  filterWorkspacesByPermission,
+  workspaceHomePath,
+  workspaceOfPath,
+  workspaces,
+} from '../../routes'
 
 /** 汉堡菜单图标（三横）——内联 SVG，零依赖。 */
 function MenuIcon() {
@@ -54,7 +58,7 @@ const iconButton = {
   cursor: 'pointer',
 } as const
 
-/** 后台管理壳 · 移动：顶栏（汉堡在左、中间当前菜单名，sticky）+ 内容区 + 左侧抽屉（底部用户区）。 */
+/** 系统壳 · 移动：顶栏 + 内容 + workspace 抽屉。 */
 export function MobileAdminShell() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -63,39 +67,47 @@ export function MobileAdminShell() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
 
-  const groups = menuGroups
-    .map((group) => ({ ...group, links: group.links.filter((link) => can(link.permission)) }))
-    .filter((group) => group.links.length > 0)
-  const links = groups.flatMap((group) => group.links)
-  const current = matchMenuLink(links, pathname, ADMIN_PATH)
+  const allowed = filterWorkspacesByPermission(workspaces, can)
+  const current = workspaceOfPath(allowed, pathname)
+
+  const go = (path: string) => {
+    setMenuOpen(false)
+    navigate(path)
+  }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          height: 48,
-          display: 'flex',
-          alignItems: 'center',
-          paddingInline: 4,
-          background: colorTokens.bgContainer,
-          borderBottom: `1px solid ${colorTokens.borderSecondary}`,
-        }}
+    <>
+      <MobileShellFrame
+        contentMode="full"
+        header={
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', paddingInline: 4 }}>
+            <button
+              type="button"
+              aria-label="打开菜单"
+              style={iconButton}
+              onClick={() => setMenuOpen(true)}
+            >
+              <MenuIcon />
+            </button>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                textAlign: 'center',
+                fontWeight: 600,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {current?.label ?? appConfig.name}
+            </div>
+            <div style={{ width: 40 }} />
+          </div>
+        }
       >
-        <button type="button" aria-label="打开菜单" style={iconButton} onClick={() => setMenuOpen(true)}>
-          <MenuIcon />
-        </button>
-        <div style={{ flex: 1, textAlign: 'center', fontWeight: 600 }}>
-          {current?.label ?? appConfig.name}
-        </div>
-        <div style={{ width: 40 }} />
-      </header>
-
-      <main style={{ flex: 1, overflow: 'auto', padding: 12 }}>
         <Outlet />
-      </main>
+      </MobileShellFrame>
 
       <Popup
         visible={menuOpen}
@@ -103,7 +115,6 @@ export function MobileAdminShell() {
         onMaskClick={() => setMenuOpen(false)}
         bodyStyle={{ width: '72vw', height: '100%', display: 'flex', flexDirection: 'column' }}
       >
-        {/* 顶部：logo + 应用名（点击回导航页） */}
         <Link
           to="/"
           onClick={() => setMenuOpen(false)}
@@ -122,32 +133,22 @@ export function MobileAdminShell() {
           {appConfig.name}
         </Link>
 
-        {/* 中部：分组菜单（可滚动） */}
         <div style={{ flex: 1, overflow: 'auto' }}>
-          {groups.map((group) => (
-            <div key={group.key}>
-              <div style={{ padding: '10px 16px 4px', fontSize: 12, color: colorTokens.textTertiary }}>
-                {group.label}
-              </div>
-              <List>
-                {group.links.map((link) => (
-                  <List.Item
-                    key={link.key}
-                    prefix={link.icon}
-                    onClick={() => {
-                      setMenuOpen(false)
-                      navigate(`${ADMIN_PATH}/${link.path}`)
-                    }}
-                  >
-                    {link.label}
-                  </List.Item>
-                ))}
-              </List>
-            </div>
-          ))}
+          <List>
+            {allowed.map((workspace) => (
+              <List.Item
+                key={workspace.key}
+                prefix={workspace.icon ?? <IconBox size={20} />}
+                extra={current?.key === workspace.key ? '当前' : undefined}
+                onClick={() => go(workspaceHomePath(workspace))}
+              >
+                {workspace.label}
+              </List.Item>
+            ))}
+            {allowed.length === 0 && <List.Item>暂无可访问模块</List.Item>}
+          </List>
         </div>
 
-        {/* 底部：头像 + 昵称 + 更多（三点） */}
         <div
           style={{
             borderTop: `1px solid ${colorTokens.borderSecondary}`,
@@ -169,7 +170,12 @@ export function MobileAdminShell() {
           >
             {me?.nickname ?? ''}
           </span>
-          <button type="button" aria-label="用户选项" style={iconButton} onClick={() => setUserOpen(true)}>
+          <button
+            type="button"
+            aria-label="用户选项"
+            style={iconButton}
+            onClick={() => setUserOpen(true)}
+          >
             <MoreIcon />
           </button>
         </div>
@@ -185,6 +191,6 @@ export function MobileAdminShell() {
           if (action.key === 'logout') logout()
         }}
       />
-    </div>
+    </>
   )
 }

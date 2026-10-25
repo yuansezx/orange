@@ -18,10 +18,23 @@ const ResourcePage = lazy(() => import('./resource/ResourcePage'))
  */
 export const feature: FeatureModule = {
   name: 'iam',
+  label: '权限管理',
+  icon: createElement(IconShieldLock, { size: 20 }),
+  workspace: {
+    key: 'admin',
+    label: '后台管理',
+    basePath: 'admin',
+    systemNav: {
+      defaultState: 'expanded',
+      behavior: 'push',
+      allowedStates: ['hidden', 'rail', 'expanded'],
+    },
+  },
   groups: [
     {
       key: 'iam',
       label: '权限管理',
+      icon: createElement(IconShieldLock, { size: 16 }),
       links: [
         {
           key: 'iam-user',
