@@ -3,7 +3,7 @@ import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import type { MouseEvent } from 'react'
 
-import { IconEdit, IconRestore, IconTrash, IconTrashX } from '@shared/ui'
+import { IconEdit, IconKey, IconRestore, IconTrash, IconTrashX } from '@shared/ui'
 
 import { StatusSwitch } from '../../../components/StatusSwitch'
 import { USER_TYPE_LABELS } from '../../constants'
@@ -22,6 +22,8 @@ export function UserTable({
   pageSize,
   recycleMode,
   selfId,
+  canResetPassword,
+  onResetPassword,
   onView,
   onEdit,
   onDelete,
@@ -97,7 +99,7 @@ export function UserTable({
     ...recycleColumns,
     {
       title: '操作',
-      width: recycleMode ? 100 : 120,
+      width: recycleMode ? 100 : 160,
       render: (_, record) => (
         <Space size={8}>
           {recycleMode ? (
@@ -120,6 +122,24 @@ export function UserTable({
             </>
           ) : (
             <>
+              {canResetPassword && (
+                <Tooltip
+                  title={
+                    record.id === selfId
+                      ? '不能重置自己的密码，请使用「修改密码」'
+                      : '重置密码'
+                  }
+                >
+                  <span>
+                    <Button
+                      type="text"
+                      disabled={record.id === selfId}
+                      icon={<IconKey size={16} />}
+                      onClick={withStop(() => onResetPassword(record))}
+                    />
+                  </span>
+                </Tooltip>
+              )}
               <Tooltip title="编辑">
                 <Button
                   type="text"

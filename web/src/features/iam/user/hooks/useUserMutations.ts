@@ -7,6 +7,7 @@ import {
   createUser,
   deleteUser,
   hardDeleteUser,
+  resetUserPassword,
   restoreUser,
   setUserStatus,
   updateUser,
@@ -53,6 +54,16 @@ export function useUserMutations() {
     onError,
   })
 
+  const resetPassword = useMutation({
+    mutationFn: ({ id, password }: { id: string; password?: string }) =>
+      resetUserPassword(id, password),
+    onSuccess: () => {
+      message.success('已重置密码')
+      invalidate()
+    },
+    onError,
+  })
+
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: UserStatus }) =>
       setUserStatus(id, status),
@@ -81,5 +92,5 @@ export function useUserMutations() {
     onError,
   })
 
-  return { create, update, remove, setStatus, restore, hardDelete }
+  return { create, update, remove, setStatus, restore, hardDelete, resetPassword }
 }

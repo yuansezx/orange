@@ -14,6 +14,9 @@ export function UserCardList({
   loading,
   error,
   recycleMode,
+  canResetPassword,
+  selfId,
+  onResetPassword,
   onView,
   onEdit,
   onDelete,
@@ -58,6 +61,19 @@ export function UserCardList({
               ]
             : [
                 { key: 'view', text: '查看' },
+                ...(canResetPassword
+                  ? [
+                      {
+                        key: 'resetPassword',
+                        text: '重置密码',
+                        disabled: active?.id === selfId,
+                        description:
+                          active?.id === selfId
+                            ? '不能重置自己的密码，请使用「修改密码」'
+                            : undefined,
+                      },
+                    ]
+                  : []),
                 { key: 'edit', text: '编辑' },
                 { key: 'delete', text: '删除', danger: true },
               ]
@@ -69,6 +85,7 @@ export function UserCardList({
           if (action.key === 'view') onView(target)
           else if (action.key === 'restore') onRestore(target)
           else if (action.key === 'hardDelete') onHardDelete(target)
+          else if (action.key === 'resetPassword') onResetPassword(target)
           else if (action.key === 'edit') onEdit(target)
           else if (action.key === 'delete') onDelete(target)
         }}

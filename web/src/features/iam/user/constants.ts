@@ -15,3 +15,9 @@ export const USER_TYPE_OPTIONS = (Object.keys(USER_TYPE_LABELS) as UserType[]).m
   value,
   label: USER_TYPE_LABELS[value],
 }))
+
+/** 密码状态筛选（对齐后端 `need_change_password` 查询参数；Select 值用字符串）。 */
+export const NEED_CHANGE_PASSWORD_OPTIONS = [
+  { value: 'true', label: '未修改' },
+  { value: 'false', label: '已修改' },
+]

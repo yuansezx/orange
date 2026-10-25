@@ -5,6 +5,8 @@ import { useSearchParams } from 'react-router-dom'
 import { usePermission } from '@features/auth'
 import { Platform } from '@shared/platform'
 
+import { ResetPasswordModal } from './components/ResetPasswordModal'
+import { TemporaryPasswordModal } from './components/TemporaryPasswordModal'
 import { UserDetailDrawer } from './components/UserDetailDrawer'
 import { UserFormDrawer } from './components/UserFormDrawer'
 import { UserToolbar } from './components/UserToolbar'
@@ -33,16 +35,25 @@ interface DialogState {
 export default function UserPage() {
   const [params, setParams] = useSearchParams()
   const [viewingId, setViewingId] = useState<string>()
+  const [resetTarget, setResetTarget] = useState<UserListItem | null>(null)
+  const [issuedPassword, setIssuedPassword] = useState<{
+    username: string
+    password: string
+  } | null>(null)
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const { modal } = App.useApp()
-  const { me } = usePermission()
-  const { create, update, remove, setStatus, restore, hardDelete } = useUserMutations()
+  const { can, me } = usePermission()
+  const { create, update, remove, setStatus, restore, hardDelete, resetPassword } =
+    useUserMutations()
 
   const page = Number(params.get('page') ?? '1') || 1
   const pageSize = Number(params.get('page_size') ?? '10') || 10
   const keyword = params.get('keyword') ?? ''
   const status = (params.get('status') as UserStatus | null) ?? undefined
   const userType = (params.get('user_type') as UserType | null) ?? undefined
+  const needChangePasswordParam = params.get('need_change_password')
+  const needChangePassword =
+    needChangePasswordParam === null ? undefined : needChangePasswordParam === 'true'
   const recycleMode = params.get('deleted') === 'true'
 
   const query: GetUsersQuery = {
@@ -51,6 +62,7 @@ export default function UserPage() {
     keyword: keyword || undefined,
     status,
     user_type: userType,
+    need_change_password: needChangePassword,
     deleted: recycleMode || undefined,
   }
   const { data, isLoading, error } = useUsers(query)
@@ -100,7 +112,7 @@ export default function UserPage() {
         {
           username: values.username!.trim(),
           nickname: values.nickname?.trim() || undefined,
-          password: values.password!,
+          password: values.password?.trim() || undefined,
           email,
           phone,
           status: values.status,
@@ -108,7 +120,17 @@ export default function UserPage() {
           role_ids: roleIds,
           dept_id: deptId,
         },
-        { onSuccess: close },
+        {
+          onSuccess: (result) => {
+            close()
+            if (result.temporary_password) {
+              setIssuedPassword({
+                username: result.username,
+                password: result.temporary_password,
+              })
+            }
+          },
+        },
       )
     }
   }
@@ -136,6 +158,13 @@ export default function UserPage() {
       onOk: () => hardDelete.mutateAsync(user.id),
     })
 
+  const canResetPassword = can('iam:user:update')
+
+  const submitResetPassword = async (password?: string) => {
+    if (!resetTarget) return null
+    return resetPassword.mutateAsync({ id: resetTarget.id, password })
+  }
+
   const pending = create.isPending || update.isPending
 
   return (
@@ -144,6 +173,7 @@ export default function UserPage() {
         keyword={keyword}
         status={status}
         userType={userType}
+        needChangePassword={needChangePassword}
         recycleMode={recycleMode}
         onChange={updateQuery}
         onRecycleModeChange={(next) => updateQuery({ deleted: next ? 'true' : undefined })}
@@ -160,6 +190,8 @@ export default function UserPage() {
             pageSize={pageSize}
             recycleMode={recycleMode}
             selfId={me?.user_id}
+            canResetPassword={!recycleMode && canResetPassword}
+            onResetPassword={setResetTarget}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -178,6 +210,9 @@ export default function UserPage() {
             loading={isLoading}
             error={error}
             recycleMode={recycleMode}
+            canResetPassword={!recycleMode && canResetPassword}
+            selfId={me?.user_id}
+            onResetPassword={setResetTarget}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -198,6 +233,18 @@ export default function UserPage() {
         pending={pending}
         onSubmit={submit}
         onClose={close}
+      />
+      {resetTarget && (
+        <ResetPasswordModal
+          user={resetTarget}
+          onSubmit={submitResetPassword}
+          onClose={() => setResetTarget(null)}
+        />
+      )}
+      <TemporaryPasswordModal
+        username={issuedPassword?.username ?? null}
+        password={issuedPassword?.password ?? null}
+        onClose={() => setIssuedPassword(null)}
       />
     </div>
   )

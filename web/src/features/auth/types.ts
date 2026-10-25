@@ -11,6 +11,11 @@ export interface LoginResp {
   need_change_password: boolean
 }
 
+export interface ChangePasswordReq {
+  old_password: string
+  new_password: string
+}
+
 /** 用户类型（对齐后端 `UserTypeEnum`）。 */
 export type UserType = 'admin_created' | 'self_registered' | 'system' | 'super_admin'
 

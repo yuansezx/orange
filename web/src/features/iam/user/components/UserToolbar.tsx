@@ -1,7 +1,7 @@
 import { Button, Input, Select, Space } from 'antd'
 
 import { RecycleModeSwitch } from '../../components/RecycleModeSwitch'
-import { STATUS_OPTIONS, USER_TYPE_OPTIONS } from '../constants'
+import { NEED_CHANGE_PASSWORD_OPTIONS, STATUS_OPTIONS, USER_TYPE_OPTIONS } from '../constants'
 import type { UserToolbarProps } from '../types'
 
 /**
@@ -12,6 +12,7 @@ export function UserToolbar({
   keyword,
   status,
   userType,
+  needChangePassword,
   recycleMode,
   onChange,
   onRecycleModeChange,
@@ -42,6 +43,14 @@ export function UserToolbar({
         value={userType}
         options={USER_TYPE_OPTIONS}
         onChange={(value) => onChange({ user_type: value })}
+      />
+      <Select<string>
+        allowClear
+        placeholder="密码状态"
+        style={{ width: 140 }}
+        value={needChangePassword === undefined ? undefined : String(needChangePassword)}
+        options={NEED_CHANGE_PASSWORD_OPTIONS}
+        onChange={(value) => onChange({ need_change_password: value })}
       />
       {!recycleMode && (
         <Button type="primary" onClick={onCreate}>

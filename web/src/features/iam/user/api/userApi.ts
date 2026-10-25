@@ -3,7 +3,9 @@ import type { PageResult } from '@shared/api'
 
 import type {
   CreateUserReq,
+  CreateUserResult,
   GetUsersQuery,
+  PasswordIssueResult,
   UpdateUserReq,
   UserDetail,
   UserListItem,
@@ -22,8 +24,13 @@ export function getUserDetail(id: string): Promise<UserDetail> {
   return get<UserDetail>(`${BASE}/${id}/detail`)
 }
 
-export function createUser(body: CreateUserReq): Promise<void> {
-  return post<void>(BASE, body)
+export function createUser(body: CreateUserReq): Promise<CreateUserResult> {
+  return post<CreateUserResult>(BASE, body)
+}
+
+/** 管理员重置密码；不传密码则服务端生成并一次性返回。 */
+export function resetUserPassword(id: string, password?: string): Promise<PasswordIssueResult> {
+  return put<PasswordIssueResult>(`${BASE}/${id}/password`, { new_password: password })
 }
 
 export function updateUser(id: string, body: UpdateUserReq): Promise<void> {

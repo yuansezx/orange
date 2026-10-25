@@ -8,6 +8,7 @@ export {
   IconDevices,
   IconEdit,
   IconFileText,
+  IconKey,
   IconLayoutDashboard,
   IconLogout,
   IconRefresh,

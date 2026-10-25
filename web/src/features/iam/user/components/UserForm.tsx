@@ -80,9 +80,17 @@ export function UserForm({ formId, mode, initial, onSubmit }: Props) {
         <Form.Item
           name="password"
           label="初始密码"
-          rules={[{ required: true, message: '请输入初始密码' }]}
+          extra="留空则自动生成，首次登录后需修改。"
+          rules={[
+            {
+              validator: (_, value: string | undefined) =>
+                !value || value.length >= 8
+                  ? Promise.resolve()
+                  : Promise.reject(new Error('密码长度不能少于 8 位')),
+            },
+          ]}
         >
-          <Input.Password placeholder="首次登录后需修改" />
+          <Input.Password placeholder="留空自动生成" />
         </Form.Item>
       )}
       <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '邮箱格式不正确' }]}>

@@ -41,6 +41,7 @@ export interface GetUsersQuery extends PageQuery {
   status?: UserStatus
   deleted?: boolean
   dept_id?: string
+  need_change_password?: boolean
 }
 
 /** 列表视图两端的公共入参——数据在 UserPage 取好后下发，视图只负责渲染。 */
@@ -50,6 +51,11 @@ export interface UserListViewProps {
   error: Error | null
   /** 回收站模式：行操作换成恢复 / 彻底删除。 */
   recycleMode?: boolean
+  /** 是否可重置密码（复用 `iam:user:update`）。 */
+  canResetPassword: boolean
+  /** 当前登录用户 id（自己的行不提供重置密码）。 */
+  selfId?: string
+  onResetPassword: (user: UserListItem) => void
   onView: (user: UserListItem) => void
   onEdit: (user: UserListItem) => void
   onDelete: (user: UserListItem) => void
@@ -61,13 +67,24 @@ export interface UserListViewProps {
 export interface CreateUserReq {
   username: string
   nickname?: string
-  password: string
+  /** 不填则服务端生成临时密码。 */
+  password?: string
   email?: string | null
   phone?: string | null
   status: UserStatus
   description?: string | null
   role_ids?: string[]
   dept_id?: string | null
+}
+
+/** 创建用户 / 重置密码的结果：服务端生成密码时回传一次明文。 */
+export interface PasswordIssueResult {
+  temporary_password: string | null
+}
+
+/** 创建用户响应额外带用户标识，供一次性密码弹窗展示。 */
+export interface CreateUserResult extends PasswordIssueResult {
+  username: string
 }
 
 /** 更新用户——对齐后端 `UpdateUserReq`（无 username / password）。 */
@@ -99,8 +116,6 @@ export interface UserTableProps extends UserListViewProps {
   total: number
   page: number
   pageSize: number
-  /** 当前登录用户 id（超管自己那行禁用状态开关）。 */
-  selfId?: string
   statusPendingId?: string
   onStatusChange: (user: UserListItem, status: UserStatus) => void
   onPageChange: (page: number, pageSize: number) => void
@@ -111,6 +126,7 @@ export interface UserToolbarProps {
   keyword: string
   status?: UserStatus
   userType?: UserType
+  needChangePassword?: boolean
   recycleMode: boolean
   onChange: (patch: Record<string, string | undefined>) => void
   onRecycleModeChange: (recycleMode: boolean) => void
