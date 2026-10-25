@@ -16,6 +16,11 @@ class LoginOut(BaseModel):
     need_change_password: bool = False
 
 
+class ChangePasswordIn(BaseModel):
+    old_password: str
+    new_password: str
+
+
 class SessionOut(BaseModel):
     """在线会话视图（用户信息在列表时由快照/用户表补充）。"""
     user_id: UserId

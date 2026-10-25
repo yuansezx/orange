@@ -118,6 +118,8 @@ def get_user_app_service() -> UserApplicationService:
         audit_service=get_audit_service(),
         audit_log_writer=get_audit_log_writer(),
         dept_ref_service=get_dept_ref_service(),
+        session_manager=get_session_manager(),
+        current_user_repo=get_current_user_repo(),
         event_bus=get_event_bus(),
     )
 

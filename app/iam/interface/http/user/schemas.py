@@ -57,3 +57,21 @@ class CurrentUserResp(BaseModel):
     roles: list[RoleSummary] | None = None
     dept_id: DeptId | None = None
     permission_codes: list[str] | None = None
+
+
+class CreateUserResp(UserResp):
+    """创建用户响应——服务端生成密码时一次性回传明文。"""
+    temporary_password: str | None = None
+
+
+class ChangePasswordReq(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class ResetPasswordReq(BaseModel):
+    new_password: str | None = None
+
+
+class ResetPasswordResp(BaseModel):
+    temporary_password: str | None = None

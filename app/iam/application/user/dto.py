@@ -25,7 +25,7 @@ class GetUsersIn(BaseModel):
 class CreateUserIn(BaseModel):
     username: str
     nickname: str | None = None
-    password: str
+    password: str | None = None  # 不填则由服务端生成临时密码
     email: Email | None = None
     phone: Phone | None = None
     status: StatusEnum

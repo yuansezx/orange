@@ -6,15 +6,21 @@ from app.core.domain.value_objects import EventId
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.enums import UserTypeEnum
-from app.core.utils.password_hash import hash_password
+from app.core.utils.generator import generate_password
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.common.ports import AuditLogWriterPort
+from app.iam.application.current_user.ports import SessionManagerPort
 from app.iam.application.common.services import AuditService, DeptRefService
-from app.iam.application.user.exceptions import UserExistsException, UserNotExistException
+from app.iam.application.user.exceptions import (
+    PasswordResetNotAllowedException,
+    UserExistsException,
+    UserNotExistException,
+)
 from app.iam.application.user.dto import (
     CreateUserIn,
     GetUsersIn,
@@ -48,6 +54,8 @@ class UserApplicationService:
                  audit_service: AuditService,
                  audit_log_writer: AuditLogWriterPort,
                  dept_ref_service: DeptRefService,
+                 session_manager: SessionManagerPort,
+                 current_user_repo: CurrentUserRepository,
                  event_bus: EventBus):
 
         self.in_transaction = in_transaction
@@ -61,6 +69,8 @@ class UserApplicationService:
         self.audit_service = audit_service
         self.audit_log_writer = audit_log_writer
         self.dept_ref_service = dept_ref_service
+        self.session_manager = session_manager
+        self.current_user_repo = current_user_repo
 
         self.event_bus = event_bus
 
@@ -73,16 +83,17 @@ class UserApplicationService:
             return
 
         user_id = UserId.new()
-        user = User(id=user_id,
-                    username=username,
-                    nickname=nickname,
-                    password_hash=hash_password(password),
-                    user_type=UserTypeEnum.SUPER_ADMIN,
-                    status=StatusEnum.ACTIVE,
-                    need_change_password=True,
-                    created_by=user_id,
-                    created_at=datetime.now(UTC),
-                    description='系统初始化')
+        user = User.create_with_password(
+            password,
+            id=user_id,
+            username=username,
+            nickname=nickname,
+            user_type=UserTypeEnum.SUPER_ADMIN,
+            status=StatusEnum.ACTIVE,
+            created_by=user_id,
+            created_at=datetime.now(UTC),
+            description='系统初始化',
+        )
         async with self.in_transaction():
             await self.user_repo.create(user)
 
@@ -130,7 +141,7 @@ class UserApplicationService:
     @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,
                                    user_role_app_service: UserRoleApplicationService,
-                                   request_meta: RequestMeta | None = None) -> User:
+                                   request_meta: RequestMeta | None = None) -> tuple[User, str | None]:
         # 用户唯一性检验
         # 竞态问题交给数据库唯一性检验，不做redis分布式锁了
         unique_service = CheckUserUniqueService(self.user_repo)
@@ -147,15 +158,28 @@ class UserApplicationService:
             if not await self.dept_access_service.can_access(data.dept_id, current_user):
                 raise PermissionDeniedException('无权访问该部门')
 
+        temporary_password = None
+        password = data.password
+        if not password:
+            password = generate_password()
+            temporary_password = password
+
         async with self.in_transaction():
-            # 创建用户
-            user = await self.user_repo.create(User(id=UserId.new(),
-                                                    password_hash=hash_password(data.password),
-                                                    user_type=UserTypeEnum.ADMIN_CREATED,
-                                                    need_change_password=True,
-                                                    created_by=current_user.user_id,
-                                                    created_at=datetime.now(UTC),
-                                                    **data.model_dump()))
+            # 创建用户（密码策略与 hash 由实体收口）
+            user = await self.user_repo.create(User.create_with_password(
+                password,
+                id=UserId.new(),
+                username=data.username,
+                nickname=data.nickname,
+                email=data.email,
+                phone=data.phone,
+                user_type=UserTypeEnum.ADMIN_CREATED,
+                status=data.status,
+                description=data.description,
+                dept_id=data.dept_id,
+                created_by=current_user.user_id,
+                created_at=datetime.now(UTC),
+            ))
             # 有角色创建用户角色关系，那边会检验权限
             if data.role_ids:
                 await user_role_app_service.assign_roles_to_user(
@@ -176,7 +200,7 @@ class UserApplicationService:
                     'role_ids': [str(r) for r in (data.role_ids or [])],
                 },
             )
-        return user
+        return user, temporary_password
 
     @requires_permission('iam:user:update')
     async def update_user(self, data: UpdateUserIn, current_user: CurrentUser,
@@ -246,6 +270,41 @@ class UserApplicationService:
                 detail={'from': previous_status.value, 'to': status.value},
             )
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
+
+    @requires_permission('iam:user:update')
+    async def reset_user_password(self, user_id: UserId, new_password: str | None,
+                                  current_user: CurrentUser,
+                                  request_meta: RequestMeta | None = None) -> str | None:
+        """管理员重置密码；不提供新密码时生成临时密码（明文只回传一次）。"""
+        temporary_password = None
+        if not new_password:
+            new_password = generate_password()
+            temporary_password = new_password
+
+        async with self.in_transaction():
+            user = await self._load_accessible(user_id, current_user)
+            if user.id == current_user.user_id:
+                raise PasswordResetNotAllowedException('不能重置自己的密码，请使用「修改密码」')
+            if (user.user_type is UserTypeEnum.SUPER_ADMIN
+                    and current_user.user_type is not UserTypeEnum.SUPER_ADMIN):
+                raise PermissionDeniedException('无权重置超级管理员密码')
+            user.reset_password(new_password, current_user.user_id)
+            await self.user_repo.update(user)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='user',
+                action='reset_password',
+                summary=f'重置用户 {user.username} 的密码',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={'generated': temporary_password is not None},
+            )
+        # 会话在 Redis，无法回滚：事务提交后再踢，失败只影响旧令牌的存活时间
+        await self.session_manager.revoke_users({user.id})
+        await self.current_user_repo.evict(user.id)
+        return temporary_password
 
     @requires_permission('iam:user:delete')
     async def delete_user(self, user_id: UserId, current_user: CurrentUser,

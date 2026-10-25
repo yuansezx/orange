@@ -10,3 +10,14 @@ class UserExistsException(IAMBusinessBaseException):
 class UserNotExistException(IAMBusinessBaseException):
     code = 'IAM_USER_NOT_FOUND'
     kind = ErrorKindEnum.NOT_FOUND
+
+
+class OldPasswordMismatchException(IAMBusinessBaseException):
+    code = 'IAM_OLD_PASSWORD_MISMATCH'
+    kind = ErrorKindEnum.VALIDATION
+
+
+class PasswordResetNotAllowedException(IAMBusinessBaseException):
+    """不允许通过管理员重置接口修改自己的密码（应走自助改密）。"""
+    code = 'IAM_PASSWORD_RESET_NOT_ALLOWED'
+    kind = ErrorKindEnum.CONFLICT

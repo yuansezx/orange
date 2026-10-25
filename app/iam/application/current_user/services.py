@@ -5,13 +5,13 @@ from loguru import logger
 from app.core.application.dto import RequestMeta
 from app.core.domain.units_of_work import InTransactionType
 from app.core.exceptions import PersistenceException
-from app.core.utils.password_hash import verify_password
 from app.core.utils.user_agent import parse_user_agent
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import AuthenticationException, InvalidTokenException
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.queries import EffectivePermissionQuery
-from app.iam.application.current_user.dto import LoginIn, LoginOut, SessionOut
+from app.iam.application.user.exceptions import OldPasswordMismatchException
+from app.iam.application.current_user.dto import ChangePasswordIn, LoginIn, LoginOut, SessionOut
 from app.iam.application.current_user.ports import (
     SessionInfo,
     SessionManagerPort,
@@ -54,7 +54,7 @@ class CurrentUserApplicationService:
         user = await self.user_repo.get_by_username(data.username)
         # 凭据错/不存在一律同一口径，不泄露存在性
         # 仓储默认不返回已删用户：已删与不存在同一口径，不泄露存在性
-        if user is None or not verify_password(data.password, user.password_hash):
+        if user is None or not user.verify_password(data.password):
             await self._audit_login_failure(data.username, user, 'invalid_credentials', request_meta)
             raise AuthenticationException('用户名或密码错误')
         if user.status is not StatusEnum.ACTIVE:
@@ -108,6 +108,33 @@ class CurrentUserApplicationService:
     async def logout_all(self, user_id: UserId) -> None:
         await self.session_manager.revoke_users({user_id})
         await self.current_user_repo.evict(user_id)
+
+    async def change_password(self, data: ChangePasswordIn, current_user: CurrentUser,
+                              request_meta: RequestMeta | None = None) -> None:
+        """自助改密：成功后吊销全部会话（含当前），要求重新登录。"""
+        user = await self.user_repo.get(current_user.user_id)
+        if user is None:
+            raise InvalidTokenException('用户不可用')
+        if not user.verify_password(data.old_password):
+            raise OldPasswordMismatchException('旧密码不正确')
+        user.change_password(data.new_password, current_user.user_id)
+
+        async with self.in_transaction():
+            await self.user_repo.update(user)
+            await self.audit_log_writer.write(
+                resource='user',
+                action='change_password',
+                summary=f'修改密码：{user.username}',
+                current_user=current_user,
+                request_meta=request_meta,
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={'self': True},
+            )
+        # 会话在 Redis，无法回滚：事务提交后再踢，失败只影响旧令牌的存活时间
+        await self.session_manager.revoke_users({user.id})
+        await self.current_user_repo.evict(user.id)
 
     # ---------------- 在线会话 ----------------
     @requires_permission('iam:current_user:read_sessions')

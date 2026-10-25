@@ -19,6 +19,10 @@ from app.core.utils.password_hash import hash_password, verify_password
 SUPER_ADMIN_USERNAME = 'admin'
 RESERVED_USERNAMES: frozenset[str] = frozenset({SUPER_ADMIN_USERNAME})
 
+PASSWORD_MIN_LENGTH = 8
+# bcrypt 只使用前 72 字节，超出部分会被静默截断，因此必须显式拒绝
+PASSWORD_MAX_BYTES = 72
+
 
 class User(AuditableEntity[UserId]):
     id: UserId
@@ -54,16 +58,50 @@ class User(AuditableEntity[UserId]):
     def can_delete(self) -> bool:
         return self.user_type not in {UserTypeEnum.SYSTEM, UserTypeEnum.SUPER_ADMIN}
 
-    def change_password(self, new_password: str):
-        """
-        更改密码
+    @classmethod
+    def create_with_password(cls, password: str, **fields) -> 'User':
+        """创建用户：密码策略与哈希由实体收口（创建后首次登录需修改）。"""
+        cls._validate_password(password)
+        now = datetime.now(UTC)
+        return cls(
+            password_hash=hash_password(password),
+            password_updated_at=now,
+            need_change_password=True,
+            **fields,
+        )
 
-        Raises:
-            PasswordPolicyViolationException: 违反密码策略
-        """
-        if verify_password(new_password, self.password_hash):
+    def verify_password(self, password: str) -> bool:
+        """校验明文密码是否匹配（登录 / 改密旧密码校验共用）。"""
+        return verify_password(password, self.password_hash)
+
+    def change_password(self, new_password: str, operator_id: UserId) -> None:
+        """自助改密：成功后不再要求修改密码。"""
+        self._apply_password(new_password, operator_id, need_change_password=False)
+
+    def reset_password(self, new_password: str, operator_id: UserId) -> None:
+        """管理员重置：用户下次登录仍需修改密码。"""
+        self._apply_password(new_password, operator_id, need_change_password=True)
+
+    def _apply_password(self, new_password: str, operator_id: UserId,
+                        *, need_change_password: bool) -> None:
+        if not self.can_update():
+            raise UserImmutableException('用户不可更改')
+        self._validate_password(new_password)
+        if self.verify_password(new_password):
             raise PasswordPolicyViolationException('新密码不可与旧密码相同')
+        now = datetime.now(UTC)
         self.password_hash = hash_password(new_password)
+        self.password_updated_at = now
+        self.need_change_password = need_change_password
+        self.updated_by = operator_id
+        self.updated_at = now
+
+    @staticmethod
+    def _validate_password(password: str) -> None:
+        if len(password) < PASSWORD_MIN_LENGTH:
+            raise PasswordPolicyViolationException(f'密码长度不能少于 {PASSWORD_MIN_LENGTH} 位')
+        if len(password.encode('utf-8')) > PASSWORD_MAX_BYTES:
+            raise PasswordPolicyViolationException(f'密码不能超过 {PASSWORD_MAX_BYTES} 字节')
 
     def change_profile(self, nickname: str, email: Email | None, phone: Phone | None, description: str | None,
                        dept_id: DeptId | None, operator_id: UserId):
