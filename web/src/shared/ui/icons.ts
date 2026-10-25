@@ -23,6 +23,7 @@ export {
   IconSitemap,
   IconTrash,
   IconTrashX,
+  IconUserCircle,
   IconUserX,
   IconUsers,
   IconX,

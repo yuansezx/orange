@@ -1,6 +1,7 @@
 import { Dropdown } from 'antd'
+import { useNavigate } from 'react-router-dom'
 
-import { UserAvatar } from '@shared/ui'
+import { IconLogout, IconUserCircle, UserAvatar } from '@shared/ui'
 
 import { useLogout } from '../hooks/useLogout'
 import { useMe } from '../hooks/useMe'
@@ -19,6 +20,7 @@ interface Props {
 export function UserMenu({ placement = 'bottomRight', compact = false }: Props) {
   const { data: me } = useMe()
   const { logout } = useLogout()
+  const navigate = useNavigate()
 
   if (!me) return null
 
@@ -27,9 +29,19 @@ export function UserMenu({ placement = 'bottomRight', compact = false }: Props) 
       trigger={['click']}
       placement={placement}
       menu={{
-        items: [{ key: 'logout', label: '退出登录', danger: true }],
+        items: [
+          { key: 'account', label: '个人中心', icon: <IconUserCircle size={16} /> },
+          { type: 'divider' },
+          {
+            key: 'logout',
+            label: '退出登录',
+            danger: true,
+            icon: <IconLogout size={16} />,
+          },
+        ],
         onClick: ({ key }) => {
           if (key === 'logout') logout()
+          else if (key === 'account') navigate('/account')
         },
       }}
     >

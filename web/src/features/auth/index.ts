@@ -4,6 +4,7 @@
  * 说明：本切片不贡献应用壳内的路由/菜单（登录页在壳**之外**），故**不导出 `feature`**、
  * 不会被组合根自动发现；改由 `app/router.tsx` 直接引用（`/login` + `RequireAuth`）。
  */
+export { ChangePasswordModal } from './components/ChangePasswordModal'
 export { LoginPage } from './LoginPage'
 export { RequireAuth } from './RequireAuth'
 export { UserMenu } from './components/UserMenu'

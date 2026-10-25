@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import type {
+  AccountSettingsGroup,
   FeatureModule,
   MenuLink,
   NavGroup,
@@ -157,4 +158,40 @@ export function workspaceOfPath(
       pathname === `/${workspace.basePath}` ||
       pathname.startsWith(`/${workspace.basePath}/`),
   )
+}
+
+/** 各 feature 贡献的个人中心设置分组（路径统一挂到 `/account/{feature}`）。 */
+export const accountSettings: AccountSettingsGroup[] = features.flatMap((feature) =>
+  (feature.settings ?? []).map((group) => ({
+    ...group,
+    links: group.links.map((link) => ({
+      ...link,
+      featureKey: feature.name,
+      settingsPath: `${feature.name}/${link.path}`,
+      fullPath: `account/${feature.name}/${link.path}`,
+    })),
+  })),
+)
+
+export const accountSettingsLinks = accountSettings.flatMap((group) => group.links)
+
+/** 按权限过滤个人中心设置；空分组隐藏。 */
+export function filterAccountSettings(
+  groups: AccountSettingsGroup[],
+  can: (permission?: string) => boolean,
+): AccountSettingsGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      links: group.links.filter((link) => can(link.permission)),
+    }))
+    .filter((group) => group.links.length > 0)
+}
+
+/** 个人中心默认落地页；无可用设置时返回 null。 */
+export function accountSettingsHomePath(
+  groups: AccountSettingsGroup[],
+): string | null {
+  const link = groups[0]?.links[0]
+  return link ? `/${link.fullPath}` : null
 }

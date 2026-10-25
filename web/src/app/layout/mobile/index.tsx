@@ -6,7 +6,13 @@ import { useLogout, usePermission } from '@features/auth'
 import { appConfig } from '@shared/config'
 import { MobileShellFrame } from '@shared/shell'
 import { colorTokens } from '@shared/theme/tokens'
-import { BrandLogo, IconBox, UserAvatar } from '@shared/ui'
+import {
+  BrandLogo,
+  IconBox,
+  IconLogout,
+  IconUserCircle,
+  UserAvatar,
+} from '@shared/ui'
 
 import {
   filterWorkspacesByPermission,
@@ -183,12 +189,33 @@ export function MobileAdminShell() {
 
       <ActionSheet
         visible={userOpen}
-        actions={[{ key: 'logout', text: '退出登录', danger: true }]}
+        actions={[
+          {
+            key: 'account',
+            text: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <IconUserCircle size={18} />
+                个人中心
+              </span>
+            ),
+          },
+          {
+            key: 'logout',
+            text: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <IconLogout size={18} />
+                退出登录
+              </span>
+            ),
+            danger: true,
+          },
+        ]}
         cancelText="取消"
         onClose={() => setUserOpen(false)}
         onAction={(action) => {
           setUserOpen(false)
           if (action.key === 'logout') logout()
+          else if (action.key === 'account') navigate('/account')
         }}
       />
     </>

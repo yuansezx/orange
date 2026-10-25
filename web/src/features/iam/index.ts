@@ -1,13 +1,23 @@
 import { createElement, lazy } from 'react'
 
 import type { FeatureModule } from '@shared/navigation'
-import { IconBox, IconDevices, IconShieldLock, IconSitemap, IconUsers } from '@shared/ui'
+import {
+  IconBox,
+  IconDevices,
+  IconShieldLock,
+  IconSitemap,
+  IconUserCircle,
+  IconUsers,
+} from '@shared/ui'
 
 const UserPage = lazy(() => import('./user/UserPage'))
 const SessionPage = lazy(() => import('./session/SessionPage'))
 const RolePage = lazy(() => import('./role/RolePage'))
 const DeptPage = lazy(() => import('./dept/DeptPage'))
 const ResourcePage = lazy(() => import('./resource/ResourcePage'))
+const ProfileSettingsPage = lazy(() => import('./settings/ProfilePage'))
+const SecuritySettingsPage = lazy(() => import('./settings/SecurityPage'))
+const SessionsSettingsPage = lazy(() => import('./settings/SessionsPage'))
 
 /**
  * iam 模块门面：声明本模块递给应用壳的**菜单分组**（对齐后端 iam 模块）。
@@ -30,6 +40,35 @@ export const feature: FeatureModule = {
       allowedStates: ['hidden', 'rail', 'expanded'],
     },
   },
+  settings: [
+    {
+      key: 'iam-account',
+      label: '账号与安全',
+      links: [
+        {
+          key: 'iam-account-profile',
+          label: '个人资料',
+          path: 'profile',
+          icon: createElement(IconUserCircle, { size: 16 }),
+          element: createElement(ProfileSettingsPage),
+        },
+        {
+          key: 'iam-account-security',
+          label: '安全设置',
+          path: 'security',
+          icon: createElement(IconShieldLock, { size: 16 }),
+          element: createElement(SecuritySettingsPage),
+        },
+        {
+          key: 'iam-account-sessions',
+          label: '在线设备',
+          path: 'sessions',
+          icon: createElement(IconDevices, { size: 16 }),
+          element: createElement(SessionsSettingsPage),
+        },
+      ],
+    },
+  ],
   groups: [
     {
       key: 'iam',

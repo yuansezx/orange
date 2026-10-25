@@ -64,6 +64,28 @@ export interface FeatureModule {
   workspace?: WorkspaceRef
   shell?: ShellPreference
   groups?: MenuGroup[]
+  /** 该模块向「个人中心」贡献的设置分组。 */
+  settings?: SettingsGroup[]
+}
+
+/** 模块贡献给个人中心的设置分组（path 相对 `/account/{feature}`）。 */
+export interface SettingsGroup {
+  key: string
+  label: string
+  links: MenuLink[]
+}
+
+/** 聚合后的个人中心设置链接。 */
+export interface AccountSettingsLink extends MenuLink {
+  /** 相对 `/account` 的路径，如 `iam/profile`。 */
+  settingsPath: string
+  /** 不含前导 `/` 的完整路径，如 `account/iam/profile`。 */
+  fullPath: string
+  featureKey: string
+}
+
+export interface AccountSettingsGroup extends Omit<SettingsGroup, 'links'> {
+  links: AccountSettingsLink[]
 }
 
 /** 聚合后的菜单项：在 MenuLink 基础上补完整路径与归属。 */

@@ -5,9 +5,14 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { LoginPage, RequireAuth, usePermission } from '@features/auth'
 import { PageLoading } from '@shared/ui'
 
+import { AccountLayout } from './layout/AccountLayout'
 import { AppShell } from './layout'
 import { WorkspaceLayout } from './layout/WorkspaceLayout'
 import {
+  accountSettings,
+  accountSettingsHomePath,
+  accountSettingsLinks,
+  filterAccountSettings,
   filterWorkspacesByPermission,
   workspaceHomePath,
   type WorkspaceNav,
@@ -38,6 +43,18 @@ function WorkspaceHomeRedirect({ workspace }: { workspace: WorkspaceNav }) {
   return <Navigate to={workspaceHomePath(filtered)} replace />
 }
 
+/** `/account` 落到第一个有权限的设置页。 */
+function AccountHomeRedirect() {
+  const { can } = usePermission()
+  const groups = filterAccountSettings(accountSettings, can)
+  const target = accountSettingsHomePath(groups)
+
+  if (!target) {
+    return <Empty description="暂无可用设置" style={{ marginTop: 80 }} />
+  }
+  return <Navigate to={target} replace />
+}
+
 /** 路由：登录（壳外）→ 系统壳（workspace 栏）→ workspace 内部路由。 */
 export function AppRouter() {
   return (
@@ -51,6 +68,19 @@ export function AppRouter() {
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
             <Route index element={<RootRedirect />} />
+
+            <Route path="account" element={<AccountLayout />}>
+              <Route index element={<AccountHomeRedirect />} />
+              {accountSettingsLinks.map((link) => (
+                <Route
+                  key={link.key}
+                  path={link.settingsPath}
+                  element={
+                    <Suspense fallback={<PageLoading />}>{link.element}</Suspense>
+                  }
+                />
+              ))}
+            </Route>
 
             {workspaces.map((workspace) => (
               <Route
