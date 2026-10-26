@@ -8,6 +8,7 @@
 export {
   IconBox,
   IconBuildingPlus,
+  IconCalendar,
   IconChevronLeft,
   IconChevronRight,
   IconChevronsLeft,
@@ -17,6 +18,8 @@ export {
   IconKey,
   IconLayoutDashboard,
   IconLogout,
+  IconMail,
+  IconPhone,
   IconRefresh,
   IconRestore,
   IconShieldLock,
