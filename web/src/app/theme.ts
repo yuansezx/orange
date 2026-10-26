@@ -1,14 +1,9 @@
-import type { ThemeConfig } from 'antd'
-
-import { colorTokens } from '@shared/theme/tokens'
+import { buildAntdTheme } from '@shared/theme/antdTheme'
+import { defaultWorkspacePalette } from '@shared/theme/tokens'
 
 /**
- * 全局主题——把设计 token（`@shared/theme/tokens`）喂给 antd。
- * 配色改 token 一处即全局生效（含自定义内联样式，它们也引同一份 token）。
+ * 全局主题（系统壳 + 默认 workspace）：用默认 workspace 调色板映射，
+ * 保证系统壳与 workspace 缺省观感一致。各 workspace 在 `WorkspaceThemeProvider`
+ * 里用合并后的调色板覆盖；系统壳在 provider 之外，始终走这份全局品牌配色。
  */
-export const antdTheme: ThemeConfig = {
-  token: {
-    colorPrimary: colorTokens.brand,
-    borderRadius: 6,
-  },
-}
+export const antdTheme = buildAntdTheme(defaultWorkspacePalette)

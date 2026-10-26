@@ -30,8 +30,8 @@ export function DesktopShellFrame({
 
   const navStyle = {
     width: navWidth,
-    background: colorTokens.bgContainer,
-    borderRight: `1px solid ${colorTokens.borderSecondary}`,
+    background: colorTokens.bgSystemNav,
+    borderRight: `1px solid ${colorTokens.border}`,
     overflow: 'hidden',
   } as const
 
@@ -41,7 +41,14 @@ export function DesktopShellFrame({
 
   if (navBehavior === 'overlay') {
     return (
-      <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
+      <div
+        style={{
+          position: 'relative',
+          height: '100vh',
+          overflow: 'hidden',
+          background: colorTokens.bgLayout,
+        }}
+      >
         <main style={{ height: '100vh', minWidth: 0, overflow: 'hidden' }}>{children}</main>
         {visible && (
           <aside
@@ -70,6 +77,7 @@ export function DesktopShellFrame({
         gridTemplateColumns: `${visible ? navWidth : 0}px minmax(0, 1fr)`,
         height: '100vh',
         overflow: 'hidden',
+        background: colorTokens.bgLayout,
         transition: 'grid-template-columns 200ms ease',
       }}
     >

@@ -5,7 +5,7 @@ import { usePermission } from '@features/auth'
 import { matchNavLink } from '@shared/navigation'
 import { Platform } from '@shared/platform'
 import { layoutTokens } from '@shared/theme/layout'
-import { colorTokens } from '@shared/theme/tokens'
+import { colorTokens, defaultWorkspacePalette } from '@shared/theme/tokens'
 
 import {
   accountSettings,
@@ -39,8 +39,8 @@ export function AccountLayout() {
         style={{
           minWidth: 0,
           overflow: 'hidden',
-          borderRight: `1px solid ${colorTokens.borderSecondary}`,
-          background: colorTokens.bgContainer,
+          borderRight: `1px solid ${colorTokens.border}`,
+          background: defaultWorkspacePalette.navBg,
         }}
       >
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -60,7 +60,7 @@ export function AccountLayout() {
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             <Menu
               mode="inline"
-              style={{ borderInlineEnd: 0 }}
+              style={{ borderInlineEnd: 0, background: defaultWorkspacePalette.navBg }}
               selectedKeys={current ? [current.key] : []}
               items={groups.map((group) => ({
                 key: group.key,
@@ -81,7 +81,14 @@ export function AccountLayout() {
         </div>
       </aside>
 
-      <main style={{ minWidth: 0, overflow: 'auto', padding: layoutTokens.contentPadding }}>
+      <main
+        style={{
+          minWidth: 0,
+          overflow: 'auto',
+          padding: layoutTokens.contentPadding,
+          background: defaultWorkspacePalette.canvasBg,
+        }}
+      >
         <Outlet />
       </main>
     </div>
@@ -119,6 +126,7 @@ export function AccountLayout() {
           minHeight: 0,
           overflow: 'auto',
           padding: layoutTokens.mobileContentPadding,
+          background: defaultWorkspacePalette.canvasBg,
         }}
       >
         <Outlet />

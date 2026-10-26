@@ -7,8 +7,10 @@ import type {
   NavGroup,
   NavLink,
   SystemNavPreference,
+  WorkspaceLayoutComponent,
   WorkspaceRef,
 } from '@shared/navigation'
+import type { WorkspacePalette } from '@shared/theme/tokens'
 
 /**
  * 组合根：**构建期发现**模块型切片——扫描 `features/<module>/index.ts`，取门面导出的 `feature`。
@@ -46,6 +48,10 @@ export interface WorkspaceNav {
   icon?: ReactNode
   basePath: string
   systemNav?: SystemNavPreference
+  /** workspace 级配色覆盖（同一 workspace 多 feature 时浅合并，后者覆盖前者）。 */
+  theme?: Partial<WorkspacePalette>
+  /** 自定义 workspace 布局；同一 workspace 以最后声明者为准。 */
+  layout?: WorkspaceLayoutComponent
   features: FeatureNav[]
 }
 
@@ -95,11 +101,17 @@ for (const feature of features) {
       icon: feature.icon,
       basePath: workspaceRef.basePath,
       systemNav: workspaceRef.systemNav,
+      theme: workspaceRef.theme,
+      layout: workspaceRef.layout,
       features: [],
     }
     workspaceMap.set(workspaceRef.key, workspace)
   }
   if (!workspace.icon) workspace.icon = feature.icon
+  if (workspaceRef.theme) {
+    workspace.theme = { ...workspace.theme, ...workspaceRef.theme }
+  }
+  if (workspaceRef.layout) workspace.layout = workspaceRef.layout
 
   workspace.features.push({
     key: feature.name,

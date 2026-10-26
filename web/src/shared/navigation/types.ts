@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
+
+import type { WorkspacePalette } from '@shared/theme/tokens'
 
 /**
  * 应用壳内的一条菜单项——**同时承载它的路由**（菜单与路由一处声明，杜绝"菜单指向不存在的页"）。
@@ -35,6 +37,20 @@ export interface SystemNavPreference {
   allowedStates?: SystemNavState[]
 }
 
+/** 自定义 workspace 布局能拿到的最小 workspace 信息（shared 层不认识完整 WorkspaceNav）。 */
+export interface WorkspaceDescriptor {
+  key: string
+  label: string
+  basePath: string
+}
+
+/**
+ * workspace 自定义布局逃生口：组件自行渲染 `<Outlet />`，可不要默认左/右栏。
+ * 系统壳与 `WorkspaceThemeProvider` 仍在外层；详情右栏的 context 也会提供，
+ * 需要时自己渲染 `<ShellRightPanel />`。
+ */
+export type WorkspaceLayoutComponent = ComponentType<{ workspace: WorkspaceDescriptor }>
+
 /**
  * 用户视角的系统级模块（Workspace）。一个 workspace 可包含多个 feature：
  * 后台管理包含 iam / monitor；独立 feature 可自成一 workspace。
@@ -45,6 +61,10 @@ export interface WorkspaceRef {
   label: string
   basePath: string
   systemNav?: SystemNavPreference
+  /** workspace 级配色覆盖；缺省用 `defaultWorkspacePalette`。 */
+  theme?: Partial<WorkspacePalette>
+  /** 自定义 workspace 布局；缺省用统一 `WorkspaceLayout`（左中右）。 */
+  layout?: WorkspaceLayoutComponent
 }
 
 /** 模块递给应用壳的布局偏好。 */

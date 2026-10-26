@@ -11,6 +11,8 @@ export type {
   SystemNavBehavior,
   SystemNavPreference,
   SystemNavState,
+  WorkspaceDescriptor,
+  WorkspaceLayoutComponent,
   WorkspaceRef,
 } from './types'
 export { matchNavLink } from './match'

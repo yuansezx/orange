@@ -26,7 +26,11 @@ export function MobileShellFrame({ header, contentMode = 'standard', children }:
       >
         {header}
       </header>
-      <main className={styles.mobileContent} data-mode={contentMode}>
+      <main
+        className={styles.mobileContent}
+        data-mode={contentMode}
+        style={{ background: colorTokens.bgLayout }}
+      >
         {children}
       </main>
     </div>

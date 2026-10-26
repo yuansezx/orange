@@ -146,8 +146,8 @@ export function SystemNav({
                 ...(expanded
                   ? { width: '100%', height: 40, justifyContent: 'flex-start', paddingInline: 12 }
                   : iconItemStyle),
-                color: active ? colorTokens.brand : token.colorTextSecondary,
-                background: active ? token.colorFillSecondary : undefined,
+                color: active ? colorTokens.navSelectedText : token.colorTextSecondary,
+                background: active ? colorTokens.navSelectedBg : undefined,
               }}
             >
               {content}

@@ -60,7 +60,7 @@ const iconButton = {
   justifyContent: 'center',
   border: 'none',
   background: 'none',
-  color: colorTokens.brand,
+  color: colorTokens.brandAction,
   cursor: 'pointer',
 } as const
 

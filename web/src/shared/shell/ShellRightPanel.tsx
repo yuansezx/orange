@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 
 import { Platform } from '@shared/platform'
 import { layoutTokens } from '@shared/theme/layout'
-import { colorTokens } from '@shared/theme/tokens'
+import { useWorkspacePalette } from '@shared/theme/workspacePaletteContext'
 import { IconX } from '@shared/ui/icons'
 
 import {
@@ -72,6 +72,7 @@ function useRightPanelValue(): ShellRightPanelValue {
 
 export function ShellRightPanel() {
   const { isOpen, title, close, setContainer } = useRightPanelValue()
+  const palette = useWorkspacePalette()
 
   useEffect(() => {
     if (!isOpen) return
@@ -92,8 +93,8 @@ export function ShellRightPanel() {
         justifyContent: 'flex-start',
         gap: 8,
         paddingInline: 16,
-        borderBottom: `1px solid ${colorTokens.borderSecondary}`,
-        background: colorTokens.bgContainer,
+        borderBottom: `1px solid ${palette.borderSecondary}`,
+        background: palette.containerBg,
       }}
     >
       <Button
@@ -126,8 +127,8 @@ export function ShellRightPanel() {
             width: layoutTokens.rightPanelWidth,
             // 窄桌面时别盖住系统栏（按展开宽度保守预留）与 workspace 菜单
             maxWidth: `calc(100vw - ${layoutTokens.systemNavExpandedWidth + layoutTokens.workspaceMenuWidth + 20}px)`,
-            background: colorTokens.bgContainer,
-            borderLeft: `1px solid ${colorTokens.borderSecondary}`,
+            background: palette.containerBg,
+            borderLeft: `1px solid ${palette.borderSecondary}`,
             boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.08)',
           }}
         >
@@ -145,7 +146,7 @@ export function ShellRightPanel() {
             height: '100vh',
             display: 'flex',
             flexDirection: 'column',
-            background: colorTokens.bgContainer,
+            background: palette.containerBg,
           }}
         >
           {header}

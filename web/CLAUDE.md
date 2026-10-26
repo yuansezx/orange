@@ -33,7 +33,7 @@ web/src/
 - **模块自报门面**：模块型 feature 在 `index.ts` 导出名为 `feature` 的 `FeatureModule`（`groups`: 菜单分组；**每个菜单项同时承载它的路由** `{key,label,path,permission?,element}`——菜单与路由一处声明，杜绝"菜单指向不存在的页"）。组合根 `app/routes.ts` 用 **`import.meta.glob` 构建期发现** `features/*/index.ts`（有就加载、没有就跳过，新增模块免登记；控制台级切片不导出 `feature` 即自动排除）。**不做前端模块配置**：可见性由后端权限码过滤菜单承担，避免与后端 `core.modules` 形成第二份清单。
 - **导航 / 菜单（菜单归前端）**：后端只发**权限**（`/me` 的 `permission_codes` + `user_type`），**菜单由前端声明**、按 `usePermission().can(code)` 过滤（**超管 `user_type=super_admin` 旁路**）。层次：
   - **系统壳 `AppShell`**：左侧只放用户视角的 **Workspace**（后台管理、音乐……）+ 用户区；支持 `hidden/rail/expanded` 三态和 `push/overlay`（后台管理 `push`）。形态状态只在内存，不做持久化。
-  - **Workspace 壳**（`WorkspaceLayout`）：在系统内容区里自管左中右；后台管理的左侧是内部 Feature 菜单，右侧是**非模态详情右栏**（不锁背景）。
+  - **Workspace 壳**（`WorkspaceLayout`）：在系统内容区里自管左中右；后台管理的左侧是内部 Feature 菜单，右侧是**非模态详情右栏**（不锁背景）。需要自定义结构的 workspace（如播放器）在 `WorkspaceRef.layout` 提供组件、自行渲染 `<Outlet />`；系统壳与 `WorkspaceThemeProvider` 仍在外层。**不加隐藏左/右栏开关**——定制走布局组件这一条路。
   - **FeatureModule**：对齐后端模块（iam/monitor…），声明 `workspace`、`groups`（workspace 内菜单）和可选 `settings`（个人中心设置）。完整路由为 `{workspace.basePath}/{feature}/{path}`（如 `/admin/iam/users`）；没有导航页，`/` 按权限落到第一个可访问页面。
   - **个人中心**：系统级 `/account`，设置菜单由各 feature 的 `settings` 聚合，路径 `/account/{feature}/{path}`。
   - 菜单项不带 `permission` = 永远可见；过滤只是 UX，后端 403 兜底。
@@ -41,7 +41,7 @@ web/src/
 - **平台分叉**：**默认一份响应式实现**；`shared/platform` 的 `<Platform desktop={} mobile={}/>` 是**逃生口、按需用**。判据：同一行为、不同长相 → 共用；不同行为 → 才拆。跨端**共用**组件放 `components/` **根目录**，只有**确实分叉**的才进 `components/desktop/` `mobile/`；取数等逻辑放页面层共用、视图只渲染。范例：`features/iam/user`（一处叶子分叉）；系统壳本身也是分叉——桌面 = 系统 workspace 栏（三态）+ 内容（workspace 自管左中右），移动 = 顶栏（汉堡）+ workspace 抽屉 + 内容；个人中心暂用顶部设置选择器。
 - **服务器状态**用 TanStack Query；`shared/api` 只出 `get/post/put/del<T>`，错误统一归一为 `ApiError`（`code` 对齐后端错误体，可 `except`/按 `code` 区分）。
 - **配置**：值是**数据**，放 `src/config.json`；读取层 `shared/config/index.ts` 只"读数据 + 定型"，不含配置值。`appVersion` 构建期从 `package.json` 注入（`__APP_VERSION__`），dev 未注入时 `typeof` 兜底 `'dev'`。
-- **配色收敛**：颜色一律走 **`@shared/theme/tokens`**（**唯一来源**），组件里**别写死 hex**；antd 主题 `app/theme.ts` 也引同一份 token。**多套方案**放在 `colorSchemes`，**当前生效**的由 `config.json` 的 `colorScheme` 选定（改值 → 重新构建，构建期非运行时）；消费方一律引 `colorTokens`。之所以自建而非用 antd 的 CSS 变量：本项目同时用 antd 与 antd-mobile（两套主题系统），需要两家之上的共同来源才能收敛到一处。
+- **配色收敛**：颜色一律走 **`@shared/theme/tokens`**（**唯一来源**），组件里**别写死 hex**；antd 主题 `app/theme.ts` 也引同一份 token。**多套方案**放在 `colorSchemes`，**当前生效**的由 `config.json` 的 `colorScheme` 选定（改值 → 重新构建，构建期非运行时）；消费方一律引 `colorTokens`。之所以自建而非用 antd 的 CSS 变量：本项目同时用 antd 与 antd-mobile（两套主题系统），需要两家之上的共同来源才能收敛到一处。**角色分工**：`brand` 只做品牌露出（logo/品牌名/光斑），`brandAction` 才当交互色（主按钮/链接，满足对比度），`brandActionText` 管主按钮里的文字色；工作区用**低饱和画布** `bgLayout` + 容器 `bgContainer`，两级左栏分别用 `bgSystemNav` / `bgWorkspaceNav`（可独立调色），`brandSoft` 只留给品牌面（登录页）。**选中态用成对 token `navSelectedBg` / `navSelectedText`**（允许黑底白字的反色方案），组件直接套用，**不得**用品牌色/白底自行推导。**workspace 级配色**用 `WorkspaceRef.theme`（`WorkspacePalette`：左栏/画布/容器/边框/文字/交互色）覆盖，缺省回退 `defaultWorkspacePalette`。`WorkspaceLayout` 用 `WorkspaceThemeProvider`（context + 嵌套 `ConfigProvider`）把调色板作用于整个 workspace：内联样式用 `useWorkspacePalette()`，antd 组件自动跟随；**系统壳在 provider 之外，始终走全局品牌配色**。语义色（成功/错误/警告）跨 workspace 保持一致。注意 antd `Menu` 默认用 `colorBgContainer` 刷根背景，侧栏菜单必须显式传底色。
 - 别名：`@app` / `@shared` / `@features` / `@`（见 `vite.config.ts` 与 `tsconfig.app.json`）。
 
 ## 对接后端
