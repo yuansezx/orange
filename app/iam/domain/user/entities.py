@@ -11,6 +11,7 @@ from app.iam.domain.user.exceptions import (
     ReservedUsernameException,
     SuperAdminSelfDisableException,
     UserImmutableException,
+    UserProfileValidationException,
 )
 from app.core.utils.password_hash import hash_password, verify_password
 
@@ -102,6 +103,20 @@ class User(AuditableEntity[UserId]):
             raise PasswordPolicyViolationException(f'密码长度不能少于 {PASSWORD_MIN_LENGTH} 位')
         if len(password.encode('utf-8')) > PASSWORD_MAX_BYTES:
             raise PasswordPolicyViolationException(f'密码不能超过 {PASSWORD_MAX_BYTES} 字节')
+
+    def update_profile(self, nickname: str, email: Email | None, phone: Phone | None,
+                       operator_id: UserId) -> None:
+        """自助资料更新：只允许昵称/邮箱/手机号（状态/部门/角色走管理员接口）。"""
+        if not self.can_update():
+            raise UserImmutableException('用户不可更改')
+        nickname = nickname.strip()
+        if not nickname:
+            raise UserProfileValidationException('昵称不能为空')
+        self.nickname = nickname
+        self.email = email
+        self.phone = phone
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
 
     def change_profile(self, nickname: str, email: Email | None, phone: Phone | None, description: str | None,
                        dept_id: DeptId | None, operator_id: UserId):

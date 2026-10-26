@@ -12,7 +12,7 @@ from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.generator import generate_password
 from app.iam.application.common.decorators import requires_permission
-from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.exceptions import InvalidTokenException, PermissionDeniedException
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.current_user.ports import SessionManagerPort
 from app.iam.application.common.services import AuditService, DeptRefService
@@ -24,7 +24,9 @@ from app.iam.application.user.exceptions import (
 from app.iam.application.user.dto import (
     CreateUserIn,
     GetUsersIn,
+    MyProfileOut,
     RoleRefOut,
+    UpdateMyProfileIn,
     UpdateUserIn,
     UserDetailOut,
     UserListItemOut,
@@ -137,6 +139,49 @@ class UserApplicationService:
             dept_ref=dept_refs[0] if dept_refs else None,
             roles=[RoleRefOut(id=r.id, code=r.code, name=r.name) for r in roles],
         )
+
+    async def get_my_profile(self, current_user: CurrentUser) -> MyProfileOut:
+        """自助资料——登录即可，强制本人；不复用管理员的数据范围/权限门禁。"""
+        user = await self._load_self(current_user.user_id)
+        return await self._build_my_profile(user)
+
+    async def update_my_profile(self, data: UpdateMyProfileIn, current_user: CurrentUser,
+                                request_meta: RequestMeta | None = None) -> MyProfileOut:
+        """自助更新昵称/邮箱/手机号：唯一性排除本人、审计、清快照；会话不掉线。"""
+        async with self.in_transaction():
+            user = await self._load_self(current_user.user_id)
+            unique_service = CheckUserUniqueService(self.user_repo)
+            if not await unique_service.check_phone_unique(
+                    data.phone, exclude_user_id=user.id):
+                raise UserExistsException('该手机号已被注册')
+            if not await unique_service.check_email_unique(
+                    data.email, exclude_user_id=user.id):
+                raise UserExistsException('该邮箱已被注册')
+
+            before = {f: getattr(user, f) for f in ('nickname', 'email', 'phone')}
+            user.update_profile(data.nickname, data.email, data.phone, current_user.user_id)
+            after = {f: getattr(user, f) for f in ('nickname', 'email', 'phone')}
+            changed = [f for f in before if before[f] != after[f]]
+
+            await self.user_repo.update(user)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='user',
+                action='update_profile',
+                summary=f'更新个人资料：{user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={
+                    'before': {f: str(v) if v else None for f, v in before.items()},
+                    'after': {f: str(v) if v else None for f, v in after.items()},
+                    'changed': changed,
+                },
+            )
+        # 昵称在 CurrentUser 快照里：提交后清快照，会话不掉线
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
+        return await self._build_my_profile(user)
 
     @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,
@@ -404,6 +449,35 @@ class UserApplicationService:
                              current_user: CurrentUser) -> None:
         """状态变更的唯一应用层入口（更新 / 专用状态接口共用）。"""
         user.change_status(status, current_user.user_id)
+
+    async def _load_self(self, user_id: UserId) -> User:
+        """自助入口固定读本人；行不存在（硬删/异常）按令牌失效处理。"""
+        user = await self.user_repo.get(user_id)
+        if user is None:
+            raise InvalidTokenException('用户不可用')
+        return user
+
+    async def _build_my_profile(self, user: User) -> MyProfileOut:
+        dept_refs = await self.dept_ref_service.build([user.dept_id]) if user.dept_id else []
+        assignments = await self.user_role_repo.get_by_user_id(user.id)
+        roles = sorted(await self.role_repo.get_by_ids([a.role_id for a in assignments]),
+                       key=lambda role: role.code)
+        return MyProfileOut(
+            user_id=user.id,
+            username=user.username,
+            nickname=user.nickname or user.username,
+            email=user.email,
+            phone=user.phone,
+            user_type=user.user_type,
+            status=user.status,
+            description=user.description,
+            dept=dept_refs[0] if dept_refs else None,
+            roles=[RoleRefOut(id=r.id, code=r.code, name=r.name) for r in roles],
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            password_updated_at=user.password_updated_at,
+            need_change_password=user.need_change_password,
+        )
 
     async def _load(self, user_id: UserId) -> User:
         """写侧加载：仓储默认不返回已删（回收站操作走 `_load_any`）。"""

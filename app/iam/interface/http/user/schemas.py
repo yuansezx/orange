@@ -3,11 +3,14 @@
 字段直接用 domain 值对象（Email / Phone / DeptId），经 `SingleValueObject`
 统一裸值出入、OpenAPI 展示为 string（id 带 format: uuid），无需重复写 pattern。
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.iam.application.current_user.dto import MySessionOut
 from app.iam.application.user.dto import (
     CreateUserIn,
     GetUsersIn,
+    MyProfileOut,
+    UpdateMyProfileIn,
     UserDetailOut,
     UserListItemOut,
     UserOut,
@@ -62,6 +65,23 @@ class CurrentUserResp(BaseModel):
 class CreateUserResp(UserResp):
     """创建用户响应——服务端生成密码时一次性回传明文。"""
     temporary_password: str | None = None
+
+
+class UpdateMyProfileReq(UpdateMyProfileIn):
+    """自助资料更新请求——只允许昵称 / 邮箱 / 手机号。"""
+
+
+class MyProfileResp(MyProfileOut):
+    """自助资料响应。"""
+
+
+class MySessionResp(MySessionOut):
+    """自助在线设备响应。"""
+
+
+class RevokeMySessionsReq(BaseModel):
+    """自助踢设备请求（只会作用到本人的会话）。"""
+    session_ids: list[str] = Field(min_length=1)
 
 
 class ChangePasswordReq(BaseModel):

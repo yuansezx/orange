@@ -35,3 +35,8 @@ class SessionOut(BaseModel):
     browser_version: str | None = None
     os: str | None = None
     device: str | None = None
+
+
+class MySessionOut(SessionOut):
+    """自助在线设备：在会话视图上标记当前设备（前端据此“退出其他设备”）。"""
+    is_current: bool = False

@@ -75,3 +75,28 @@ class UserDetailOut(UserOut, AuditOut):
     """用户详情——数据字段 + 审计（平铺）+ 部门引用 + 已分配角色。"""
     dept_ref: DeptRefOut | None = None
     roles: list[RoleRefOut] = Field(default_factory=list)
+
+
+class UpdateMyProfileIn(BaseModel):
+    """自助资料更新：只允许昵称 / 邮箱 / 手机号。"""
+    nickname: str
+    email: Email | None = None
+    phone: Phone | None = None
+
+
+class MyProfileOut(BaseModel):
+    """自助资料——本人数据 + 角色/部门，**不含**审计操作人与数据范围。"""
+    user_id: UserId
+    username: str
+    nickname: str
+    email: Email | None = None
+    phone: Phone | None = None
+    user_type: UserTypeEnum
+    status: StatusEnum
+    description: str | None = None
+    dept: DeptRefOut | None = None
+    roles: list[RoleRefOut] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime | None = None
+    password_updated_at: datetime | None = None
+    need_change_password: bool

@@ -7,9 +7,13 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.iam.application.common.exceptions import InvalidTokenException
+from app.iam.application.current_user.ports import (
+    SessionManagerPort,
+    SessionVerificationException,
+)
 from app.iam.application.current_user.services import CurrentUserApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.interface.dependences import get_current_user_app_service
+from app.iam.interface.dependences import get_current_user_app_service, get_session_manager
 
 # auto_error=False → 缺头 / 非 Bearer 一律返回 None，由我们抛业务异常（401 + 统一错误体），
 # 而非 FastAPI 默认的 403；同时产出 OpenAPI security scheme（Swagger 显示锁 + 全局 Authorize）。
@@ -31,3 +35,14 @@ async def get_current_user(
 ) -> CurrentUser:
     """把令牌解成当前用户；令牌无效/失效 → InvalidTokenException（401）。"""
     return await current_user_app_service.get_current_user(token)
+
+
+async def get_current_session_id(
+    token: str = Depends(get_bearer_token),
+    session_manager: SessionManagerPort = Depends(get_session_manager),
+) -> str:
+    """取当前令牌对应的 `session_id`（仅自助会话接口用；业务层只见 session_id）。"""
+    try:
+        return (await session_manager.authenticate(token)).session_id
+    except SessionVerificationException:
+        raise InvalidTokenException('无效令牌')

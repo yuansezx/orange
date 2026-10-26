@@ -7,6 +7,12 @@ class PasswordPolicyViolationException(IAMBusinessBaseException):
     kind = ErrorKindEnum.VALIDATION
 
 
+class UserProfileValidationException(IAMBusinessBaseException):
+    """自助资料字段不合法（如昵称为空）。"""
+    code = 'IAM_USER_PROFILE_INVALID'
+    kind = ErrorKindEnum.VALIDATION
+
+
 class UserImmutableException(IAMBusinessBaseException):
     """目标用户不可更改/删除（SYSTEM / SUPER_ADMIN 等受保护账户，与调用者权限无关）。"""
     code = 'IAM_USER_IMMUTABLE'

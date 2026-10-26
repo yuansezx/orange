@@ -23,7 +23,7 @@ from app.iam.interface.dependences import (
     get_user_app_service,
     get_user_role_app_service,
 )
-from app.iam.interface.http.dependencies import get_current_user
+from app.iam.interface.http.dependencies import get_current_session_id, get_current_user
 from app.iam.interface.http.schemas import UpdateStatusReq
 from app.iam.interface.http.user.schemas import (
     ChangePasswordReq,
@@ -31,8 +31,12 @@ from app.iam.interface.http.user.schemas import (
     CreateUserResp,
     CurrentUserResp,
     GetUsersReq,
+    MyProfileResp,
+    MySessionResp,
     ResetPasswordReq,
     ResetPasswordResp,
+    RevokeMySessionsReq,
+    UpdateMyProfileReq,
     UpdateUserReq,
     UserDetailResp,
     UserListItemResp,
@@ -88,6 +92,50 @@ async def change_my_password(
 ) -> None:
     await current_user_app_service.change_password(
         ChangePasswordIn(**body.model_dump()), current_user, request_meta)
+
+
+@user_router.get('/me/profile', response_model=MyProfileResp, summary='我的个人资料')
+async def get_my_profile(
+    current_user: CurrentUser = Depends(get_current_user),
+    user_app_service: UserApplicationService = Depends(get_user_app_service),
+) -> MyProfileResp:
+    profile = await user_app_service.get_my_profile(current_user)
+    return MyProfileResp(**profile.model_dump())
+
+
+@user_router.put('/me/profile', response_model=MyProfileResp, summary='更新我的个人资料')
+async def update_my_profile(
+    body: UpdateMyProfileReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
+    user_app_service: UserApplicationService = Depends(get_user_app_service),
+) -> MyProfileResp:
+    profile = await user_app_service.update_my_profile(body, current_user, request_meta)
+    return MyProfileResp(**profile.model_dump())
+
+
+@user_router.get('/me/sessions', response_model=list[MySessionResp],
+                 summary='我的在线设备')
+async def list_my_sessions(
+    current_user: CurrentUser = Depends(get_current_user),
+    current_session_id: str = Depends(get_current_session_id),
+    app_service: CurrentUserApplicationService = Depends(get_current_user_app_service),
+) -> list[MySessionResp]:
+    sessions = await app_service.list_my_sessions(current_user, current_session_id)
+    return [MySessionResp(**session.model_dump()) for session in sessions]
+
+
+@user_router.delete('/me/sessions', status_code=status.HTTP_204_NO_CONTENT,
+                    summary='退出登录设备')
+async def revoke_my_sessions(
+    body: RevokeMySessionsReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    current_session_id: str = Depends(get_current_session_id),
+    request_meta: RequestMeta = Depends(get_request_meta),
+    app_service: CurrentUserApplicationService = Depends(get_current_user_app_service),
+) -> None:
+    await app_service.revoke_my_sessions(
+        set(body.session_ids), current_user, current_session_id, request_meta)
 
 
 @user_router.get('/{user_id}/detail', response_model=UserDetailResp,

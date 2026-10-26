@@ -11,7 +11,13 @@ from app.iam.application.common.exceptions import AuthenticationException, Inval
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.queries import EffectivePermissionQuery
 from app.iam.application.user.exceptions import OldPasswordMismatchException
-from app.iam.application.current_user.dto import ChangePasswordIn, LoginIn, LoginOut, SessionOut
+from app.iam.application.current_user.dto import (
+    ChangePasswordIn,
+    LoginIn,
+    LoginOut,
+    MySessionOut,
+    SessionOut,
+)
 from app.iam.application.current_user.ports import (
     SessionInfo,
     SessionManagerPort,
@@ -137,6 +143,46 @@ class CurrentUserApplicationService:
         await self.current_user_repo.evict(user.id)
 
     # ---------------- 在线会话 ----------------
+    async def list_my_sessions(self, current_user: CurrentUser,
+                               current_session_id: str) -> list[MySessionOut]:
+        """自助在线设备：只列本人；标记当前设备，前端据此“退出其他设备”。"""
+        sessions = await self.session_manager.get_all(user_id=current_user.user_id)
+        names = (current_user.username, current_user.nickname)
+        result = [
+            MySessionOut(
+                **_to_session_out(session, names).model_dump(),
+                is_current=session.session_id == current_session_id,
+            )
+            for session in sessions
+        ]
+        result.sort(key=lambda session: session.login_at, reverse=True)
+        return result
+
+    async def revoke_my_sessions(self, session_ids: set[str], current_user: CurrentUser,
+                                 current_session_id: str,
+                                 request_meta: RequestMeta | None = None) -> int:
+        """自助踢设备：请求的 id 只会在本人会话里取交集；允许踢当前会话（等同退出）。"""
+        if not session_ids:
+            return 0
+        own_ids = {session.session_id for session in
+                   await self.session_manager.get_all(user_id=current_user.user_id)}
+        ids = set(session_ids) & own_ids
+        if not ids:
+            return 0
+        removed = await self.session_manager.revoke(current_user.user_id, ids)
+        if removed:
+            await self._audit_revoke(
+                target_id=str(current_user.user_id),
+                summary='退出登录设备',
+                action='revoke_sessions',
+                detail={
+                    'self': True,
+                    'session_ids': sorted(ids),
+                    'revoked_current': current_session_id in ids,
+                },
+                current_user=current_user, request_meta=request_meta)
+        return removed
+
     @requires_permission('iam:current_user:read_sessions')
     async def list_sessions(self, current_user: CurrentUser) -> list[SessionOut]:
         sessions = await self.session_manager.get_all()
