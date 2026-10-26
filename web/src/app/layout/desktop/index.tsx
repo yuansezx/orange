@@ -18,29 +18,32 @@ import { SystemNav } from '../components/SystemNav'
 
 const DEFAULT_ALLOWED_STATES: SystemNavState[] = ['hidden', 'rail', 'expanded']
 const DEFAULT_STATE: SystemNavState = 'expanded'
+/** 非 workspace 页面（如 /account）共用一个系统栏状态槽。 */
+const SYSTEM_NAV_KEY = '__system__'
 
 /** 系统壳 · 桌面：workspace 栏（三态 × push/overlay）+ 内容区。 */
 export function DesktopAdminShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { can } = usePermission()
-  const [stateByWorkspace, setStateByWorkspace] = useState<
+  const [stateByNavKey, setStateByNavKey] = useState<
     Record<string, SystemNavState>
   >({})
 
   const allowed = filterWorkspacesByPermission(workspaces, can)
   const current = workspaceOfPath(allowed, pathname)
+  const navKey = current?.key ?? SYSTEM_NAV_KEY
   const preference = current?.systemNav
   const behavior = preference?.behavior ?? 'push'
   const allowedStates = preference?.allowedStates ?? DEFAULT_ALLOWED_STATES
   const defaultState = preference?.defaultState ?? DEFAULT_STATE
-  const navState = (current ? stateByWorkspace[current.key] : undefined) ?? defaultState
+  const navState = stateByNavKey[navKey] ?? defaultState
   const canHide = allowedStates.includes('hidden')
   const restoreState = allowedStates.find((state) => state !== 'hidden') ?? 'rail'
 
   const setState = (next: SystemNavState) => {
-    if (!current || !allowedStates.includes(next)) return
-    setStateByWorkspace((prev) => ({ ...prev, [current.key]: next }))
+    if (!allowedStates.includes(next)) return
+    setStateByNavKey((prev) => ({ ...prev, [navKey]: next }))
   }
 
   const trigger = (
