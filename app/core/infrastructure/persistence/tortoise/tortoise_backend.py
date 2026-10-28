@@ -83,9 +83,17 @@ async def close() -> None:
 
 
 async def run_migrations() -> None:
-    """启动前按 app label 逐个执行迁移（dev：自动 detect → 生成 → 应用）。"""
-    config = build_tortoise_config()
-    for app_label in config['apps']:
+    """启动前按模块逐个执行迁移（dev：自动 detect → 生成 → 应用）。
+
+    每次只把**该模块自己的 app/models** 交给 Aerich：Aerich 的 diff 看的是
+    Tortoise 注册的全部模型，若共用完整配置，同一句 DDL 会在每个模块的迁移里重复生成。
+    """
+    full_config = build_tortoise_config()
+    for app_label in full_config['apps']:
+        config = {
+            **full_config,
+            'apps': {app_label: full_config['apps'][app_label]},
+        }
         command = Command(tortoise_config=config, app=app_label, location=MIGRATIONS_DIR)
         try:
             try:
