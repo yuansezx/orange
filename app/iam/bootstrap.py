@@ -20,6 +20,7 @@ from app.iam.domain.user.events import UserChanged
 from app.iam.domain.user_role_assignment.events import UserRolesChanged
 from app.iam.interface.dependences import (
     get_affected_users_query,
+    get_avatar_storage,
     get_current_user_repo,
     get_permission_users_query,
     get_resource_app_service,
@@ -119,3 +120,11 @@ async def bootstrap() -> None:
                 len(IAM_RESOURCE_DECLARATIONS))
     await get_resource_app_service().register_resources(
         IAM_MODULE, IAM_RESOURCE_DECLARATIONS, operator_id)
+
+    avatar_storage = get_avatar_storage()
+    if avatar_storage is None:
+        logger.info('未配置 iam.avatar_storage，跳过头像存储初始化')
+    else:
+        logger.info('检查头像存储（bucket）...')
+        await avatar_storage.ensure_ready()
+        logger.info('头像存储就绪。')

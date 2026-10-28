@@ -236,6 +236,7 @@ class CurrentUserApplicationService:
             user_type=user.user_type,
             roles=sorted(effective.roles, key=lambda r: r.code),
             dept_id=user.dept_id,
+            avatar_key=user.avatar_key,
             permission_codes=sorted(effective.permission_codes),
             data_scope_spec=data_scope_spec,
         )

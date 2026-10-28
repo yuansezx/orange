@@ -1,8 +1,11 @@
 from datetime import datetime, UTC
 
+from loguru import logger
+
 from app.core.application.dto import RequestMeta
 from app.core.domain.event_bus import EventBus
 from app.core.domain.value_objects import EventId
+from app.core.utils.file_type import detect_mime_type
 from app.core.utils.schemas import PageResult
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
@@ -17,10 +20,12 @@ from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.current_user.ports import SessionManagerPort
 from app.iam.application.common.services import AuditService, DeptRefService
 from app.iam.application.user.exceptions import (
+    AvatarValidationException,
     PasswordResetNotAllowedException,
     UserExistsException,
     UserNotExistException,
 )
+from app.iam.application.user.ports import AvatarStoragePort, StoredAvatar
 from app.iam.application.user.dto import (
     CreateUserIn,
     GetUsersIn,
@@ -44,6 +49,17 @@ from app.iam.domain.user.services import CheckUserUniqueService, UserAccessServi
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
 
+AVATAR_MAX_BYTES = 5 * 1024 * 1024
+# image/apng 是 PNG 的动图扩展；libmagic 可能报 image/png 或 image/apng
+AVATAR_ALLOWED_MIME = {
+    'image/jpeg',
+    'image/png',
+    'image/apng',
+    'image/webp',
+    'image/gif',
+}
+
+
 class UserApplicationService:
     # 直接通过依赖链创建，不要每次手动创建
     def __init__(self, in_transaction: InTransactionType,
@@ -58,7 +74,8 @@ class UserApplicationService:
                  dept_ref_service: DeptRefService,
                  session_manager: SessionManagerPort,
                  current_user_repo: CurrentUserRepository,
-                 event_bus: EventBus):
+                 event_bus: EventBus,
+                 avatar_storage: AvatarStoragePort | None = None):
 
         self.in_transaction = in_transaction
         self.user_repo = user_repo
@@ -75,6 +92,7 @@ class UserApplicationService:
         self.current_user_repo = current_user_repo
 
         self.event_bus = event_bus
+        self.avatar_storage = avatar_storage
 
     async def initialize_super_admin(self, username: str, password: str, nickname: str) -> None:
         """初始化首个超管（逃生舱）。
@@ -180,6 +198,83 @@ class UserApplicationService:
                 },
             )
         # 昵称在 CurrentUser 快照里：提交后清快照，会话不掉线
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
+        return await self._build_my_profile(user)
+
+    async def get_avatar(self, user_id: UserId, version: str) -> StoredAvatar | None:
+        """读取头像（后端代理）；version 必须是当前 avatar_key 的末段，防盗链/枚举。"""
+        if self.avatar_storage is None:
+            return None
+        user = await self.user_repo.get(user_id)
+        if user is None or not user.avatar_key:
+            return None
+        if user.avatar_key.rsplit('/', 1)[-1] != version:
+            return None
+        return await self.avatar_storage.load(user.avatar_key)
+
+    async def update_my_avatar(self, data: bytes, current_user: CurrentUser,
+                               request_meta: RequestMeta | None = None) -> MyProfileOut:
+        """自助上传头像：校验类型/大小 → 存对象 → 更新 key → 删旧对象（best-effort）。"""
+        if self.avatar_storage is None:
+            raise RuntimeError('未配置头像存储')
+        if not data or len(data) > AVATAR_MAX_BYTES:
+            raise AvatarValidationException(
+                f'头像不能超过 {AVATAR_MAX_BYTES // 1024 // 1024} MB')
+        content_type = detect_mime_type(data)
+        if content_type not in AVATAR_ALLOWED_MIME:
+            raise AvatarValidationException('仅支持 JPEG / PNG / APNG / WebP / GIF 图片')
+
+        user = await self._load_self(current_user.user_id)
+        old_key = user.avatar_key
+        new_key = await self.avatar_storage.save(user.id, data, content_type)
+        try:
+            async with self.in_transaction():
+                user.set_avatar_key(new_key, current_user.user_id)
+                await self.user_repo.update(user)
+                await self.audit_log_writer.write(
+                    current_user=current_user,
+                    request_meta=request_meta,
+                    resource='user',
+                    action='update_avatar',
+                    summary=f'更新头像：{user.username}',
+                    target_type='user',
+                    target_id=str(user.id.value),
+                    target_name=user.username,
+                    detail={'old_key': old_key, 'new_key': new_key},
+                )
+        except Exception:
+            await self._delete_avatar_quietly(new_key)
+            raise
+
+        if old_key:
+            await self._delete_avatar_quietly(old_key)
+        await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
+        return await self._build_my_profile(user)
+
+    async def delete_my_avatar(self, current_user: CurrentUser,
+                               request_meta: RequestMeta | None = None) -> MyProfileOut:
+        """自助清除头像：清 DB key + 删对象（best-effort）。"""
+        user = await self._load_self(current_user.user_id)
+        old_key = user.avatar_key
+        if not old_key:
+            return await self._build_my_profile(user)
+
+        async with self.in_transaction():
+            user.set_avatar_key(None, current_user.user_id)
+            await self.user_repo.update(user)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='user',
+                action='delete_avatar',
+                summary=f'删除头像：{user.username}',
+                target_type='user',
+                target_id=str(user.id.value),
+                target_name=user.username,
+                detail={'old_key': old_key},
+            )
+
+        await self._delete_avatar_quietly(old_key)
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
         return await self._build_my_profile(user)
 
@@ -450,6 +545,15 @@ class UserApplicationService:
         """状态变更的唯一应用层入口（更新 / 专用状态接口共用）。"""
         user.change_status(status, current_user.user_id)
 
+    async def _delete_avatar_quietly(self, key: str) -> None:
+        """删除对象失败不阻断主流程（只告警）。"""
+        if self.avatar_storage is None:
+            return
+        try:
+            await self.avatar_storage.delete(key)
+        except Exception:
+            logger.warning('删除头像对象失败：{}', key)
+
     async def _load_self(self, user_id: UserId) -> User:
         """自助入口固定读本人；行不存在（硬删/异常）按令牌失效处理。"""
         user = await self.user_repo.get(user_id)
@@ -477,6 +581,7 @@ class UserApplicationService:
             updated_at=user.updated_at,
             password_updated_at=user.password_updated_at,
             need_change_password=user.need_change_password,
+            avatar_key=user.avatar_key,
         )
 
     async def _load(self, user_id: UserId) -> User:

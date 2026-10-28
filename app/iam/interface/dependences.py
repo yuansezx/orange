@@ -13,7 +13,7 @@ from redis.asyncio import Redis
 
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
-from app.core.infrastructure import cache, persistence
+from app.core.infrastructure import cache, object_storage, persistence
 from app.iam.application.common.queries import (
     EffectivePermissionQuery,
     PermissionExistsQuery,
@@ -27,6 +27,7 @@ from app.iam.application.current_user.services import CurrentUserApplicationServ
 from app.iam.application.dept.services import DeptApplicationService
 from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.role.services import RoleApplicationService
+from app.iam.application.user.ports import AvatarStoragePort
 from app.iam.application.user.services import UserApplicationService
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.shared.services import DataScopeService
@@ -40,8 +41,13 @@ from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 from app.iam.infrastructure.adapters.audit_log_writer_adapter import AuditLogWriterAdapter
+from app.iam.infrastructure.adapters.avatar_storage.base import AvatarStorageS3Adapter
+from app.iam.infrastructure.adapters.avatar_storage.rustfs import (
+    AvatarStorageS3RustFSAdapter,
+)
 from app.iam.infrastructure.adapters.session_manager_adapter import SessionManagerJWTRedisAdapter
 from app.iam.infrastructure.cache.current_user_repo import CurrentUserRepositoryRedisImpl
+from app.iam.infrastructure.settings import IAM_SETTINGS
 
 # 按当前连接的方言解析 iam 的基础设施实现（models / repositories / queries）
 _repos = persistence.module_infra('iam', 'repositories')
@@ -121,6 +127,7 @@ def get_user_app_service() -> UserApplicationService:
         session_manager=get_session_manager(),
         current_user_repo=get_current_user_repo(),
         event_bus=get_event_bus(),
+        avatar_storage=get_avatar_storage(),
     )
 
 
@@ -211,3 +218,19 @@ def get_current_user_app_service() -> CurrentUserApplicationService:
         audit_log_writer=get_audit_log_writer(),
         in_transaction=get_in_transaction(),
     )
+
+
+# provider → 专用 adapter；未注册的 S3 兼容 provider 回退通用实现
+_AVATAR_STORAGE_ADAPTERS: dict[str, type[AvatarStoragePort]] = {
+    'rustfs': AvatarStorageS3RustFSAdapter,
+}
+
+
+def get_avatar_storage() -> AvatarStoragePort | None:
+    """未配置 iam.avatar_storage 时返回 None（个人中心不启用头像）。"""
+    cfg = IAM_SETTINGS.avatar_storage
+    if cfg is None:
+        return None
+    provider = object_storage.get_object_storage_provider(cfg.connection)
+    adapter_cls = _AVATAR_STORAGE_ADAPTERS.get(provider, AvatarStorageS3Adapter)
+    return adapter_cls(object_storage.get_object_storage_client(cfg.connection))

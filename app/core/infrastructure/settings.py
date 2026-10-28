@@ -70,6 +70,18 @@ class CacheConfig(BaseModel):
     options: dict = {}
 
 
+class ObjectStorageConfig(BaseModel):
+    """对象存储配置（core 段内的嵌套 schema）。
+
+    backend：选择客户端后端（对应 object_storage/{backend}/{backend}_backend.py）；
+    options：**命名连接映射** {连接名: {provider, endpoint_url, access_key, ...}}，
+             core 原样透传、不解释；provider 供业务侧选择具体 adapter。
+    未配置则 core 不启动对象存储。
+    """
+    backend: str = 's3'
+    options: dict = {}
+
+
 class CoreSettings(AppBaseSettings):
     model_config = SettingsConfigDict(
         yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],
@@ -113,6 +125,9 @@ class CoreSettings(AppBaseSettings):
 
     # 缓存配置（可选；未配置则 core 不启动缓存，用到时才报错）
     cache: CacheConfig | None = None
+
+    # 对象存储配置（可选；未配置则 core 不启动对象存储，用到时才报错）
+    object_storage: ObjectStorageConfig | None = None
 
     # def __init__(self):
     #     super().__init__()

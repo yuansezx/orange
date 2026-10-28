@@ -21,6 +21,7 @@ class UserModel(AuditableModel):
     need_change_password = fields.BooleanField(default=True)
     password_updated_at = fields.DatetimeField(null=True)
     description = fields.TextField(null=True)
+    avatar_key = fields.CharField(max_length=512, null=True)
     dept_id = fields.UUIDField(null=True)
 
     class Meta:

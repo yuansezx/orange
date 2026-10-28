@@ -17,6 +17,11 @@ class CurrentUserConfig(BaseModel):
     snapshot_ttl_seconds: int | None = None
 
 
+class AvatarStorageConfig(BaseModel):
+    """头像存储：引用 core.object_storage 的哪条连接；桶名由 adapter 代码拥有。"""
+    connection: str = 'default'
+
+
 class IAMSettings(AppBaseSettings):
     model_config = SettingsConfigDict(
         yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],
@@ -28,6 +33,8 @@ class IAMSettings(AppBaseSettings):
     )
     jwt_config: JWTConfig | None = None
     current_user_config: CurrentUserConfig = CurrentUserConfig()
+    # 未配置 = 不启用头像存储（个人资料仍可用，只是没有头像）
+    avatar_storage: AvatarStorageConfig | None = None
 
     def __init__(self):
         super().__init__()

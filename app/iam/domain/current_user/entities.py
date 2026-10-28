@@ -18,6 +18,7 @@ class CurrentUser(BaseModel):
     data_scope_spec: DataScopeSpec
     roles: list[RoleSummary] | None = None
     dept_id: DeptId | None = None
+    avatar_key: str | None = None
     permission_codes: list[str] | None = None
 
     def has_permission(self, *groups: str | tuple[str, ...]) -> bool:

@@ -3,13 +3,16 @@
 字段直接用 domain 值对象（Email / Phone / DeptId），经 `SingleValueObject`
 统一裸值出入、OpenAPI 展示为 string（id 带 format: uuid），无需重复写 pattern。
 """
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
+from app.iam.application.common.dto import DeptRefOut
 from app.iam.application.current_user.dto import MySessionOut
 from app.iam.application.user.dto import (
     CreateUserIn,
     GetUsersIn,
-    MyProfileOut,
+    RoleRefOut,
     UpdateMyProfileIn,
     UserDetailOut,
     UserListItemOut,
@@ -59,6 +62,7 @@ class CurrentUserResp(BaseModel):
     user_type: UserTypeEnum
     roles: list[RoleSummary] | None = None
     dept_id: DeptId | None = None
+    avatar_url: str | None = None
     permission_codes: list[str] | None = None
 
 
@@ -71,8 +75,23 @@ class UpdateMyProfileReq(UpdateMyProfileIn):
     """自助资料更新请求——只允许昵称 / 邮箱 / 手机号。"""
 
 
-class MyProfileResp(MyProfileOut):
-    """自助资料响应。"""
+class MyProfileResp(BaseModel):
+    """自助资料响应：对外字段 + 头像 URL；不含内部对象 key。"""
+    user_id: UserId
+    username: str
+    nickname: str
+    email: Email | None = None
+    phone: Phone | None = None
+    user_type: UserTypeEnum
+    status: StatusEnum
+    description: str | None = None
+    dept: DeptRefOut | None = None
+    roles: list[RoleRefOut] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime | None = None
+    password_updated_at: datetime | None = None
+    need_change_password: bool
+    avatar_url: str | None = None
 
 
 class MySessionResp(MySessionOut):

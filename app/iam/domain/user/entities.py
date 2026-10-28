@@ -37,6 +37,7 @@ class User(AuditableEntity[UserId]):
     need_change_password: bool  # 这两行密码相关的记录主要是为了`首次登录要修改`，`长时间没改密码提示更改`，`管理员给用户重置密码后，用户登录修改`
     password_updated_at: datetime | None = None
     description: str | None = None
+    avatar_key: str | None = None  # 对象存储里的 key；URL 由接口层拼
     dept_id: DeptId | None = None
 
     @model_validator(mode='after')
@@ -115,6 +116,14 @@ class User(AuditableEntity[UserId]):
         self.nickname = nickname
         self.email = email
         self.phone = phone
+        self.updated_by = operator_id
+        self.updated_at = datetime.now(UTC)
+
+    def set_avatar_key(self, avatar_key: str | None, operator_id: UserId) -> None:
+        """设置/清除头像对象 key（None = 清除）。"""
+        if not self.can_update():
+            raise UserImmutableException('用户不可更改')
+        self.avatar_key = avatar_key
         self.updated_by = operator_id
         self.updated_at = datetime.now(UTC)
 

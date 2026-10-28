@@ -100,3 +100,4 @@ class MyProfileOut(BaseModel):
     updated_at: datetime | None = None
     password_updated_at: datetime | None = None
     need_change_password: bool
+    avatar_key: str | None = None

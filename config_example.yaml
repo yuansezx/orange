@@ -39,6 +39,19 @@ core:
       port: 6379
       password: redis
       db: 0
+  # 对象存储配置（可选；不配则 core 不启动对象存储）
+  object_storage:
+    # 客户端后端（对应 object_storage/{backend}）
+    backend: s3
+    # 命名连接：{连接名: provider + 连接参数}；provider 供业务 adapter 选择
+    options:
+      default:
+        provider: rustfs
+        endpoint_url: http://127.0.0.1:9000
+        access_key: orange
+        secret_key: change-me
+        region: us-east-1
+        path_style: true
 
 iam:
   jwt_config:
@@ -51,3 +64,7 @@ iam:
   current_user_config:
     # 快照 TTL（秒）；不配则缺省 = 令牌期（jwt_config.expire_minutes × 60，此处 30×60=1800）
     snapshot_ttl_seconds: 1800
+  # 头像存储（可选；未配置则个人中心不启用头像）
+  avatar_storage:
+    # 引用 core.object_storage.options 里的连接名；桶名由 adapter 代码拥有
+    connection: default
