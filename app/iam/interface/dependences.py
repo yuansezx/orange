@@ -8,8 +8,11 @@ per-request 缓存兜住）。所以被装配的实现应是**无状态**的。
 
 方言实现经 `persistence.module_infra(模块, 子模块)` 取：方言由模块的连接决定，
 组合根**不硬编码方言**（返回的是模块，属性即实现类）。
+
+缓存实现按 provider 选（当前 provider 即 `core.cache.backend`），与对象存储的
+provider 注册表同款；未知 provider 直接报错。
 """
-from redis.asyncio import Redis
+from typing import Any
 
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
@@ -180,12 +183,25 @@ def get_user_role_app_service() -> UserRoleApplicationService:
     )
 
 
-def get_cache_client() -> Redis:
+# provider → 实现；cache 目前没有独立的 provider 层，provider 即 core.cache.backend
+_CURRENT_USER_REPO_IMPLS: dict[str, type[CurrentUserRepository]] = {
+    'redis': CurrentUserRepositoryRedisImpl,
+}
+_SESSION_MANAGER_IMPLS: dict[str, type[SessionManagerPort]] = {
+    'redis': SessionManagerJWTRedisAdapter,
+}
+
+
+def get_cache_client() -> Any:
     return cache.get_cache()
 
 
 def get_current_user_repo() -> CurrentUserRepository:
-    return CurrentUserRepositoryRedisImpl(get_cache_client())
+    provider = cache.get_cache_provider()
+    impl = _CURRENT_USER_REPO_IMPLS.get(provider)
+    if impl is None:
+        raise RuntimeError(f'未注册的缓存实现：current_user_repo/{provider}')
+    return impl(get_cache_client())
 
 
 def get_effective_permission_query() -> EffectivePermissionQuery:
@@ -205,7 +221,11 @@ def get_permission_exists_query() -> PermissionExistsQuery:
 
 
 def get_session_manager() -> SessionManagerPort:
-    return SessionManagerJWTRedisAdapter(get_cache_client())
+    provider = cache.get_cache_provider()
+    impl = _SESSION_MANAGER_IMPLS.get(provider)
+    if impl is None:
+        raise RuntimeError(f'未注册的缓存实现：session_manager/{provider}')
+    return impl(get_cache_client())
 
 
 def get_current_user_app_service() -> CurrentUserApplicationService:

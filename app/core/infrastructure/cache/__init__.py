@@ -38,3 +38,15 @@ async def stop_cache() -> None:
 def get_cache():
     """返回缓存客户端（当前实现为 redis-py 的 asyncio 客户端）。"""
     return _load_backend().get_client()
+
+
+def get_cache_provider() -> str:
+    """取当前缓存 provider（供业务侧选择 adapter）。
+
+    cache 没有独立的 provider/dialect 层：`core.cache.backend` 即 provider。
+    日后同协议出现多种服务（valkey / keydb 等）时再拆出 provider 字段。
+    """
+    cfg = CORE_SETTINGS.cache
+    if cfg is None:
+        raise RuntimeError('缺少 core.cache 配置')
+    return cfg.backend

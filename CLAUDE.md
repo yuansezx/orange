@@ -43,7 +43,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │   │       ├── models.py            # AuditableModel（ORM 审计基类，abstract）
 │   │   │       └── postgres/postgres_backend.py  # DB 方言层（{dialect}/）：build_connection 补 engine
 │   │   └── cache/                 #     缓存（与 persistence 同构的门面：cache/{backend}/{backend}_backend）
-│   │       ├── __init__.py        #       start_cache / stop_cache / get_cache
+│   │       ├── __init__.py        #       start_cache / stop_cache / get_cache / get_cache_provider
 │   │       └── redis/redis_backend.py
 │   ├── exceptions.py              #     异常两根 + ErrorKindEnum（纯定义，不依赖 fastapi）
 │   ├── utils/                     #     schemas(PageResult) / validators / type_utils / jwt_util / password_hash

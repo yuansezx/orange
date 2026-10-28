@@ -7,7 +7,7 @@ from app.iam.domain.shared.value_objects import UserId
 
 
 class CurrentUserRepository(ABC):
-    """当前用户缓存（Redis）。set 写入并设 TTL；get 未命中返回 None；evict 淘汰。"""
+    """当前用户缓存。set 写入并设 TTL；get 未命中返回 None；evict 淘汰。"""
 
     @abstractmethod
     async def set(self, current_user: CurrentUser) -> None: ...
