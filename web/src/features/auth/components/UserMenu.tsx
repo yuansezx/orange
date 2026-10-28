@@ -56,7 +56,7 @@ export function UserMenu({ placement = 'bottomRight', compact = false }: Props) 
           cursor: 'pointer',
         }}
       >
-        <UserAvatar name={me.nickname} src={me.avatar} size={28} />
+        <UserAvatar name={me.nickname} src={me.avatar_url} size={28} />
         {!compact && (
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {me.nickname}

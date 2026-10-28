@@ -18,6 +18,7 @@ export interface MyProfile {
   updated_at: string | null
   password_updated_at: string | null
   need_change_password: boolean
+  avatar_url: string | null
 }
 
 /** 自助资料更新——对齐后端 `UpdateMyProfileReq`（PUT 完整替换）。 */

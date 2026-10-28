@@ -164,7 +164,7 @@ export function MobileAdminShell() {
             padding: '8px 12px',
           }}
         >
-          <UserAvatar name={me?.nickname ?? ''} src={me?.avatar} size={32} />
+          <UserAvatar name={me?.nickname ?? ''} src={me?.avatar_url} size={32} />
           <span
             style={{
               flex: 1,
