@@ -279,7 +279,9 @@ function ProfileInfo({
               {profile.need_change_password ? '待修改' : '已更新'}
             </Tag>
             <Typography.Text type="secondary">
-              上次修改 {formatTime(profile.password_updated_at)}
+              {profile.password_updated_at
+                ? `上次修改 ${formatTime(profile.password_updated_at)}`
+                : '从未修改'}
             </Typography.Text>
             <Typography.Link onClick={onSecurity}>修改</Typography.Link>
           </Space>

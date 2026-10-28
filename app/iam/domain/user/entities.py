@@ -35,7 +35,7 @@ class User(AuditableEntity[UserId]):
     user_type: UserTypeEnum
     status: StatusEnum
     need_change_password: bool  # 这两行密码相关的记录主要是为了`首次登录要修改`，`长时间没改密码提示更改`，`管理员给用户重置密码后，用户登录修改`
-    password_updated_at: datetime | None = None
+    password_updated_at: datetime | None = None  # 仅改密/重置写入；创建时为 None（初始密码不算修改）
     description: str | None = None
     avatar_key: str | None = None  # 对象存储里的 key；URL 由接口层拼
     dept_id: DeptId | None = None
@@ -64,10 +64,8 @@ class User(AuditableEntity[UserId]):
     def create_with_password(cls, password: str, **fields) -> 'User':
         """创建用户：密码策略与哈希由实体收口（创建后首次登录需修改）。"""
         cls._validate_password(password)
-        now = datetime.now(UTC)
         return cls(
             password_hash=hash_password(password),
-            password_updated_at=now,
             need_change_password=True,
             **fields,
         )
