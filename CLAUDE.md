@@ -79,7 +79,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   │       └── queries/           #     effective_permission.py / dept_affected_users.py / permission_exists.py（CQRS 读侧查询）
 │   └── interface/
 │       ├── dependences.py         #   组合根：get_*（http / bootstrap / python api 共用）
-│       ├── python/                #   对外 Python API（其他模块只经此调用）；按能力分包：{api}/{schemas,api}.py（如 auth/、resource/）
+│       ├── python/                #   对外 Python API（其他模块只经此调用）；按能力分包：{api}/{schemas,api}.py（如 auth/、resource/、user/）
 │       └── http/
 │           ├── router.py          #     模块路由汇总（app 工厂按模块动态 include）
 │           ├── dependencies.py    #     get_current_user（Bearer → CurrentUser，只做身份提取）
@@ -126,7 +126,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **请求元数据**：`RequestMeta`（`request_id` / `ip` / `user_agent`）在 `core/application/dto.py`；由 `core/interface/http/dependencies.py::get_request_meta` 从请求构造，**显式传给写用例**（不用中间件/ContextVar），不进 `CurrentUser` / 缓存。写用例签名为 `request_meta: RequestMeta | None = None`——`None` 表示非请求上下文（python api / 后台任务），HTTP 边界必传；审计**记录的组装**（操作人快照 + 请求元数据 + monitor DTO 映射）在 infrastructure adapter，port 只接收调用方上下文与业务事件字段。
 - 应用服务接 DTO（`CreateUserIn` 等）并调用领域服务完成业务逻辑。
 - **事务**：`TransactionContext` + `InTransactionType`（DI）；实现由持久化后端提供，经 `core.infrastructure.persistence.get_in_transaction()` 取用；应用层 `async with in_transaction():`（tortoise 事务连接按 task ContextVar 自动绑定）。
-- **领域事件**：`EventBus` / `EventHandler` 抽象，`BaseEvent` 在 `core/domain/events.py`。**事件类按聚合归属放各子域 `domain/*/events.py`**（`UserChanged` / `RoleChanged` / `UserRolesChanged` / `DeptStructureChanged` / `ResourceChanged`）；**订阅者（副作用，如清 CurrentUser 快照）放应用层**（`application/current_user/event_handlers.py`）。资源/权限的状态、软删、恢复、硬删都会改变有效权限，故发 `ResourceChanged`（带受影响权限 id；硬删时预取受影响用户 id）清快照。进程内 `EventBusMemoryImpl` 是**临时实现**（`publish` fire-and-forget、不等 handler），预期后续接消息系统替换。
+- **领域事件**：`EventBus` / `EventHandler` 抽象，`BaseEvent` 在 `core/domain/events.py`。**事件类按聚合归属放各子域 `domain/*/events.py`**（`UserChanged` / `UserHardDeleted` / `RoleChanged` / `UserRolesChanged` / `DeptStructureChanged` / `ResourceChanged`）；**订阅者（副作用，如清 CurrentUser 快照）放应用层**（`application/current_user/event_handlers.py`）。资源/权限的状态、软删、恢复、硬删都会改变有效权限，故发 `ResourceChanged`（带受影响权限 id；硬删时预取受影响用户 id）清快照。**跨模块订阅**：由生产方在 `interface/python` 暴露注册钩子（如 iam 的 `register_user_hard_deleted_listener`，回调收裸 UUID），消费方在 `bootstrap` 订阅——事件类型与值对象不跨模块；`UserHardDeleted` 只在物理删除时发（软删/恢复只发 `UserChanged`），供其他模块清理属于该用户的数据，当前总线下发是 best-effort。进程内 `EventBusMemoryImpl` 是**临时实现**（`publish` fire-and-forget、不等 handler），预期后续接消息系统替换。
 - **持久化（后端中立）**：只有 `infrastructure/persistence/` 内允许 import 具体 ORM；core 只通过门面访问。
   - 抽象层：`core/infrastructure/persistence/__init__.py`（`start/stop_persistence`、`get_in_transaction`）
   - 具体后端：`core/infrastructure/persistence/{backend}/{backend}_backend.py`

@@ -42,7 +42,7 @@ from app.iam.domain.dept.services import DeptAccessService
 from app.iam.domain.role.repositories import RoleRepository
 from app.core.domain.units_of_work import InTransactionType
 from app.iam.domain.user.entities import User
-from app.iam.domain.user.events import UserChanged
+from app.iam.domain.user.events import UserChanged, UserHardDeleted
 from app.iam.domain.user.exceptions import UserNotDeletedException
 from app.iam.domain.user.repositories import UserRepository, SearchUser
 from app.iam.domain.user.services import CheckUserUniqueService, UserAccessService
@@ -521,6 +521,8 @@ class UserApplicationService:
             )
         # 行已不在；清快照让持有者会话按「用户不可用」失效
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
+        # 供其他模块清理属于该用户的数据（当前总线 best-effort）
+        await self.event_bus.publish(UserHardDeleted(id=EventId.new(), user_id=user_id))
 
     # ---------------- 内部 ----------------
     @staticmethod

@@ -9,11 +9,17 @@ from app.iam.interface.python.resource import (
     RegisterResourceReq,
     register_module_resources,
 )
+from app.iam.interface.python.user import (
+    UserHardDeletedCallback,
+    register_user_hard_deleted_listener,
+)
 
 __all__ = [
     'CurrentUserResp',
     'RegisterPermissionReq',
     'RegisterResourceReq',
+    'UserHardDeletedCallback',
     'get_current_user',
     'register_module_resources',
+    'register_user_hard_deleted_listener',
 ]
