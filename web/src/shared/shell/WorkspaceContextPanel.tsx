@@ -9,17 +9,17 @@ import { useWorkspacePalette } from '@shared/theme/workspacePaletteContext'
 import { IconX } from '@shared/ui/icons'
 
 import {
-  ShellRightPanelContext,
-  type ShellRightPanelConfig,
-  type ShellRightPanelValue,
-} from './rightPanelContext'
+  WorkspaceContextPanelContext,
+  type WorkspaceContextPanelConfig,
+  type WorkspaceContextPanelValue,
+} from './workspaceContextPanelContext'
 import styles from './shell.module.css'
 
 /**
- * 壳级右栏：桌面为**非模态** overlay（无遮罩、背景可操作），移动为全屏 Popup。
+ * workspace 级上下文面板（context panel）：桌面为**非模态** overlay（无遮罩、背景可操作），移动为全屏 Popup。
  * 内容由 `DetailDrawer` 通过 portal 注入，见 `shared/ui/DetailDrawer`。
  */
-export function ShellRightPanelProvider({ children }: { children: ReactNode }) {
+export function WorkspaceContextPanelProvider({ children }: { children: ReactNode }) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const [panel, setPanel] = useState<{ open: boolean; title: string }>({
     open: false,
@@ -27,7 +27,7 @@ export function ShellRightPanelProvider({ children }: { children: ReactNode }) {
   })
   const onCloseRef = useRef<(() => void) | null>(null)
 
-  const open = useCallback((config: ShellRightPanelConfig) => {
+  const open = useCallback((config: WorkspaceContextPanelConfig) => {
     onCloseRef.current = config.onClose
     setPanel({ open: true, title: config.title })
   }, [])
@@ -43,7 +43,7 @@ export function ShellRightPanelProvider({ children }: { children: ReactNode }) {
     onClose?.()
   }, [])
 
-  const value = useMemo<ShellRightPanelValue>(
+  const value = useMemo<WorkspaceContextPanelValue>(
     () => ({
       container,
       isOpen: panel.open,
@@ -56,22 +56,22 @@ export function ShellRightPanelProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <ShellRightPanelContext.Provider value={value}>
+    <WorkspaceContextPanelContext.Provider value={value}>
       {children}
-    </ShellRightPanelContext.Provider>
+    </WorkspaceContextPanelContext.Provider>
   )
 }
 
-function useRightPanelValue(): ShellRightPanelValue {
-  const value = useContext(ShellRightPanelContext)
+function useWorkspaceContextPanelValue(): WorkspaceContextPanelValue {
+  const value = useContext(WorkspaceContextPanelContext)
   if (!value) {
-    throw new Error('ShellRightPanel 必须在 ShellRightPanelProvider 内使用')
+    throw new Error('WorkspaceContextPanel 必须在 WorkspaceContextPanelProvider 内使用')
   }
   return value
 }
 
-export function ShellRightPanel() {
-  const { isOpen, title, close, setContainer } = useRightPanelValue()
+export function WorkspaceContextPanel() {
+  const { isOpen, title, close, setContainer } = useWorkspaceContextPanelValue()
   const palette = useWorkspacePalette()
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export function ShellRightPanel() {
       <Button
         type="text"
         icon={<IconX size={16} />}
-        aria-label="关闭详情"
+        aria-label="关闭上下文面板"
         onClick={() => close()}
       />
       <span
@@ -120,20 +120,20 @@ export function ShellRightPanel() {
     <Platform
       desktop={
         <aside
-          className={styles.rightPanel}
+          className={styles.workspaceContextPanel}
           data-open={isOpen}
           aria-hidden={!isOpen}
           style={{
-            width: layoutTokens.rightPanelWidth,
-            // 窄桌面时别盖住系统栏（按展开宽度保守预留）与 workspace 菜单
-            maxWidth: `calc(100vw - ${layoutTokens.systemNavExpandedWidth + layoutTokens.workspaceMenuWidth + 20}px)`,
+            width: layoutTokens.workspaceContextPanelWidth,
+            // 窄桌面时别盖住系统侧栏（按展开宽度保守预留）与 workspace 侧栏
+            maxWidth: `calc(100vw - ${layoutTokens.systemSidebarExpandedWidth + layoutTokens.workspaceSidebarWidth + 20}px)`,
             background: palette.containerBg,
             borderLeft: `1px solid ${palette.borderSecondary}`,
             boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.08)',
           }}
         >
           {header}
-          <div ref={setContainer} className={styles.rightBody} />
+          <div ref={setContainer} className={styles.contextPanelBody} />
         </aside>
       }
       mobile={

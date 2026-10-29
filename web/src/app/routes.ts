@@ -6,7 +6,7 @@ import type {
   MenuLink,
   NavGroup,
   NavLink,
-  SystemNavBehavior,
+  SystemSidebarBehavior,
   WorkspaceLayoutComponent,
   WorkspaceRef,
 } from '@shared/navigation'
@@ -47,7 +47,7 @@ export interface WorkspaceNav {
   label: string
   icon?: ReactNode
   basePath: string
-  navBehavior?: SystemNavBehavior
+  systemSidebarBehavior?: SystemSidebarBehavior
   /** workspace 级配色覆盖（同一 workspace 多 feature 时浅合并，后者覆盖前者）。 */
   theme?: Partial<WorkspacePalette>
   /** 自定义 workspace 布局；同一 workspace 以最后声明者为准。 */
@@ -100,7 +100,7 @@ for (const feature of features) {
       label: workspaceRef.label,
       icon: feature.icon,
       basePath: workspaceRef.basePath,
-      navBehavior: workspaceRef.navBehavior,
+      systemSidebarBehavior: workspaceRef.systemSidebarBehavior,
       theme: workspaceRef.theme,
       layout: workspaceRef.layout,
       features: [],

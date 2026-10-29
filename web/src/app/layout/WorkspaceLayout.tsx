@@ -5,7 +5,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { usePermission } from '@features/auth'
 import { matchNavLink } from '@shared/navigation'
 import { Platform } from '@shared/platform'
-import { ShellRightPanel, ShellRightPanelProvider } from '@shared/shell'
+import { WorkspaceContextPanel, WorkspaceContextPanelProvider } from '@shared/shell'
 import { layoutTokens } from '@shared/theme/layout'
 import { resolveWorkspacePalette } from '@shared/theme/tokens'
 import { WorkspaceThemeProvider } from '@shared/theme/WorkspaceTheme'
@@ -14,15 +14,16 @@ import {
   filterWorkspacesByPermission,
   type WorkspaceNav,
 } from '../routes'
-import { WorkspaceMenu } from './components/WorkspaceMenu'
+import { WorkspaceSidebar } from './components/WorkspaceSidebar'
 
 interface Props {
   workspace: WorkspaceNav
 }
 
 /**
- * 标准 workspace 壳（在系统内容区里）：
- * 桌面 = 左菜单 + 内容 + 右详情栏；移动 = 顶部页面选择 + 内容（暂定，后续单独适配）。
+ * 默认 workspace 壳（在系统内容区里展开）：
+ * 桌面 = WorkspaceSidebar + workspace 内容区 + WorkspaceContextPanel；
+ * 移动 = 顶部页面选择 + 内容（暂定，后续单独适配）。
  */
 export function WorkspaceLayout({ workspace }: Props) {
   const { pathname } = useLocation()
@@ -53,9 +54,9 @@ export function WorkspaceLayout({ workspace }: Props) {
   if (CustomLayout) {
     return (
       <WorkspaceThemeProvider palette={palette}>
-        <ShellRightPanelProvider>
+        <WorkspaceContextPanelProvider>
           <CustomLayout workspace={filtered} />
-        </ShellRightPanelProvider>
+        </WorkspaceContextPanelProvider>
       </WorkspaceThemeProvider>
     )
   }
@@ -65,24 +66,15 @@ export function WorkspaceLayout({ workspace }: Props) {
       style={{
         height: '100%',
         display: 'grid',
-        gridTemplateColumns: `${layoutTokens.workspaceMenuWidth}px minmax(0, 1fr)`,
+        gridTemplateColumns: `${layoutTokens.workspaceSidebarWidth}px minmax(0, 1fr)`,
         overflow: 'hidden',
       }}
     >
-      <aside
-        style={{
-          minWidth: 0,
-          overflow: 'hidden',
-          borderRight: `1px solid ${palette.navBorder}`,
-          background: palette.navBg,
-        }}
-      >
-        <WorkspaceMenu
-          workspace={filtered}
-          selectedKey={current?.key}
-          onNavigate={(link) => navigate(`/${link.fullPath}`)}
-        />
-      </aside>
+      <WorkspaceSidebar
+        workspace={filtered}
+        selectedKey={current?.key}
+        onNavigate={(link) => navigate(`/${link.fullPath}`)}
+      />
       <main
         style={{
           minWidth: 0,
@@ -140,10 +132,10 @@ export function WorkspaceLayout({ workspace }: Props) {
 
   return (
     <WorkspaceThemeProvider palette={palette}>
-      <ShellRightPanelProvider>
+      <WorkspaceContextPanelProvider>
         <Platform desktop={desktop} mobile={mobile} />
-        <ShellRightPanel />
-      </ShellRightPanelProvider>
+        <WorkspaceContextPanel />
+      </WorkspaceContextPanelProvider>
     </WorkspaceThemeProvider>
   )
 }

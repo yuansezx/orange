@@ -27,8 +27,8 @@ export interface MenuGroup {
   links: MenuLink[]
 }
 
-export type SystemNavState = 'hidden' | 'rail' | 'expanded'
-export type SystemNavBehavior = 'push' | 'overlay'
+export type SystemSidebarState = 'hidden' | 'rail' | 'expanded'
+export type SystemSidebarBehavior = 'push' | 'overlay'
 
 /** 自定义 workspace 布局能拿到的最小 workspace 信息（shared 层不认识完整 WorkspaceNav）。 */
 export interface WorkspaceDescriptor {
@@ -40,7 +40,7 @@ export interface WorkspaceDescriptor {
 /**
  * workspace 自定义布局逃生口：组件自行渲染 `<Outlet />`，可不要默认左/右栏。
  * 系统壳与 `WorkspaceThemeProvider` 仍在外层；详情右栏的 context 也会提供，
- * 需要时自己渲染 `<ShellRightPanel />`。
+ * 需要时自己渲染 `<WorkspaceContextPanel />`。
  */
 export type WorkspaceLayoutComponent = ComponentType<{ workspace: WorkspaceDescriptor }>
 
@@ -57,7 +57,7 @@ export interface WorkspaceRef {
    * workspace 内容与系统栏的关系：`push` 挤占 / `overlay` 悬浮。
    * 系统栏的三态与默认值归系统统一管理，workspace 不参与。
    */
-  navBehavior?: SystemNavBehavior
+  systemSidebarBehavior?: SystemSidebarBehavior
   /** workspace 级配色覆盖；缺省用 `defaultWorkspacePalette`。 */
   theme?: Partial<WorkspacePalette>
   /** 自定义 workspace 布局；缺省用统一 `WorkspaceLayout`（左中右）。 */

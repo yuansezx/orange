@@ -18,7 +18,7 @@ import { appConfig } from '@shared/config'
  *  · `brandActionText` 交互色**底上的文字**（主按钮白字/深字）。与 `brandAction` 一起决定对比度。
  *  · `brandSoft`  品牌浅底：**只用于品牌面**（登录页）。工作区大面积铺会把界面染成品牌色。
  *  · 工作区用**低饱和画布**（`bgLayout`，可暖可冷）+ 容器（`bgContainer`），品牌色只做点缀。
- *  · 左栏分两层：`bgSystemNav`（系统级外框）/ `bgWorkspaceNav`（workspace 菜单），可独立调色。
+ *  · 左栏分两层：`bgSystemSidebar`（系统级外框）/ `bgWorkspaceNav`（workspace 菜单），可独立调色。
  *
  * ── 选中态约定 ───────────────────────────────────────────────────────────
  *  · `navSelectedBg` / `navSelectedText` 是**成对**的完整结果，组件直接套用，
@@ -45,7 +45,7 @@ export const colorSchemes = {
     bgContainer: '#ffffff',
     bgMuted: '#f3eee7',
     /** 系统级左栏：最深的暖灰，做外框 */
-    bgSystemNav: '#ebe2d4',
+    bgSystemSidebar: '#ebe2d4',
     /** workspace 级左栏：介于系统栏与画布之间，不用纯白 */
     bgWorkspaceNav: '#f5f0e8',
     border: '#ded7cf',
@@ -66,7 +66,7 @@ export const colorSchemes = {
     bgLayout: '#f5f7fa',
     bgContainer: '#ffffff',
     bgMuted: '#eef2f7',
-    bgSystemNav: '#e6eef7',
+    bgSystemSidebar: '#e6eef7',
     bgWorkspaceNav: '#f0f5fa',
     border: '#d9e2ec',
     borderSecondary: '#e6f0ff',
@@ -85,7 +85,7 @@ export const colorSchemes = {
     bgLayout: '#f5f5f5',
     bgContainer: '#ffffff',
     bgMuted: '#ececec',
-    bgSystemNav: '#e6e6e6',
+    bgSystemSidebar: '#e6e6e6',
     bgWorkspaceNav: '#f0f0f0',
     border: '#d9d9d9',
     borderSecondary: '#e5e5e5',

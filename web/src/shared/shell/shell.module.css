@@ -39,8 +39,8 @@
   overflow: hidden;
 }
 
-/* 详情右栏：overlay + 非模态（无遮罩，背景仍可操作） */
-.rightPanel {
+/* workspace 上下文面板：overlay + 非模态（无遮罩，背景仍可操作） */
+.workspaceContextPanel {
   position: fixed;
   top: 0;
   right: 0;
@@ -53,12 +53,12 @@
   pointer-events: none;
 }
 
-.rightPanel[data-open='true'] {
+.workspaceContextPanel[data-open='true'] {
   transform: translateX(0);
   pointer-events: auto;
 }
 
-.rightBody {
+.contextPanelBody {
   flex: 1;
   min-height: 0;
   overflow: auto;

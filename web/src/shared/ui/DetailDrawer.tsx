@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Platform } from '@shared/platform'
-import { useShellRightPanel } from '@shared/shell'
+import { useWorkspaceContextPanel } from '@shared/shell'
 
 interface Props {
   open: boolean
@@ -17,11 +17,11 @@ interface Props {
 /**
  * 详情弹层（只读展示）。
  *
- * 在应用壳内：内容 portal 到壳的**非模态右栏**（桌面不锁背景，移动为全屏 Popup）。
+ * 在应用壳内：内容 portal 到壳的**非模态上下文面板**（桌面不锁背景，移动为全屏 Popup）。
  * 壳外（无 Provider）保留原 Drawer/Popup 行为。新建/编辑等表单不走这里。
  */
 export function DetailDrawer({ open, title, children, onClose }: Props) {
-  const panel = useShellRightPanel()
+  const panel = useWorkspaceContextPanel()
   const onCloseRef = useRef(onClose)
 
   useEffect(() => {

@@ -1,6 +1,9 @@
 export { DesktopShellFrame } from './DesktopShellFrame'
 export { MobileShellFrame } from './MobileShellFrame'
-export { ShellRightPanel, ShellRightPanelProvider } from './ShellRightPanel'
-export { useShellRightPanel } from './rightPanelContext'
-export type { ShellRightPanelConfig } from './rightPanelContext'
+export {
+  WorkspaceContextPanel,
+  WorkspaceContextPanelProvider,
+} from './WorkspaceContextPanel'
+export { useWorkspaceContextPanel } from './workspaceContextPanelContext'
+export type { WorkspaceContextPanelConfig } from './workspaceContextPanelContext'
 export type { ContentMode } from './types'

@@ -14,7 +14,7 @@ export const feature: FeatureModule = {
     key: 'admin',
     label: '后台管理',
     basePath: 'admin',
-    navBehavior: 'push',
+    systemSidebarBehavior: 'push',
   },
   groups: [
     {

@@ -12,12 +12,14 @@ import {
   IconChevronsLeft,
 } from '@shared/ui'
 
+import type { SystemSidebarState } from '@shared/navigation'
+
 import type { WorkspaceNav } from '../../routes'
 
 interface Props {
   workspaces: WorkspaceNav[]
   currentWorkspaceKey?: string
-  state: 'rail' | 'expanded'
+  state: Exclude<SystemSidebarState, 'hidden'>
   canHide: boolean
   onSelectWorkspace: (workspace: WorkspaceNav) => void
   onCollapse: () => void
@@ -31,8 +33,8 @@ const iconItemStyle = {
   padding: 0,
 } as const
 
-/** 系统级导航：rail（纯图标）/ expanded（带名称）两种形态。 */
-export function SystemNav({
+/** 系统侧栏（primary navigation）：rail（纯图标）/ expanded（带名称）两种形态。 */
+export function SystemSidebar({
   workspaces,
   currentWorkspaceKey,
   state,

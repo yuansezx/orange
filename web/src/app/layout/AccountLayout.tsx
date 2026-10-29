@@ -31,7 +31,7 @@ export function AccountLayout() {
       style={{
         height: '100%',
         display: 'grid',
-        gridTemplateColumns: `${layoutTokens.workspaceMenuWidth}px minmax(0, 1fr)`,
+        gridTemplateColumns: `${layoutTokens.workspaceSidebarWidth}px minmax(0, 1fr)`,
         overflow: 'hidden',
       }}
     >
