@@ -30,13 +30,6 @@ export interface MenuGroup {
 export type SystemNavState = 'hidden' | 'rail' | 'expanded'
 export type SystemNavBehavior = 'push' | 'overlay'
 
-/** 系统栏的允许形态与默认值（由 workspace 声明，用户只能在允许集合内切换）。 */
-export interface SystemNavPreference {
-  defaultState?: SystemNavState
-  behavior?: SystemNavBehavior
-  allowedStates?: SystemNavState[]
-}
-
 /** 自定义 workspace 布局能拿到的最小 workspace 信息（shared 层不认识完整 WorkspaceNav）。 */
 export interface WorkspaceDescriptor {
   key: string
@@ -60,7 +53,11 @@ export interface WorkspaceRef {
   key: string
   label: string
   basePath: string
-  systemNav?: SystemNavPreference
+  /**
+   * workspace 内容与系统栏的关系：`push` 挤占 / `overlay` 悬浮。
+   * 系统栏的三态与默认值归系统统一管理，workspace 不参与。
+   */
+  navBehavior?: SystemNavBehavior
   /** workspace 级配色覆盖；缺省用 `defaultWorkspacePalette`。 */
   theme?: Partial<WorkspacePalette>
   /** 自定义 workspace 布局；缺省用统一 `WorkspaceLayout`（左中右）。 */

@@ -9,7 +9,6 @@ export type {
   SettingsGroup,
   ShellPreference,
   SystemNavBehavior,
-  SystemNavPreference,
   SystemNavState,
   WorkspaceDescriptor,
   WorkspaceLayoutComponent,

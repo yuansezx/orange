@@ -32,7 +32,7 @@ web/src/
 - **依赖单向**：`app → features → shared`。feature 不认识 app；跨 feature 只能经其**门面** `@features/<name>`，**禁止深入内部路径**——由 ESLint `no-restricted-imports` 强守（见 `eslint.config.js`）。
 - **模块自报门面**：模块型 feature 在 `index.ts` 导出名为 `feature` 的 `FeatureModule`（`groups`: 菜单分组；**每个菜单项同时承载它的路由** `{key,label,path,permission?,element}`——菜单与路由一处声明，杜绝"菜单指向不存在的页"）。组合根 `app/routes.ts` 用 **`import.meta.glob` 构建期发现** `features/*/index.ts`（有就加载、没有就跳过，新增模块免登记；控制台级切片不导出 `feature` 即自动排除）。**不做前端模块配置**：可见性由后端权限码过滤菜单承担，避免与后端 `core.modules` 形成第二份清单。
 - **导航 / 菜单（菜单归前端）**：后端只发**权限**（`/me` 的 `permission_codes` + `user_type`），**菜单由前端声明**、按 `usePermission().can(code)` 过滤（**超管 `user_type=super_admin` 旁路**）。层次：
-  - **系统壳 `AppShell`**：左侧只放用户视角的 **Workspace**（后台管理、音乐……）+ 用户区；支持 `hidden/rail/expanded` 三态和 `push/overlay`（后台管理 `push`）。形态状态只在内存，不做持久化。
+  - **系统壳 `AppShell`**：左侧只放用户视角的 **Workspace**（后台管理、音乐……）+ 用户区。系统栏 `hidden/rail/expanded` 三态归**系统统一管理**（全局一份，切换 workspace、进入个人中心都不重置）；workspace 只能用 `navBehavior` 声明内容关系（`push` 挤占 / `overlay` 悬浮），**不能**控制系统栏形态。形态状态只在内存，不做持久化。
   - **Workspace 壳**（`WorkspaceLayout`）：在系统内容区里自管左中右；后台管理的左侧是内部 Feature 菜单，右侧是**非模态详情右栏**（不锁背景）。需要自定义结构的 workspace（如播放器）在 `WorkspaceRef.layout` 提供组件、自行渲染 `<Outlet />`；系统壳与 `WorkspaceThemeProvider` 仍在外层。**不加隐藏左/右栏开关**——定制走布局组件这一条路。
   - **FeatureModule**：对齐后端模块（iam/monitor…），声明 `workspace`、`groups`（workspace 内菜单）和可选 `settings`（个人中心设置）。完整路由为 `{workspace.basePath}/{feature}/{path}`（如 `/admin/iam/users`）；没有导航页，`/` 按权限落到第一个可访问页面。
   - **个人中心**：系统级 `/account`，设置菜单由各 feature 的 `settings` 聚合，路径 `/account/{feature}/{path}`。

@@ -34,11 +34,7 @@ export const feature: FeatureModule = {
     key: 'admin',
     label: '后台管理',
     basePath: 'admin',
-    systemNav: {
-      defaultState: 'expanded',
-      behavior: 'push',
-      allowedStates: ['hidden', 'rail', 'expanded'],
-    },
+    navBehavior: 'push',
   },
   settings: [
     {

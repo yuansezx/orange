@@ -16,42 +16,29 @@ import {
 } from '../../routes'
 import { SystemNav } from '../components/SystemNav'
 
-const DEFAULT_ALLOWED_STATES: SystemNavState[] = ['hidden', 'rail', 'expanded']
 const DEFAULT_STATE: SystemNavState = 'expanded'
-/** 非 workspace 页面（如 /account）共用一个系统栏状态槽。 */
-const SYSTEM_NAV_KEY = '__system__'
 
-/** 系统壳 · 桌面：workspace 栏（三态 × push/overlay）+ 内容区。 */
+/** 系统壳 · 桌面：workspace 栏（三态 × push/overlay）+ 内容区。
+ *
+ * 系统栏三态是**系统级**状态（全局一份，切换 workspace / 进入个人中心都不重置），
+ * workspace 只能通过 `navBehavior` 声明内容挤占或悬浮。
+ */
 export function DesktopAdminShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { can } = usePermission()
-  const [stateByNavKey, setStateByNavKey] = useState<
-    Record<string, SystemNavState>
-  >({})
+  const [navState, setNavState] = useState<SystemNavState>(DEFAULT_STATE)
 
   const allowed = filterWorkspacesByPermission(workspaces, can)
   const current = workspaceOfPath(allowed, pathname)
-  const navKey = current?.key ?? SYSTEM_NAV_KEY
-  const preference = current?.systemNav
-  const behavior = preference?.behavior ?? 'push'
-  const allowedStates = preference?.allowedStates ?? DEFAULT_ALLOWED_STATES
-  const defaultState = preference?.defaultState ?? DEFAULT_STATE
-  const navState = stateByNavKey[navKey] ?? defaultState
-  const canHide = allowedStates.includes('hidden')
-  const restoreState = allowedStates.find((state) => state !== 'hidden') ?? 'rail'
-
-  const setState = (next: SystemNavState) => {
-    if (!allowedStates.includes(next)) return
-    setStateByNavKey((prev) => ({ ...prev, [navKey]: next }))
-  }
+  const behavior = current?.navBehavior ?? 'push'
 
   const trigger = (
     <Tooltip title="打开系统导航">
       <Button
         type="text"
         aria-label="打开系统导航"
-        onClick={() => setState(restoreState)}
+        onClick={() => setNavState('rail')}
         style={{
           width: 40,
           height: 40,
@@ -74,11 +61,11 @@ export function DesktopAdminShell() {
           workspaces={allowed}
           currentWorkspaceKey={current?.key}
           state={navState === 'expanded' ? 'expanded' : 'rail'}
-          canHide={canHide}
+          canHide
           onSelectWorkspace={(workspace) => navigate(workspaceHomePath(workspace))}
-          onCollapse={() => setState('rail')}
-          onExpand={() => setState('expanded')}
-          onHide={() => setState('hidden')}
+          onCollapse={() => setNavState('rail')}
+          onExpand={() => setNavState('expanded')}
+          onHide={() => setNavState('hidden')}
         />
       }
       trigger={trigger}
