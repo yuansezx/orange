@@ -10,13 +10,14 @@ _run_module_bootstraps）。放独立模块而非 `__init__.py`，是为了避�
 from loguru import logger
 
 from app.core import get_event_bus
+from app.core.infrastructure import persistence
 from app.iam.application.current_user.event_handlers import CurrentUserCacheInvalidationHandler
 from app.iam.application.resource.dto import RegisterPermissionIn, RegisterResourceIn
 from app.iam.domain.dept.events import DeptStructureChanged
 from app.iam.domain.resource.events import ResourceChanged
 from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.user.entities import SUPER_ADMIN_USERNAME
-from app.iam.domain.user.events import UserChanged
+from app.iam.domain.user.events import UserChanged, UserHardDeleted
 from app.iam.domain.user_role_assignment.events import UserRolesChanged
 from app.iam.interface.dependences import (
     get_affected_users_query,
@@ -91,8 +92,17 @@ async def bootstrap() -> None:
 
     先订阅快照失效、后注册：对账软删条目也要能触发当前用户快照失效。
     """
-    # 订阅 CurrentUser 快照的失效：用户/角色/部门/资源权限变动时清 iam:current_user:{uid}
     bus = get_event_bus()
+
+    # 可靠事件：iam 自持 outbox 表，relay 负责投递（进程内；将来可加 webhook / broker）
+    iam_models = persistence.module_infra('iam', 'models')
+    bus.register_outbox(
+        UserHardDeleted,
+        persistence.get_event_outbox_store(iam_models.IamEventOutboxModel),
+    )
+    logger.info('已登记 iam 可靠事件 outbox（UserHardDeleted）')
+
+    # 订阅 CurrentUser 快照的失效：用户/角色/部门/资源权限变动时清 iam:current_user:{uid}
     invalidation = CurrentUserCacheInvalidationHandler(
         get_current_user_repo(), get_user_role_repo(),
         get_affected_users_query(), get_permission_users_query())

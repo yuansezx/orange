@@ -49,3 +49,8 @@ def module_infra(module: str, sub: str):
     组合根用它取方言实现而不硬编码方言（方言由模块的连接决定）。
     """
     return _load_backend().infra_module(module, sub)
+
+
+def get_event_outbox_store(model):
+    """按持久化后端构造事件 outbox 存储；表模型（继承 EventOutboxModel）由生产模块提供。"""
+    return _load_backend().event_outbox_store(model)

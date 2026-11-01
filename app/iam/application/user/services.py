@@ -519,10 +519,10 @@ class UserApplicationService:
                 target_name=user.username,
                 detail={'previous_status': previous_status.value},
             )
-        # 行已不在；清快照让持有者会话按「用户不可用」失效
+            # 不可丢事件：与业务写同事务落 iam outbox，由 core relay 投递
+            await self.event_bus.publish(UserHardDeleted(id=EventId.new(), user_id=user_id))
+        # 行已不在；清快照让持有者会话按「用户不可用」失效（best-effort）
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user_id))
-        # 供其他模块清理属于该用户的数据（当前总线 best-effort）
-        await self.event_bus.publish(UserHardDeleted(id=EventId.new(), user_id=user_id))
 
     # ---------------- 内部 ----------------
     @staticmethod

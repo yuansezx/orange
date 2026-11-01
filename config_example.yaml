@@ -52,6 +52,14 @@ core:
         secret_key: change-me
         region: us-east-1
         path_style: true
+  # 事件 relay（可选；缺省用代码默认值）
+  events:
+    relay_poll_interval_seconds: 0.5
+    relay_batch_size: 100
+    relay_max_attempts: 10
+    relay_lock_timeout_seconds: 60
+    relay_retry_base_seconds: 5.0
+    relay_retry_max_seconds: 300.0
 
 iam:
   jwt_config:

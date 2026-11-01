@@ -26,16 +26,18 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   ├── __init__.py                #   init_logger() / get_event_bus() / start()（含模块 bootstrap 编排）/ stop()
 │   ├── domain/                    #   DDD 领域抽象
 │   │   ├── entities.py            #     AuditableEntity[IdType]（含软删除字段）
-│   │   ├── events.py              #     BaseEvent
-│   │   ├── event_bus.py           #     EventBus / EventHandler
+│   │   ├── events.py              #     BaseEvent / EventDeliveryEnum
+│   │   ├── event_bus.py           #     EventBus / EventHandler / EventTransport
+│   │   ├── event_outbox.py        #     EventOutboxStore 端口 / OutboxMessage
 │   │   ├── repositories.py        #     BaseRepository：get/create/bulk_create/update/hard_delete
 │   │   ├── units_of_work.py       #     TransactionContext / InTransactionType
 │   │   └── value_objects.py       #     SingleValueObject（RootModel）/ BaseEntityId（root: uuid.UUID + value/new()）/ EventId
 │   ├── application/               #   core 的应用层数据
 │   │   └── dto.py                 #     RequestMeta（请求级技术元数据：request_id / ip / user_agent）
 │   ├── infrastructure/
-│   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS（含 persistence / cache 段）
-│   │   ├── event_bus_impl.py      #     EventBusMemoryImpl
+│   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS（含 persistence / cache / events 段）
+│   │   ├── event_bus_impl.py      #     EventBusImpl（best-effort 派发 + outbox 路由）
+│   │   ├── event_relay.py         #     EventRelay / LocalEventTransport（outbox → transport）
 │   │   ├── persistence/           #     持久化（后端中立门面 + 具体后端）
 │   │   │   ├── __init__.py        #       start/stop_persistence、run_persistence_migrations、get_in_transaction
 │   │   │   └── tortoise/          #     ORM 后端
@@ -126,7 +128,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **请求元数据**：`RequestMeta`（`request_id` / `ip` / `user_agent`）在 `core/application/dto.py`；由 `core/interface/http/dependencies.py::get_request_meta` 从请求构造，**显式传给写用例**（不用中间件/ContextVar），不进 `CurrentUser` / 缓存。写用例签名为 `request_meta: RequestMeta | None = None`——`None` 表示非请求上下文（python api / 后台任务），HTTP 边界必传；审计**记录的组装**（操作人快照 + 请求元数据 + monitor DTO 映射）在 infrastructure adapter，port 只接收调用方上下文与业务事件字段。
 - 应用服务接 DTO（`CreateUserIn` 等）并调用领域服务完成业务逻辑。
 - **事务**：`TransactionContext` + `InTransactionType`（DI）；实现由持久化后端提供，经 `core.infrastructure.persistence.get_in_transaction()` 取用；应用层 `async with in_transaction():`（tortoise 事务连接按 task ContextVar 自动绑定）。
-- **领域事件**：`EventBus` / `EventHandler` 抽象，`BaseEvent` 在 `core/domain/events.py`。**事件类按聚合归属放各子域 `domain/*/events.py`**（`UserChanged` / `UserHardDeleted` / `RoleChanged` / `UserRolesChanged` / `DeptStructureChanged` / `ResourceChanged`）；**订阅者（副作用，如清 CurrentUser 快照）放应用层**（`application/current_user/event_handlers.py`）。资源/权限的状态、软删、恢复、硬删都会改变有效权限，故发 `ResourceChanged`（带受影响权限 id；硬删时预取受影响用户 id）清快照。**跨模块订阅**：由生产方在 `interface/python` 暴露注册钩子（如 iam 的 `register_user_hard_deleted_listener`，回调收裸 UUID），消费方在 `bootstrap` 订阅——事件类型与值对象不跨模块；`UserHardDeleted` 只在物理删除时发（软删/恢复只发 `UserChanged`），供其他模块清理属于该用户的数据，当前总线下发是 best-effort。进程内 `EventBusMemoryImpl` 是**临时实现**（`publish` fire-and-forget、不等 handler），预期后续接消息系统替换。
+- **领域事件**：`EventBus` / `EventHandler` / `EventTransport` 抽象，`BaseEvent` 在 `core/domain/events.py`。事件按**投递保证**分两类：`best_effort`（默认、可丢，进程内后台派发，如 `UserChanged` 清快照）与 `at_least_once`（不可丢，写生产模块的 `*_event_outbox`，由 `EventRelay` 轮询取事件、经 transport 投递，如 `UserHardDeleted`）。**事件类按聚合归属放各子域 `domain/*/events.py`**；**订阅者（副作用）放应用层**。可靠事件的 outbox 必须与业务写在**同一事务**内；模块在 `bootstrap` 用 `persistence.get_event_outbox_store(<模块模型>)` 登记，表模型继承 core 的 `EventOutboxModel`（表随模块迁移）。Relay 现在只挂 `LocalEventTransport`；webhook / broker 作为新的 `EventTransport` 加入即可，生产/消费代码不变。**一条 outbox 行会投递给所有 transport；部分失败重试会对已成功的 transport 重复投递，因此消费方必须幂等（按 `event.id` 去重）**。`LISTEN/NOTIFY` 只能当唤醒信号，轮询是底线。资源/权限的状态、软删、恢复、硬删都会改变有效权限，故发 `ResourceChanged` 清快照。**跨模块订阅**：由生产方在 `interface/python` 暴露注册钩子（如 iam 的 `register_user_hard_deleted_listener`，回调收裸 UUID），消费方在 `bootstrap` 订阅——事件类型与值对象不跨模块；`UserHardDeleted` 只在物理删除时发（软删/恢复只发 `UserChanged`），供其他模块清理属于该用户的数据。
 - **持久化（后端中立）**：只有 `infrastructure/persistence/` 内允许 import 具体 ORM；core 只通过门面访问。
   - 抽象层：`core/infrastructure/persistence/__init__.py`（`start/stop_persistence`、`get_in_transaction`）
   - 具体后端：`core/infrastructure/persistence/{backend}/{backend}_backend.py`
@@ -154,7 +156,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 ### 命名约定
 
 - **自定义 / 第三方依赖的抽象**：接口用 `XxxPort`（`ports.py`），实现用 `XxxAdapter`（`adapters/xxx_adapter.py`）——对应六边形 Port/Adapter。
-- **DDD 原生抽象**（`Repository` / `EventBus` / `UnitOfWork`）：沿用 DDD 词汇命名接口，实现以 `XxxImpl` 结尾（如 `EventBusMemoryImpl`、`UserRepositoryTortoiseImpl`）。
+- **DDD 原生抽象**（`Repository` / `EventBus` / `UnitOfWork`）：沿用 DDD 词汇命名接口，实现以 `XxxImpl` 结尾（如 `EventBusImpl`、`UserRepositoryTortoiseImpl`）。
 - **纯计算工具**：直接放 `core/utils/`（函数或简单类，如 `password_hash`、`JWTUtil`），**不套 Port**。
 - **数据类型的归属按语义定**（不按谁先用）：领域概念 → domain（entity / 值对象）；应用层通用数据（含查询结果）→ `dto.py`；端口私有契约类型 → 与端口同处 `ports.py`（过长时拆 `ports/` 包，一端口一文件）。
 - **查询（CQRS 读侧）不与聚合仓储混放**：跨聚合只读查询放**应用层**（接口 `common/queries.py`，实现 `infrastructure/persistence/tortoise/queries/`）；`repositories/` 只留聚合仓储（entity ↔ 表）。

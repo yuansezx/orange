@@ -6,6 +6,7 @@ from tortoise import Tortoise
 from tortoise.transactions import in_transaction
 
 from app.core.domain.units_of_work import InTransactionType, TransactionContext
+from app.core.infrastructure.persistence.tortoise.outbox import TortoiseEventOutboxStore
 from app.core.infrastructure.settings import CORE_SETTINGS
 
 MIGRATIONS_DIR = './migrations'
@@ -32,6 +33,11 @@ def infra_module(module: str, sub: str):
     backend = CORE_SETTINGS.persistence.backend
     return import_module(
         f'app.{module}.infrastructure.persistence.{backend}.{module_dialect(module)}.{sub}')
+
+
+def event_outbox_store(model):
+    """用生产模块提供的 outbox 表模型构造存储实现。"""
+    return TortoiseEventOutboxStore(model)
 
 
 def _build_apps() -> dict:

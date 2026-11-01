@@ -70,6 +70,20 @@ class CacheConfig(BaseModel):
     options: dict = {}
 
 
+class EventsConfig(BaseModel):
+    """事件 relay 配置（core 段内的嵌套 schema）。
+
+    relay_*：轮询间隔、批量、最大尝试次数、processing 锁超时、重试退避。
+    缺省值即可用；未配置 `core.events` 时也按这些默认值运行。
+    """
+    relay_poll_interval_seconds: float = 0.5
+    relay_batch_size: int = 100
+    relay_max_attempts: int = 10
+    relay_lock_timeout_seconds: int = 60
+    relay_retry_base_seconds: float = 5.0
+    relay_retry_max_seconds: float = 300.0
+
+
 class ObjectStorageConfig(BaseModel):
     """对象存储配置（core 段内的嵌套 schema）。
 
@@ -128,6 +142,9 @@ class CoreSettings(AppBaseSettings):
 
     # 对象存储配置（可选；未配置则 core 不启动对象存储，用到时才报错）
     object_storage: ObjectStorageConfig | None = None
+
+    # 事件 relay 配置（可选；缺省用 EventsConfig 的默认值）
+    events: EventsConfig = Field(default_factory=EventsConfig)
 
     # def __init__(self):
     #     super().__init__()

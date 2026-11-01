@@ -5,6 +5,7 @@
 新增实体时，记得在这里补一行导出。
 """
 from .dept import DeptModel
+from .event_outbox import IamEventOutboxModel
 from .permission import PermissionModel
 from .resource import ResourceModel
 from .role import RoleModel
@@ -15,6 +16,7 @@ from .user_role_assignment import UserRoleAssignmentModel
 
 __all__ = [
     'DeptModel',
+    'IamEventOutboxModel',
     'PermissionModel',
     'ResourceModel',
     'RoleModel',
