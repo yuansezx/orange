@@ -1,3 +1,4 @@
+from functools import partial
 from importlib import import_module
 
 from aerich import Command
@@ -12,6 +13,11 @@ from app.core.infrastructure.settings import CORE_SETTINGS
 MIGRATIONS_DIR = './migrations'
 
 
+def module_connection(module: str) -> str:
+    """模块声明的逻辑连接名（`DB_CONNECTION`，缺省 default）。"""
+    return getattr(import_module(f'app.{module}'), 'DB_CONNECTION', 'default')
+
+
 def _load_dialect(dialect: str):
     """按连接声明的 dialect 加载 DB 方言层（把连接配置拼成 tortoise 认的连接）。"""
     return import_module(
@@ -20,8 +26,7 @@ def _load_dialect(dialect: str):
 
 def module_dialect(module: str) -> str:
     """某模块所用连接名（`DB_CONNECTION`）对应的 dialect（连接的引擎）。"""
-    connection = getattr(import_module(f'app.{module}'), 'DB_CONNECTION', 'default')
-    return CORE_SETTINGS.persistence.options[connection]['dialect']
+    return CORE_SETTINGS.persistence.options[module_connection(module)]['dialect']
 
 
 def infra_module(module: str, sub: str):
@@ -52,7 +57,7 @@ def _build_apps() -> dict:
     backend = CORE_SETTINGS.persistence.backend
     apps = {}
     for m in CORE_SETTINGS.modules:
-        connection = getattr(import_module(f'app.{m}'), 'DB_CONNECTION', 'default')
+        connection = module_connection(m)
         apps[m] = {
             'models': [
                 f'app.{m}.infrastructure.persistence.{backend}.{module_dialect(m)}.models',
@@ -122,20 +127,24 @@ async def run_migrations() -> None:
 class TortoiseTransactionContext(TransactionContext):
     """把 tortoise 的 in_transaction() 适配成领域侧的事务上下文。
 
+    连接名由组合根在构造时绑定（模块 `DB_CONNECTION`）；不传则用默认连接。
     tortoise 的事务连接按 task 的 ContextVar 自动绑定，事务内的查询无需显式传连接。
     """
 
-    def __init__(self) -> None:
+    def __init__(self, connection_name: str | None = None) -> None:
+        self._connection_name = connection_name
         self._cm = None
 
     async def __aenter__(self):
         # 进入时才创建，避免在构造期触碰连接/上下文
-        self._cm = in_transaction()
+        self._cm = in_transaction(self._connection_name)
         return await self._cm.__aenter__()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         return await self._cm.__aexit__(exc_type, exc_val, exc_tb)
 
 
-# 后端提供的事务工厂（InTransactionType = Callable[[], TransactionContext]）
-IN_TRANSACTION: InTransactionType = TortoiseTransactionContext
+def get_in_transaction(module: str | None = None) -> InTransactionType:
+    """事务工厂：绑定模块的连接名；不传 module 则用默认连接。"""
+    connection = module_connection(module) if module else None
+    return partial(TortoiseTransactionContext, connection)

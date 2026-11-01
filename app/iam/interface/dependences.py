@@ -58,7 +58,7 @@ _queries = persistence.module_infra('iam', 'queries')
 
 
 def get_in_transaction() -> InTransactionType:
-    return persistence.get_in_transaction()
+    return persistence.get_in_transaction('iam')
 
 
 def get_user_repo() -> UserRepository:

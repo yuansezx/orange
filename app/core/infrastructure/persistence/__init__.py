@@ -38,9 +38,12 @@ async def run_persistence_migrations() -> None:
     await _load_backend().run_migrations()
 
 
-def get_in_transaction() -> InTransactionType:
-    """事务上下文工厂（由后端提供），供应用层注入使用。"""
-    return _load_backend().IN_TRANSACTION
+def get_in_transaction(module: str | None = None) -> InTransactionType:
+    """事务上下文工厂（由后端提供），供应用层注入使用。
+
+    传 `module` 时绑定该模块的 `DB_CONNECTION`；不传则用默认连接。
+    """
+    return _load_backend().get_in_transaction(module)
 
 
 def module_infra(module: str, sub: str):
