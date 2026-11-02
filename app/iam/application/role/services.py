@@ -1,0 +1,346 @@
+from datetime import datetime, UTC
+
+from app.core.application.dto import RequestMeta
+from app.core.domain.event_bus import EventBus
+from app.core.domain.units_of_work import InTransactionType
+from app.core.domain.value_objects import EventId
+from app.iam.application.common.decorators import requires_permission
+from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.ports import AuditLogWriterPort
+from app.iam.application.common.queries import PermissionExistsQuery
+from app.iam.application.common.services import AuditService, DeptRefService
+from app.iam.application.dept.exceptions import DeptNotFoundException
+from app.iam.application.resource.exceptions import PermissionNotFoundException
+from app.iam.application.role.dto import (
+    CreateRoleIn,
+    RoleDetailOut,
+    RoleListItemOut,
+    RoleOut,
+    UpdateRoleIn,
+)
+from app.iam.application.role.exceptions import RoleCodeConflictException, RoleNotFoundException
+from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.dept.repositories import DeptRepository
+from app.iam.domain.role.entities import Role
+from app.iam.domain.role.events import RoleChanged
+from app.iam.domain.role.exceptions import RoleNotDeletedException
+from app.iam.domain.role.repositories import RoleRepository
+from app.iam.domain.role.services import RoleAccessService
+from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
+from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
+
+
+def _to_out(role: Role) -> RoleOut:
+    return RoleOut(
+        id=role.id,
+        code=role.code,
+        name=role.name,
+        data_scope=role.data_scope,
+        status=role.status,
+        description=role.description,
+        permission_ids=list(role.permission_ids),
+        dept_ids=list(role.custom_dept_ids),
+        created_at=role.created_at,
+        updated_at=role.updated_at,
+        deleted_at=role.deleted_at,
+    )
+
+
+class RoleApplicationService:
+    """角色用例：CRUD + 角色↔权限 / 角色↔部门 的整体设置。
+
+    Role 是聚合根（持有权限/部门集合），故一律 load → 实体方法变更 → update。
+    """
+
+    def __init__(self, in_transaction: InTransactionType,
+                 role_repo: RoleRepository,
+                 permission_exists_query: PermissionExistsQuery,
+                 dept_repo: DeptRepository,
+                 role_access_service: RoleAccessService,
+                 audit_service: AuditService,
+                 audit_log_writer: AuditLogWriterPort,
+                 dept_ref_service: DeptRefService,
+                 user_role_repo: UserRoleRepository,
+                 event_bus: EventBus) -> None:
+        self.in_transaction = in_transaction
+        self.role_repo = role_repo
+        self.permission_exists_query = permission_exists_query
+        self.dept_repo = dept_repo
+        self.role_access_service = role_access_service
+        self.user_role_repo = user_role_repo
+        self.audit_service = audit_service
+        self.audit_log_writer = audit_log_writer
+        self.dept_ref_service = dept_ref_service
+        self.event_bus = event_bus
+
+    # ---------------- 写 ----------------
+    @requires_permission('iam:role:create')
+    async def create_role(self, data: CreateRoleIn, current_user: CurrentUser,
+                          request_meta: RequestMeta | None = None) -> Role:
+        async with self.in_transaction():
+            if await self.role_repo.get_by_code(data.code, include_deleted=True):
+                raise RoleCodeConflictException(f'角色 code 已存在：{data.code}')
+            permission_ids = set(data.permission_ids)
+            dept_ids = set(data.dept_ids)
+            if permission_ids:
+                await self._ensure_permissions_exist(permission_ids)
+            if dept_ids:
+                await self._ensure_depts_exist(dept_ids)
+            role = await self.role_repo.create(Role(
+                id=RoleId.new(),
+                code=data.code,
+                name=data.name,
+                data_scope=data.data_scope,
+                status=StatusEnum.ACTIVE,
+                description=data.description,
+                permission_ids=permission_ids,
+                custom_dept_ids=dept_ids,
+                created_at=datetime.now(UTC),
+                created_by=current_user.user_id,
+            ))
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='role',
+                action='create',
+                summary=f'创建角色 {role.name}',
+                target_type='role',
+                target_id=str(role.id.value),
+                target_name=role.name,
+                detail={
+                    'code': role.code,
+                    'data_scope': role.data_scope.value,
+                    'permission_ids': sorted(str(p) for p in role.permission_ids),
+                    'dept_ids': sorted(str(d) for d in role.custom_dept_ids),
+                },
+            )
+            return role
+
+    @requires_permission('iam:role:update')
+    async def update_role(self, data: UpdateRoleIn, current_user: CurrentUser,
+                          request_meta: RequestMeta | None = None) -> None:
+        """整体替换角色（PUT 语义）：属性 / 权限集 / 数据范围部门集一次提交，单事务原子。
+
+        权限 id 先按「未删」过滤：权限被软删后角色仍持有其 id，前端权限树也看不到；
+        若照原样提交会报「无效权限 id」。更新时忽略失效 id 并顺带清理悬空引用。
+        """
+        async with self.in_transaction():
+            role = await self._load_accessible(data.id, current_user)
+            before = self._role_snapshot(role)
+            before_permissions = set(role.permission_ids)
+            before_depts = set(role.custom_dept_ids)
+
+            permission_ids = set(data.permission_ids)
+            dept_ids = set(data.dept_ids)
+            if permission_ids:
+                permission_ids = await self.permission_exists_query.filter_existing(
+                    list(permission_ids))
+            if dept_ids:
+                await self._ensure_depts_exist(dept_ids)
+            role.change(data.name, data.data_scope, data.description, current_user.user_id)
+            await self._change_status(role, data.status, current_user)
+            role.set_permissions(permission_ids, current_user.user_id)
+            role.set_depts(dept_ids, current_user.user_id)
+            await self.role_repo.update(role)
+
+            after = self._role_snapshot(role)
+            changed = [field for field in before if before[field] != after[field]]
+            if role.permission_ids != before_permissions:
+                changed.append('permissions')
+            if role.custom_dept_ids != before_depts:
+                changed.append('depts')
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='role',
+                action='update',
+                summary=f'更新角色 {role.name}',
+                target_type='role',
+                target_id=str(role.id.value),
+                target_name=role.name,
+                detail={
+                    'before': before,
+                    'after': after,
+                    'changed': changed,
+                    'permission_ids': sorted(str(p) for p in role.permission_ids),
+                    'dept_ids': sorted(str(d) for d in role.custom_dept_ids),
+                    'added_permissions': sorted(
+                        str(p) for p in role.permission_ids - before_permissions),
+                    'removed_permissions': sorted(
+                        str(p) for p in before_permissions - role.permission_ids),
+                    'added_depts': sorted(
+                        str(d) for d in role.custom_dept_ids - before_depts),
+                    'removed_depts': sorted(
+                        str(d) for d in before_depts - role.custom_dept_ids),
+                },
+            )
+        # 整体替换：名称/权限/数据范围变更都影响持有者快照（多清无害）
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role.id))
+
+    @requires_permission('iam:role:update')
+    async def set_role_status(self, role_id: RoleId, status: StatusEnum,
+                              current_user: CurrentUser, request_meta: RequestMeta | None = None) -> None:
+        """统一启用/停用入口——与整体更新共用加载/鉴权/状态变更逻辑。"""
+        async with self.in_transaction():
+            role = await self._load_accessible(role_id, current_user)
+            previous_status = role.status
+            await self._change_status(role, status, current_user)
+            await self.role_repo.update(role)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='role',
+                action='change_status',
+                summary=f'{"启用" if status is StatusEnum.ACTIVE else "停用"}角色 {role.name}',
+                target_type='role',
+                target_id=str(role.id.value),
+                target_name=role.name,
+                detail={'from': previous_status.value, 'to': status.value},
+            )
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
+
+    @requires_permission('iam:role:delete')
+    async def delete_role(self, role_id: RoleId, current_user: CurrentUser,
+                          request_meta: RequestMeta | None = None) -> None:
+        async with self.in_transaction():
+            role = await self._load_accessible(role_id, current_user)
+            previous_status = role.status
+            role.delete(current_user.user_id)
+            await self.role_repo.update(role)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='role',
+                action='delete',
+                summary=f'删除角色 {role.name}',
+                target_type='role',
+                target_id=str(role.id.value),
+                target_name=role.name,
+                detail={'previous_status': previous_status.value},
+            )
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
+
+    @requires_permission('iam:role:delete')
+    async def restore_role(self, role_id: RoleId, current_user: CurrentUser,
+                           request_meta: RequestMeta | None = None) -> None:
+        """从回收站恢复（复用 `delete` 权限码）；权限集/部门集软删时未动，原样带回。"""
+        async with self.in_transaction():
+            role = await self._load_any(role_id)
+            if not role.is_deleted:
+                raise RoleNotDeletedException('角色未被删除，无需恢复')
+            role.restore(current_user.user_id)
+            await self.role_repo.update(role)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='role',
+                action='restore',
+                summary=f'恢复角色 {role.name}',
+                target_type='role',
+                target_id=str(role.id.value),
+                target_name=role.name,
+                detail={'status': role.status.value},
+            )
+        # 恢复即重新授出该角色的权限，持有者快照需重解析
+        await self.event_bus.publish(RoleChanged(id=EventId.new(), role_id=role_id))
+
+    @requires_permission('iam:role:hard_delete')
+    async def hard_delete_role(self, role_id: RoleId, current_user: CurrentUser,
+                               request_meta: RequestMeta | None = None) -> None:
+        """彻底删除（物理）——只允许对已软删角色做；级联清用户角色分配。"""
+        async with self.in_transaction():
+            role = await self._load_any(role_id)
+            if not role.is_deleted:
+                raise RoleNotDeletedException('只能彻底删除已删除的角色')
+            # 分配行即将随角色删除，事后再查不到持有者 → 事务内预取
+            affected_user_ids = frozenset(
+                await self.user_role_repo.get_user_ids_by_role(role.id))
+            await self.user_role_repo.hard_delete_by_role(role.id)
+            await self.role_repo.hard_delete(role.id)
+            await self.audit_log_writer.write(
+                current_user=current_user,
+                request_meta=request_meta,
+                resource='role',
+                action='hard_delete',
+                summary=f'彻底删除角色 {role.name}',
+                target_type='role',
+                target_id=str(role.id.value),
+                target_name=role.name,
+                detail={
+                    'code': role.code,
+                    'affected_user_ids': sorted(str(u.value) for u in affected_user_ids),
+                },
+            )
+        await self.event_bus.publish(RoleChanged(
+            id=EventId.new(), role_id=role_id, affected_user_ids=affected_user_ids))
+
+    # ---------------- 读 ----------------
+    @requires_permission('iam:role:read')
+    async def get_role(self, role_id: RoleId, current_user: CurrentUser) -> RoleOut:
+        role = await self.role_repo.get(role_id, include_deleted=True)
+        if role is None:  # 读不惧已删（回收站要能看）
+            raise RoleNotFoundException(f'角色不存在：{role_id}')
+        return _to_out(role)
+
+    @requires_permission('iam:role:read')
+    async def get_all_roles(self, current_user: CurrentUser,
+                            status: StatusEnum | None = None,
+                            deleted: bool = False) -> list[RoleListItemOut]:
+        roles = await self.role_repo.get_all(status, deleted)
+        audits = await self.audit_service.build_many(roles)
+        items: list[RoleListItemOut] = []
+        for role, audit in zip(roles, audits):
+            fields = {**_to_out(role).model_dump(), **audit.model_dump()}
+            items.append(RoleListItemOut(**fields))
+        return items
+
+    @requires_permission('iam:role:read')
+    async def get_role_detail(self, role_id: RoleId, current_user: CurrentUser) -> RoleDetailOut:
+        role = await self.role_repo.get(role_id, include_deleted=True)
+        if role is None:  # 读不惧已删（回收站要能看）
+            raise RoleNotFoundException(f'角色不存在：{role_id}')
+        audit = await self.audit_service.build(role)
+        dept_refs = await self.dept_ref_service.build(list(role.custom_dept_ids))
+        fields = {**_to_out(role).model_dump(), **audit.model_dump()}
+        return RoleDetailOut(**fields, dept_refs=dept_refs)
+
+    # ---------------- 内部 ----------------
+    @staticmethod
+    def _role_snapshot(role: Role) -> dict:
+        return {
+            'name': role.name,
+            'data_scope': role.data_scope.value,
+            'status': role.status.value,
+            'description': role.description,
+        }
+
+    async def _change_status(self, role: Role, status: StatusEnum,
+                             current_user: CurrentUser) -> None:
+        """状态变更的唯一应用层入口（整体更新 / 专用状态接口共用）。"""
+        role.change_status(status, current_user.user_id)
+
+    async def _load_any(self, role_id: RoleId) -> Role:
+        """读侧加载：不惧已删（回收站恢复 / 彻底删除用）。"""
+        role = await self.role_repo.get(role_id, include_deleted=True)
+        if role is None:
+            raise RoleNotFoundException(f'角色不存在：{role_id}')
+        return role
+
+    async def _load_accessible(self, role_id: RoleId, current_user: CurrentUser) -> Role:
+        role = await self.role_repo.get(role_id)  # 仓储默认不返回已删
+        if role is None:
+            raise RoleNotFoundException(f'角色不存在：{role_id}')
+        if not await self.role_access_service.can_access([role_id], current_user):
+            raise PermissionDeniedException('无权访问该角色')
+        return role
+
+    async def _ensure_permissions_exist(self, permission_ids: set[PermissionId]) -> None:
+        found = await self.permission_exists_query.filter_existing(list(permission_ids))
+        if len(found) != len(permission_ids):
+            raise PermissionNotFoundException('存在无效的权限 id')
+
+    async def _ensure_depts_exist(self, dept_ids: set[DeptId]) -> None:
+        found = await self.dept_repo.get_by_ids(list(dept_ids))
+        if len(found) != len(dept_ids):
+            raise DeptNotFoundException('存在无效的部门 id')

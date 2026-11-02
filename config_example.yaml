@@ -1,0 +1,78 @@
+
+core:
+  app_name: orange
+  app_version: example
+  debug: false
+  # 服务监听地址（容器内需改为 0.0.0.0）
+  host: 0.0.0.0
+  port: 8100
+  # 日志存放位置，默认是项目根目录下的logs目录
+  logs_dir: ./logs
+  # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{后端}.models 汇总模型）
+  # iam 是平台底座，monitor 依赖它，顺序保持在 iam 之后
+  modules:
+    - iam
+    - monitor
+  # 持久化（数据库）配置
+  persistence:
+    # 选择 ORM 后端
+    backend: tortoise
+    # 启动时是否自动迁移；关闭则改为手动运行 migrate.py
+    auto_migrate: true
+    use_tz: true
+    timezone: Asia/Shanghai
+    # 连接映射：{连接名: {dialect, credentials}}；engine 由方言层补，库名在 credentials 内
+    options:
+      default:
+        dialect: postgres
+        credentials:
+          host: 127.0.0.1
+          port: 5432
+          user: orange
+          password: orange
+          database: orange
+  # 缓存配置（可选；不配则 core 不启动缓存）
+  cache:
+    backend: redis
+    options:
+      host: 127.0.0.1
+      port: 6379
+      password: redis
+      db: 0
+  # 对象存储配置（可选；不配则 core 不启动对象存储）
+  object_storage:
+    # 客户端后端（对应 object_storage/{backend}）
+    backend: s3
+    # 命名连接：{连接名: provider + 连接参数}；provider 供业务 adapter 选择
+    options:
+      default:
+        provider: rustfs
+        endpoint_url: http://127.0.0.1:9000
+        access_key: orange
+        secret_key: change-me
+        region: us-east-1
+        path_style: true
+  # 事件 relay（可选；缺省用代码默认值）
+  events:
+    relay_poll_interval_seconds: 0.5
+    relay_batch_size: 100
+    relay_max_attempts: 10
+    relay_lock_timeout_seconds: 60
+    relay_retry_base_seconds: 5.0
+    relay_retry_max_seconds: 300.0
+
+iam:
+  jwt_config:
+    secret_key:
+    algorithm: HS256
+    # 访问令牌有效期（分钟）；决定「多久需要重新登录」
+    expire_minutes: 30
+  # 当前用户快照缓存（Redis）配置——与令牌无关：
+  # 快照过期会静默重解析回填，不触发重新登录；它只决定「权限/数据范围变更的陈旧窗口」
+  current_user_config:
+    # 快照 TTL（秒）；不配则缺省 = 令牌期（jwt_config.expire_minutes × 60，此处 30×60=1800）
+    snapshot_ttl_seconds: 1800
+  # 头像存储（可选；未配置则个人中心不启用头像）
+  avatar_storage:
+    # 引用 core.object_storage.options 里的连接名；桶名由 adapter 代码拥有
+    connection: default

@@ -1,0 +1,34 @@
+from future_uuid import uuid7
+from tortoise import fields
+from tortoise.contrib.postgres import fields as postgres_fields
+from tortoise.contrib.postgres import indexes as postgres_indexes
+
+from app.core.infrastructure.persistence.tortoise.models import AuditableModel
+from app.iam.domain.shared.enums import StatusEnum
+
+
+class DeptModel(AuditableModel):
+    """dept 聚合的表模型（与领域实体 app.iam.domain.dept.entities.Dept 分离）。
+
+    parent_id 用普通 UUID 列（非 FK），与 UserModel.dept_id 一致：引用走 ID，不加库级外键。
+    ancestors 是物化路径（根→父的祖先 id，不含自己），配 GIN 索引支撑 `@>`（`__contains`）找子孙。
+    """
+
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    name = fields.CharField(max_length=64)
+    parent_id = fields.UUIDField(null=True)
+    ancestors = postgres_fields.ArrayField('uuid', default=list)
+    leader_id = fields.UUIDField(null=True)
+    email = fields.CharField(max_length=255, null=True)
+    phone = fields.CharField(max_length=20, null=True)
+    # 枚举列长度给足余量（PG varchar 只存实际长度）
+    status = fields.CharEnumField(StatusEnum, max_length=50)
+    description = fields.TextField(null=True)
+
+    class Meta:
+        table = 'iam_dept'
+        # 同级同名唯一（DB 兜底，与 user/role 一致）。注意：根部门 parent_id 为 NULL，
+        # PG 里 NULL 互不相等，(parent_id, name) 唯一索引**拦不住根部门重名**——那一层靠应用层。
+        unique_together = (('parent_id', 'name'),)
+        # parent_id 的前缀已被上面的复合索引覆盖，不再单列
+        indexes = [postgres_indexes.GinIndex(fields=('ancestors',))]

@@ -1,0 +1,256 @@
+"""iam 模块的依赖装配（组合根）。
+
+- HTTP 路由经 FastAPI `Depends` 调用这里的 `get_*`；
+- bootstrap / python api 等非 HTTP 入口手动调用同一批 `get_*`。
+
+注意：这里没有容器，每次 `get_*` 都会 new 出新实例（HTTP 侧由 Depends 的
+per-request 缓存兜住）。所以被装配的实现应是**无状态**的。
+
+方言实现经 `persistence.module_infra(模块, 子模块)` 取：方言由模块的连接决定，
+组合根**不硬编码方言**（返回的是模块，属性即实现类）。
+
+缓存实现按 provider 选（当前 provider 即 `core.cache.backend`），与对象存储的
+provider 注册表同款；未知 provider 直接报错。
+"""
+from typing import Any
+
+from app.core import get_event_bus
+from app.core.domain.units_of_work import InTransactionType
+from app.core.infrastructure import cache, object_storage, persistence
+from app.iam.application.common.queries import (
+    EffectivePermissionQuery,
+    PermissionExistsQuery,
+    UsersAffectedByDeptChangeQuery,
+    UsersAffectedByPermissionChangeQuery,
+)
+from app.iam.application.common.ports import AuditLogWriterPort
+from app.iam.application.common.services import AuditService, DeptRefService
+from app.iam.application.current_user.ports import SessionManagerPort
+from app.iam.application.current_user.services import CurrentUserApplicationService
+from app.iam.application.dept.services import DeptApplicationService
+from app.iam.application.resource.services import ResourceApplicationService
+from app.iam.application.role.services import RoleApplicationService
+from app.iam.application.user.ports import AvatarStoragePort
+from app.iam.application.user.services import UserApplicationService
+from app.iam.application.user_role_assignment.services import UserRoleApplicationService
+from app.iam.domain.shared.services import DataScopeService
+from app.iam.domain.current_user.repositories import CurrentUserRepository
+from app.iam.domain.dept.repositories import DeptRepository
+from app.iam.domain.dept.services import DeptAccessService
+from app.iam.domain.resource.repositories import ResourceRepository
+from app.iam.domain.role.repositories import RoleRepository
+from app.iam.domain.role.services import RoleAccessService
+from app.iam.domain.user.repositories import UserRepository
+from app.iam.domain.user.services import UserAccessService
+from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
+from app.iam.infrastructure.adapters.audit_log_writer_adapter import AuditLogWriterAdapter
+from app.iam.infrastructure.adapters.avatar_storage.base import AvatarStorageS3Adapter
+from app.iam.infrastructure.adapters.avatar_storage.rustfs import (
+    AvatarStorageS3RustFSAdapter,
+)
+from app.iam.infrastructure.adapters.session_manager_adapter import SessionManagerJWTRedisAdapter
+from app.iam.infrastructure.cache.current_user_repo import CurrentUserRepositoryRedisImpl
+from app.iam.infrastructure.settings import IAM_SETTINGS
+
+# 按当前连接的方言解析 iam 的基础设施实现（models / repositories / queries）
+_repos = persistence.module_infra('iam', 'repositories')
+_queries = persistence.module_infra('iam', 'queries')
+
+
+def get_in_transaction() -> InTransactionType:
+    return persistence.get_in_transaction('iam')
+
+
+def get_user_repo() -> UserRepository:
+    return _repos.UserRepositoryTortoiseImpl()
+
+
+def get_dept_repo() -> DeptRepository:
+    return _repos.DeptRepositoryTortoiseImpl()
+
+
+def get_resource_repo() -> ResourceRepository:
+    return _repos.ResourceRepositoryTortoiseImpl()
+
+
+def get_user_access_service() -> UserAccessService:
+    return UserAccessService(get_user_repo())
+
+
+def get_dept_access_service() -> DeptAccessService:
+    return DeptAccessService(get_dept_repo())
+
+
+def get_data_scope_service() -> DataScopeService:
+    return DataScopeService(
+        user_role_repo=get_user_role_repo(),
+        role_repo=get_role_repo(),
+        dept_repo=get_dept_repo(),
+    )
+
+
+def get_audit_service() -> AuditService:
+    return AuditService(get_user_repo())
+
+
+def get_audit_log_writer() -> AuditLogWriterPort:
+    return AuditLogWriterAdapter()
+
+
+def get_dept_ref_service() -> DeptRefService:
+    return DeptRefService(get_dept_repo())
+
+
+def get_dept_app_service() -> DeptApplicationService:
+    return DeptApplicationService(
+        in_transaction=get_in_transaction(),
+        dept_repo=get_dept_repo(),
+        user_repo=get_user_repo(),
+        dept_access_service=get_dept_access_service(),
+        audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
+        dept_ref_service=get_dept_ref_service(),
+        role_repo=get_role_repo(),
+        event_bus=get_event_bus(),
+    )
+
+
+def get_user_app_service() -> UserApplicationService:
+    return UserApplicationService(
+        in_transaction=get_in_transaction(),
+        user_repo=get_user_repo(),
+        user_access_service=get_user_access_service(),
+        dept_access_service=get_dept_access_service(),
+        dept_repo=get_dept_repo(),
+        user_role_repo=get_user_role_repo(),
+        role_repo=get_role_repo(),
+        audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
+        dept_ref_service=get_dept_ref_service(),
+        session_manager=get_session_manager(),
+        current_user_repo=get_current_user_repo(),
+        event_bus=get_event_bus(),
+        avatar_storage=get_avatar_storage(),
+    )
+
+
+def get_resource_app_service() -> ResourceApplicationService:
+    return ResourceApplicationService(
+        in_transaction=get_in_transaction(),
+        resource_repo=get_resource_repo(),
+        role_repo=get_role_repo(),
+        audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
+        permission_users_query=get_permission_users_query(),
+        event_bus=get_event_bus(),
+    )
+
+
+def get_role_repo() -> RoleRepository:
+    return _repos.RoleRepositoryTortoiseImpl()
+
+
+def get_role_access_service() -> RoleAccessService:
+    return RoleAccessService(get_role_repo())
+
+
+def get_role_app_service() -> RoleApplicationService:
+    return RoleApplicationService(
+        in_transaction=get_in_transaction(),
+        role_repo=get_role_repo(),
+        permission_exists_query=get_permission_exists_query(),
+        dept_repo=get_dept_repo(),
+        role_access_service=get_role_access_service(),
+        audit_service=get_audit_service(),
+        audit_log_writer=get_audit_log_writer(),
+        dept_ref_service=get_dept_ref_service(),
+        user_role_repo=get_user_role_repo(),
+        event_bus=get_event_bus(),
+    )
+
+
+def get_user_role_repo() -> UserRoleRepository:
+    return _repos.UserRoleRepositoryTortoiseImpl()
+
+
+def get_user_role_app_service() -> UserRoleApplicationService:
+    return UserRoleApplicationService(
+        in_transaction=get_in_transaction(),
+        user_role_repo=get_user_role_repo(),
+        role_access_service=get_role_access_service(),
+        audit_log_writer=get_audit_log_writer(),
+        event_bus=get_event_bus(),
+    )
+
+
+# provider → 实现；cache 目前没有独立的 provider 层，provider 即 core.cache.backend
+_CURRENT_USER_REPO_IMPLS: dict[str, type[CurrentUserRepository]] = {
+    'redis': CurrentUserRepositoryRedisImpl,
+}
+_SESSION_MANAGER_IMPLS: dict[str, type[SessionManagerPort]] = {
+    'redis': SessionManagerJWTRedisAdapter,
+}
+
+
+def get_cache_client() -> Any:
+    return cache.get_cache()
+
+
+def get_current_user_repo() -> CurrentUserRepository:
+    provider = cache.get_cache_provider()
+    impl = _CURRENT_USER_REPO_IMPLS.get(provider)
+    if impl is None:
+        raise RuntimeError(f'未注册的缓存实现：current_user_repo/{provider}')
+    return impl(get_cache_client())
+
+
+def get_effective_permission_query() -> EffectivePermissionQuery:
+    return _queries.EffectivePermissionQueryTortoiseImpl()
+
+
+def get_affected_users_query() -> UsersAffectedByDeptChangeQuery:
+    return _queries.UsersAffectedByDeptChangeQueryTortoiseImpl()
+
+
+def get_permission_users_query() -> UsersAffectedByPermissionChangeQuery:
+    return _queries.UsersAffectedByPermissionChangeQueryTortoiseImpl()
+
+
+def get_permission_exists_query() -> PermissionExistsQuery:
+    return _queries.PermissionExistsQueryTortoiseImpl()
+
+
+def get_session_manager() -> SessionManagerPort:
+    provider = cache.get_cache_provider()
+    impl = _SESSION_MANAGER_IMPLS.get(provider)
+    if impl is None:
+        raise RuntimeError(f'未注册的缓存实现：session_manager/{provider}')
+    return impl(get_cache_client())
+
+
+def get_current_user_app_service() -> CurrentUserApplicationService:
+    return CurrentUserApplicationService(
+        user_repo=get_user_repo(),
+        current_user_repo=get_current_user_repo(),
+        effective_permission_query=get_effective_permission_query(),
+        data_scope_service=get_data_scope_service(),
+        session_manager=get_session_manager(),
+        audit_log_writer=get_audit_log_writer(),
+        in_transaction=get_in_transaction(),
+    )
+
+
+# provider → 专用 adapter；未注册的 S3 兼容 provider 回退通用实现
+_AVATAR_STORAGE_ADAPTERS: dict[str, type[AvatarStoragePort]] = {
+    'rustfs': AvatarStorageS3RustFSAdapter,
+}
+
+
+def get_avatar_storage() -> AvatarStoragePort | None:
+    """未配置 iam.avatar_storage 时返回 None（个人中心不启用头像）。"""
+    cfg = IAM_SETTINGS.avatar_storage
+    if cfg is None:
+        return None
+    provider = object_storage.get_object_storage_provider(cfg.connection)
+    adapter_cls = _AVATAR_STORAGE_ADAPTERS.get(provider, AvatarStorageS3Adapter)
+    return adapter_cls(object_storage.get_object_storage_client(cfg.connection))

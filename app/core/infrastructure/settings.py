@@ -1,0 +1,179 @@
+# 全局配置,包括数据库配置,jwt配置
+# import secrets
+import tomllib
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
+
+_PYPROJECT = Path(__file__).resolve().parents[3] / 'pyproject.toml'
+
+
+def _pyproject_version() -> str:
+    """版本默认值取 pyproject.toml 的 [project].version（config 未提供时才启用）；读不到回退 'nightly'。"""
+    try:
+        with _PYPROJECT.open('rb') as f:
+            return tomllib.load(f)['project']['version']
+    except (OSError, KeyError):
+        return 'nightly'
+
+
+class AppBaseSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],
+        yaml_file_encoding='utf-8',
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore'
+    )
+
+    # hook,配置 '配置源' 及其优先级
+    @classmethod
+    def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        yaml_settings = YamlConfigSettingsSource(settings_cls)
+        # 优先级（靠前更高）：显式参数 > 进程环境变量 > .env > YAML > secrets
+        # 关键：env 高于 yaml，容器里才能用环境变量覆盖配置文件
+        return init_settings, env_settings, dotenv_settings, yaml_settings, file_secret_settings
+
+
+class PersistenceConfig(BaseModel):
+    """持久化配置（core 段内的嵌套 schema）。
+
+    backend：选择 ORM 后端（对应 persistence/{backend}/{backend}_backend.py）；
+    auto_migrate：启动时是否自动执行迁移；关闭则跳过，改为手动触发（migrate.py）；
+    use_tz / timezone：tortoise 时区配置；
+    options：连接映射 {连接名: {dialect, credentials}}。每个连接**自带引擎** dialect
+             （对应 persistence/{backend}/{dialect}/），故不同连接可用不同引擎。
+    """
+    backend: str
+    auto_migrate: bool = True
+    use_tz: bool = True
+    timezone: str = 'Asia/Shanghai'
+    options: dict = {}
+
+
+class CacheConfig(BaseModel):
+    """缓存配置（core 段内的嵌套 schema）。
+
+    backend：选择缓存后端（对应 cache/{backend}/{backend}_backend.py）；
+    options：后端专属配置，core 原样透传、不解释（如 redis 的 host/port/password/db）。
+    未配置则 core 不启动缓存。
+    """
+    backend: str = 'redis'
+    options: dict = {}
+
+
+class EventsConfig(BaseModel):
+    """事件 relay 配置（core 段内的嵌套 schema）。
+
+    relay_*：轮询间隔、批量、最大尝试次数、processing 锁超时、重试退避。
+    缺省值即可用；未配置 `core.events` 时也按这些默认值运行。
+    """
+    relay_poll_interval_seconds: float = 0.5
+    relay_batch_size: int = 100
+    relay_max_attempts: int = 10
+    relay_lock_timeout_seconds: int = 60
+    relay_retry_base_seconds: float = 5.0
+    relay_retry_max_seconds: float = 300.0
+
+
+class ObjectStorageConfig(BaseModel):
+    """对象存储配置（core 段内的嵌套 schema）。
+
+    backend：选择客户端后端（对应 object_storage/{backend}/{backend}_backend.py）；
+    options：**命名连接映射** {连接名: {provider, endpoint_url, access_key, ...}}，
+             core 原样透传、不解释；provider 供业务侧选择具体 adapter。
+    未配置则 core 不启动对象存储。
+    """
+    backend: str = 's3'
+    options: dict = {}
+
+
+class CoreSettings(AppBaseSettings):
+    model_config = SettingsConfigDict(
+        yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],
+        yaml_config_section='core',
+        yaml_file_encoding='utf-8',
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore'
+    )
+
+    app_name: str = 'orange'
+    app_version: str = Field(default_factory=_pyproject_version)
+    debug: bool = False
+
+    # 服务监听地址（容器内需绑 0.0.0.0）
+    host: str = '127.0.0.1'
+    port: int = 8500
+    # # docs url
+    # docs_url : str = None
+    # redoc_url : str = None
+    #
+    # # cors
+    # cors_allowed_origins : list[str] | None = None
+    #
+    # # jwt配置
+    # jwt_secret_key: str | None = None
+    # jwt_algorithm: str = 'HS256'
+    # jwt_token_expire_minutes: int = 30
+    #
+    # # 是否需要初始化数据库
+    # need_init_db: bool = True
+    #
+    # log文件位置
+    logs_dir: Path = Path('./logs')
+
+    # 启用的业务模块（core 按约定汇总各模块的模型/路由等装配）
+    modules: list[str] = []
+
+    # 持久化（数据库）配置
+    persistence: PersistenceConfig | None = None
+
+    # 缓存配置（可选；未配置则 core 不启动缓存，用到时才报错）
+    cache: CacheConfig | None = None
+
+    # 对象存储配置（可选；未配置则 core 不启动对象存储，用到时才报错）
+    object_storage: ObjectStorageConfig | None = None
+
+    # 事件 relay 配置（可选；缺省用 EventsConfig 的默认值）
+    events: EventsConfig = Field(default_factory=EventsConfig)
+
+    # def __init__(self):
+    #     super().__init__()
+    #     # orm默认配置
+    #     if not self.tortoise_orm_config:
+    #         self.tortoise_orm_config = {
+    #             'connections': {
+    #                 'default': 'sqlite://db.sqlite3'
+    #             },
+    #             'apps': {
+    #                 'models': {
+    #                     'models': ['app.user.models', 'aerich.models'],
+    #                     'default_connection': 'default',
+    #                 }
+    #             },
+    #             'use_tz': True,  # 是否使用时区
+    #             'timezone': 'Asia/Shanghai',  # 默认时区
+    #             'db_pool': {
+    #                 'max_size': 10,
+    #                 'min_size': 1,
+    #                 'idle_timeout': 30  # 空闲连接超时
+    #             }
+    #         }
+    #     # redis_key_ex默认配置
+    #     if self.redis_key_token_ex is None:
+    #         self.redis_key_token_ex = self.jwt_token_expire_minutes * 60
+    #     # jwt默认配置
+    #     if self.jwt_secret_key is None:
+    #         self.jwt_secret_key = secrets.token_hex(32)
+
+
+CORE_SETTINGS = CoreSettings()

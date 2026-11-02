@@ -1,0 +1,150 @@
+from functools import partial
+from importlib import import_module
+
+from aerich import Command
+from loguru import logger
+from tortoise import Tortoise
+from tortoise.transactions import in_transaction
+
+from app.core.domain.units_of_work import InTransactionType, TransactionContext
+from app.core.infrastructure.persistence.tortoise.outbox import TortoiseEventOutboxStore
+from app.core.infrastructure.settings import CORE_SETTINGS
+
+MIGRATIONS_DIR = './migrations'
+
+
+def module_connection(module: str) -> str:
+    """模块声明的逻辑连接名（`DB_CONNECTION`，缺省 default）。"""
+    return getattr(import_module(f'app.{module}'), 'DB_CONNECTION', 'default')
+
+
+def _load_dialect(dialect: str):
+    """按连接声明的 dialect 加载 DB 方言层（把连接配置拼成 tortoise 认的连接）。"""
+    return import_module(
+        f'app.core.infrastructure.persistence.tortoise.{dialect}.{dialect}_backend')
+
+
+def module_dialect(module: str) -> str:
+    """某模块所用连接名（`DB_CONNECTION`）对应的 dialect（连接的引擎）。"""
+    return CORE_SETTINGS.persistence.options[module_connection(module)]['dialect']
+
+
+def infra_module(module: str, sub: str):
+    """按约定导入某模块的**方言基础设施**子模块（models / repositories / queries）。
+
+    路径：`app.{模块}.infrastructure.persistence.{backend}.{dialect}.{sub}`——
+    方言由模块的连接（`DB_CONNECTION`）决定。组合根用它取方言实现而不硬编码方言。
+    """
+    backend = CORE_SETTINGS.persistence.backend
+    return import_module(
+        f'app.{module}.infrastructure.persistence.{backend}.{module_dialect(module)}.{sub}')
+
+
+def event_outbox_store(model):
+    """用生产模块提供的 outbox 表模型构造存储实现。"""
+    return TortoiseEventOutboxStore(model)
+
+
+def _build_apps() -> dict:
+    """按约定 app.{模块}.infrastructure.persistence.{后端}.{方言}.models 汇总各模块的模型。
+
+    每个模块用哪个连接，由模块自己的 `DB_CONNECTION` 声明（缺省 'default'）；
+    连接名→物理库由 config 的 `persistence.options` 绑定；`{方言}` 由该连接的 `dialect` 决定。
+
+    aerich.models（迁移追踪表）在每个模块里都列一份：tortoise 内部按 _meta.app 去重，
+    只会归给第一个认领它的 label，因此重复列是安全的。
+    """
+    backend = CORE_SETTINGS.persistence.backend
+    apps = {}
+    for m in CORE_SETTINGS.modules:
+        connection = module_connection(m)
+        apps[m] = {
+            'models': [
+                f'app.{m}.infrastructure.persistence.{backend}.{module_dialect(m)}.models',
+                'aerich.models',
+            ],
+            'default_connection': connection,
+        }
+    return apps
+
+
+def build_tortoise_config() -> dict:
+    """把 core 配置装配成 tortoise 认的完整配置（运行时与 aerich 共用同一份）。"""
+    persistence = CORE_SETTINGS.persistence
+    connections = {
+        name: _load_dialect(spec['dialect']).build_connection(spec)
+        for name, spec in persistence.options.items()
+    }
+    return {
+        'connections': connections,
+        'apps': _build_apps(),
+        'use_tz': persistence.use_tz,
+        'timezone': persistence.timezone,
+    }
+
+
+async def init() -> None:
+    # _enable_global_fallback：lifespan 与请求不在同一个 task，需开全局上下文回退
+    await Tortoise.init(config=build_tortoise_config(), _enable_global_fallback=True)
+    logger.info('ORM 初始化完成')
+
+
+async def close() -> None:
+    await Tortoise.close_connections()
+
+
+async def run_migrations() -> None:
+    """启动前按模块逐个执行迁移（dev：自动 detect → 生成 → 应用）。
+
+    每次只把**该模块自己的 app/models** 交给 Aerich：Aerich 的 diff 看的是
+    Tortoise 注册的全部模型，若共用完整配置，同一句 DDL 会在每个模块的迁移里重复生成。
+    """
+    full_config = build_tortoise_config()
+    for app_label in full_config['apps']:
+        config = {
+            **full_config,
+            'apps': {app_label: full_config['apps'][app_label]},
+        }
+        command = Command(tortoise_config=config, app=app_label, location=MIGRATIONS_DIR)
+        try:
+            try:
+                await command.init_db(safe=True)
+                logger.info('[{}] 数据库表初始化完成', app_label)
+            except FileExistsError:
+                await command.init()
+                new_migration = await command.migrate(name='auto', no_input=True)
+                if new_migration:
+                    logger.info('[{}] 生成迁移脚本 {}', app_label, new_migration)
+                migrated = await command.upgrade()
+                for version in migrated:
+                    logger.info('[{}] 应用迁移 {}', app_label, version)
+                if not migrated:
+                    logger.info('[{}] 数据库表已是最新', app_label)
+        finally:
+            await command.aclose()
+
+
+class TortoiseTransactionContext(TransactionContext):
+    """把 tortoise 的 in_transaction() 适配成领域侧的事务上下文。
+
+    连接名由组合根在构造时绑定（模块 `DB_CONNECTION`）；不传则用默认连接。
+    tortoise 的事务连接按 task 的 ContextVar 自动绑定，事务内的查询无需显式传连接。
+    """
+
+    def __init__(self, connection_name: str | None = None) -> None:
+        self._connection_name = connection_name
+        self._cm = None
+
+    async def __aenter__(self):
+        # 进入时才创建，避免在构造期触碰连接/上下文
+        self._cm = in_transaction(self._connection_name)
+        return await self._cm.__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return await self._cm.__aexit__(exc_type, exc_val, exc_tb)
+
+
+def get_in_transaction(module: str | None = None) -> InTransactionType:
+    """事务工厂：绑定模块的连接名；不传 module 则用默认连接。"""
+    connection = module_connection(module) if module else None
+    return partial(TortoiseTransactionContext, connection)

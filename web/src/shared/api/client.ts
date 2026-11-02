@@ -1,0 +1,64 @@
+import axios from 'axios'
+import type { AxiosError, AxiosRequestConfig } from 'axios'
+
+import { emitSessionExpired } from '@shared/auth/session'
+import { getToken, setToken } from '@shared/auth/token'
+
+import { ApiError } from './errors'
+import type { ApiErrorBody } from './types'
+
+/**
+ * 唯一 HTTP 客户端（六边形里的「适配器」）：注入令牌 + 归一后端错误体。
+ * baseURL 为 `/`，dev 下经 vite proxy 转发到 FastAPI（全局前缀 /api）。
+ */
+export const http = axios.create({
+  baseURL: '/',
+  timeout: 15_000,
+})
+
+http.interceptors.request.use((config) => {
+  const token = getToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+http.interceptors.response.use(
+  (res) => res,
+  (error: AxiosError<ApiErrorBody>) => {
+    const status = error.response?.status
+    const body = error.response?.data
+    // 401 且**非**「登录被拒」→ 会话失效（令牌缺失/失效/过期）：清令牌并广播。
+    // 按后端 code 区分（不靠 URL）：IAM_AUTHENTICATION_FAILED = 登录凭据错（留给调用方展示），
+    // 其余 401（如 IAM_INVALID_TOKEN）= 会话没了。
+    if (status === 401 && body?.code !== 'IAM_AUTHENTICATION_FAILED') {
+      setToken(null)
+      emitSessionExpired()
+    }
+    if (body && typeof body === 'object' && 'code' in body) {
+      return Promise.reject(new ApiError(body, status))
+    }
+    return Promise.reject(new ApiError({ code: 'NETWORK_ERROR', message: error.message }, status))
+  },
+)
+
+export async function get<T>(url: string, params?: object, config?: AxiosRequestConfig): Promise<T> {
+  const res = await http.get<T>(url, { params, ...config })
+  return res.data
+}
+
+export async function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  const res = await http.post<T>(url, data, config)
+  return res.data
+}
+
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  const res = await http.put<T>(url, data, config)
+  return res.data
+}
+
+export async function del<T = void>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  const res = await http.delete<T>(url, config)
+  return res.data
+}

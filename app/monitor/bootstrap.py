@@ -1,0 +1,26 @@
+"""monitor 模块的启动钩子：注册本模块的资源/权限目录。"""
+from loguru import logger
+
+from app.iam.interface.python import (
+    RegisterPermissionReq,
+    RegisterResourceReq,
+    register_module_resources,
+)
+
+MONITOR_MODULE = 'monitor'
+
+MONITOR_RESOURCE_DECLARATIONS: list[RegisterResourceReq] = [
+    RegisterResourceReq(
+        module=MONITOR_MODULE,
+        code='audit_log',
+        name='审计日志',
+        permissions=[RegisterPermissionReq(action='read', name='查看审计日志')],
+    ),
+]
+
+
+async def bootstrap() -> None:
+    """按代码声明幂等注册 monitor 的资源/权限目录。"""
+    logger.info('同步 monitor 资源/权限目录（声明 {} 个资源）',
+                len(MONITOR_RESOURCE_DECLARATIONS))
+    await register_module_resources(MONITOR_MODULE, MONITOR_RESOURCE_DECLARATIONS)

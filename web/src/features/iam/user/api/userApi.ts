@@ -1,0 +1,57 @@
+import { del, get, post, put } from '@shared/api'
+import type { PageResult } from '@shared/api'
+
+import type {
+  CreateUserReq,
+  CreateUserResult,
+  GetUsersQuery,
+  PasswordIssueResult,
+  UpdateUserReq,
+  UserDetail,
+  UserListItem,
+  UserStatus,
+} from '../types'
+
+const BASE = '/api/iam/users'
+
+export async function getUsers(query: GetUsersQuery): Promise<PageResult<UserListItem>> {
+  const page = await get<PageResult<UserListItem>>(BASE, query)
+  return { ...page, data: page.data ?? [] }
+}
+
+/** 用户详情（含审计 / 部门引用 / 角色）——回收站内亦可读。 */
+export function getUserDetail(id: string): Promise<UserDetail> {
+  return get<UserDetail>(`${BASE}/${id}/detail`)
+}
+
+export function createUser(body: CreateUserReq): Promise<CreateUserResult> {
+  return post<CreateUserResult>(BASE, body)
+}
+
+/** 管理员重置密码；不传密码则服务端生成并一次性返回。 */
+export function resetUserPassword(id: string, password?: string): Promise<PasswordIssueResult> {
+  return put<PasswordIssueResult>(`${BASE}/${id}/password`, { new_password: password })
+}
+
+export function updateUser(id: string, body: UpdateUserReq): Promise<void> {
+  return put<void>(`${BASE}/${id}`, body)
+}
+
+export function deleteUser(id: string): Promise<void> {
+  return del<void>(`${BASE}/${id}`)
+}
+
+/** 启用 / 停用（统一状态接口）。 */
+export function setUserStatus(id: string, status: UserStatus): Promise<void> {
+  return put<void>(`${BASE}/${id}/status`, { status })
+}
+
+/** 回收站：恢复（复用删除权限）。 */
+export function restoreUser(id: string): Promise<void> {
+  return post<void>(`${BASE}/${id}/restore`)
+}
+
+/** 回收站：彻底删除（物理，不可恢复）。 */
+export function hardDeleteUser(id: string): Promise<void> {
+  return del<void>(`${BASE}/${id}/hard-delete`)
+}
