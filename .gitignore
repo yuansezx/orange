@@ -20,3 +20,7 @@ config_prod.yaml
 /migrations/
 /logs/
 tmp/
+
+# 闭源模块（目录链接，真身在独立仓）
+/app/tools
+/web/src/features/tools

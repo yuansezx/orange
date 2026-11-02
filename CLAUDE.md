@@ -9,6 +9,10 @@
 
 **仓库结构**：`app/`（后端，本文件详述）+ `web/`（前端 React 管理台，约定见 **`web/CLAUDE.md`**）。前后端同仓、单 git 仓。
 
+## 非平台模块
+
+闭源模块仓通过**目录链接**挂入 `app/<module>`、`web/src/features/<module>`（真身在平台仓之外，链接路径进 `.gitignore`）。在这些目录下工作时，**先读模块仓自己的 `CLAUDE.md`**（如 `../orange-tools/CLAUDE.md`），模块内部约定优先于本文件未覆盖的部分；平台通用约定仍然适用。依赖由 workspace 统一解析（uv `members` / pnpm `packages`），模块依赖需 `uv sync --all-packages` 才会安装。
+
 ## 技术栈
 
 - Python 3.13+ / 包管理 `uv`

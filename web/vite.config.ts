@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 
 const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
@@ -10,6 +10,12 @@ const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 const packageJson = JSON.parse(readFileSync(resolve('./package.json'), 'utf-8')) as {
   version: string
 }
+
+// 目录链接进来的模块真身在项目根之外，dev 需显式放行（不硬编码闭源路径）
+const moduleRoots = (process.env.ORANGE_MODULE_ROOTS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -24,6 +30,8 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
   resolve: {
+    // 目录链接模块不得自带第二份 React
+    dedupe: ['react', 'react-dom'],
     // 路径别名：@app / @shared / @features 对应组合根 / 共享内核 / 业务模块
     alias: {
       '@app': resolve('./src/app'),
@@ -35,6 +43,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 40000,
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd()), ...moduleRoots],
+    },
     // 后端不做 CORS，dev 经 vite proxy 转发到 FastAPI（全局前缀 /api）
     proxy: {
       '/api': {
