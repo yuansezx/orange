@@ -9,8 +9,20 @@ from io import BytesIO
 import magic
 
 
+XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+ZIP_MIME = 'application/zip'
+
+
 def detect_mime_type(data: bytes) -> str:
-    """按文件内容识别 MIME；不信任客户端声明的 Content-Type。"""
+    """按文件内容识别 MIME；不信任客户端声明的 Content-Type。
+
+    容器格式优先按结构判断（libmagic 对 xlsx 常只报 application/zip），
+    其余交给 libmagic。调用方只关心返回值，不需要知道判定顺序。
+    """
+    if is_xlsx_file(data):
+        return XLSX_MIME
+    if is_zip_file(data):
+        return ZIP_MIME
     return magic.from_buffer(data, mime=True)
 
 
