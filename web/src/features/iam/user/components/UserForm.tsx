@@ -11,6 +11,8 @@ interface Props {
   mode: 'create' | 'edit'
   /** 编辑时先拉详情（含角色），据此初始化。 */
   initial?: UserDetail
+  /** 无 `iam:user_role:assign` 时隐藏角色字段（后端同样拒绝）。 */
+  canAssignRoles: boolean
   onSubmit: (values: UserFormValues) => void
 }
 
@@ -19,7 +21,7 @@ interface Props {
  * 由外层以 `key` 重挂，故用 `initialValues` 初始化即可。
  * （只读详情另见 `UserDetailDrawer`，不复用本表单。）
  */
-export function UserForm({ formId, mode, initial, onSubmit }: Props) {
+export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Props) {
   const [form] = Form.useForm<UserFormValues>()
   const { data: roles = [] } = useRoles()
   const roleOptions = roles.map((role) => ({
@@ -105,15 +107,17 @@ export function UserForm({ formId, mode, initial, onSubmit }: Props) {
       <Form.Item name="dept_id" label="部门">
         <DeptTreeSelect />
       </Form.Item>
-      <Form.Item name="role_ids" label="角色">
-        <Select
-          mode="multiple"
-          options={roleOptions}
-          placeholder="选择角色"
-          optionFilterProp="label"
-          showSearch
-        />
-      </Form.Item>
+      {canAssignRoles && (
+        <Form.Item name="role_ids" label="角色">
+          <Select
+            mode="multiple"
+            options={roleOptions}
+            placeholder="选择角色"
+            optionFilterProp="label"
+            showSearch
+          />
+        </Form.Item>
+      )}
       <Form.Item name="description" label="描述">
         <Input.TextArea rows={2} maxLength={200} placeholder="描述" />
       </Form.Item>

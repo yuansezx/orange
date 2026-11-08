@@ -32,7 +32,6 @@ from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user.ports import AvatarStoragePort
 from app.iam.application.user.services import UserApplicationService
-from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.shared.services import DataScopeService
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.repositories import DeptRepository
@@ -43,6 +42,7 @@ from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
+from app.iam.domain.user_role_assignment.services import UserRoleAssignmentService
 from app.iam.infrastructure.adapters.audit_log_writer_adapter import AuditLogWriterAdapter
 from app.iam.infrastructure.adapters.avatar_storage.base import AvatarStorageS3Adapter
 from app.iam.infrastructure.adapters.avatar_storage.rustfs import (
@@ -124,6 +124,8 @@ def get_user_app_service() -> UserApplicationService:
         dept_repo=get_dept_repo(),
         user_role_repo=get_user_role_repo(),
         role_repo=get_role_repo(),
+        role_access_service=get_role_access_service(),
+        user_role_assignment_service=get_user_role_assignment_service(),
         audit_service=get_audit_service(),
         audit_log_writer=get_audit_log_writer(),
         dept_ref_service=get_dept_ref_service(),
@@ -173,14 +175,8 @@ def get_user_role_repo() -> UserRoleRepository:
     return _repos.UserRoleRepositoryTortoiseImpl()
 
 
-def get_user_role_app_service() -> UserRoleApplicationService:
-    return UserRoleApplicationService(
-        in_transaction=get_in_transaction(),
-        user_role_repo=get_user_role_repo(),
-        role_access_service=get_role_access_service(),
-        audit_log_writer=get_audit_log_writer(),
-        event_bus=get_event_bus(),
-    )
+def get_user_role_assignment_service() -> UserRoleAssignmentService:
+    return UserRoleAssignmentService(get_user_role_repo())
 
 
 # provider → 实现；cache 目前没有独立的 provider 层，provider 即 core.cache.backend

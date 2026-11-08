@@ -17,6 +17,8 @@ interface Props {
   mode: 'create' | 'edit'
   /** 编辑时对应用户 id（详情含角色，打开时拉取）。 */
   userId?: string
+  /** 是否展示角色字段（`iam:user_role:assign`）。 */
+  canAssignRoles: boolean
   pending: boolean
   onSubmit: (values: UserFormValues) => void
   onClose: () => void
@@ -26,7 +28,15 @@ interface Props {
  * 用户表单弹层：桌面 Drawer / 移动全屏 Popup。
  * 编辑时先拉 `GET /users/{id}/detail`（列表不含角色集），拿到后再挂表单。
  */
-export function UserFormDrawer({ open, mode, userId, pending, onSubmit, onClose }: Props) {
+export function UserFormDrawer({
+  open,
+  mode,
+  userId,
+  canAssignRoles,
+  pending,
+  onSubmit,
+  onClose,
+}: Props) {
   const title = TITLES[mode]
   const { data, isLoading, error } = useQuery({
     queryKey: ['user-detail', userId],
@@ -45,6 +55,7 @@ export function UserFormDrawer({ open, mode, userId, pending, onSubmit, onClose 
         formId={FORM_ID}
         mode={mode}
         initial={data}
+        canAssignRoles={canAssignRoles}
         onSubmit={onSubmit}
       />
     ) : null

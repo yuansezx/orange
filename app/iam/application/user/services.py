@@ -7,11 +7,10 @@ from app.core.domain.event_bus import EventBus
 from app.core.domain.value_objects import EventId
 from app.core.utils.file_type import detect_mime_type
 from app.core.utils.schemas import PageResult
-from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.value_objects import UserId
+from app.iam.domain.shared.value_objects import RoleId, UserId
 from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.generator import generate_password
 from app.iam.application.common.decorators import requires_permission
@@ -40,13 +39,16 @@ from app.iam.application.user.dto import (
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
 from app.iam.domain.role.repositories import RoleRepository
+from app.iam.domain.role.services import RoleAccessService
 from app.core.domain.units_of_work import InTransactionType
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.events import UserChanged, UserHardDeleted
 from app.iam.domain.user.exceptions import UserNotDeletedException
 from app.iam.domain.user.repositories import UserRepository, SearchUser
 from app.iam.domain.user.services import CheckUserUniqueService, UserAccessService
+from app.iam.domain.user_role_assignment.events import UserRolesChanged
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
+from app.iam.domain.user_role_assignment.services import UserRoleAssignmentService
 
 
 AVATAR_MAX_BYTES = 5 * 1024 * 1024
@@ -69,6 +71,8 @@ class UserApplicationService:
                  dept_repo: DeptRepository,
                  user_role_repo: UserRoleRepository,
                  role_repo: RoleRepository,
+                 role_access_service: RoleAccessService,
+                 user_role_assignment_service: UserRoleAssignmentService,
                  audit_service: AuditService,
                  audit_log_writer: AuditLogWriterPort,
                  dept_ref_service: DeptRefService,
@@ -85,6 +89,8 @@ class UserApplicationService:
         self.dept_repo = dept_repo
         self.user_role_repo = user_role_repo
         self.role_repo = role_repo
+        self.role_access_service = role_access_service
+        self.user_role_assignment_service = user_role_assignment_service
         self.audit_service = audit_service
         self.audit_log_writer = audit_log_writer
         self.dept_ref_service = dept_ref_service
@@ -280,8 +286,11 @@ class UserApplicationService:
 
     @requires_permission('iam:user:create')
     async def create_user_by_admin(self, data: CreateUserIn, current_user: CurrentUser,
-                                   user_role_app_service: UserRoleApplicationService,
                                    request_meta: RequestMeta | None = None) -> tuple[User, str | None]:
+        # 建用户与授权是两种能力：带初始角色时要求独立的 assign 权限
+        if data.role_ids and not current_user.has_permission('iam:user_role:assign'):
+            raise PermissionDeniedException('缺少分配角色的权限')
+
         # 用户唯一性检验
         # 竞态问题交给数据库唯一性检验，不做redis分布式锁了
         unique_service = CheckUserUniqueService(self.user_repo)
@@ -320,10 +329,10 @@ class UserApplicationService:
                 created_by=current_user.user_id,
                 created_at=datetime.now(UTC),
             ))
-            # 有角色创建用户角色关系，那边会检验权限
+            # 初始角色与用户在同一事务内落库
             if data.role_ids:
-                await user_role_app_service.assign_roles_to_user(
-                    user.id, data.role_ids, current_user, request_meta)
+                await self._sync_roles(user.id, data.role_ids, current_user, request_meta,
+                                       action='assign')
             await self.audit_log_writer.write(
                 current_user=current_user,
                 request_meta=request_meta,
@@ -340,12 +349,16 @@ class UserApplicationService:
                     'role_ids': [str(r) for r in (data.role_ids or [])],
                 },
             )
+        if data.role_ids:
+            await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user.id))
         return user, temporary_password
 
     @requires_permission('iam:user:update')
     async def update_user(self, data: UpdateUserIn, current_user: CurrentUser,
-                          user_role_app_service: UserRoleApplicationService,
                           request_meta: RequestMeta | None = None) -> User:
+        # 角色字段出现即视为授权操作（即使集合未变），要求独立的 assign 权限
+        if data.role_ids is not None and not current_user.has_permission('iam:user_role:assign'):
+            raise PermissionDeniedException('缺少分配角色的权限')
 
         user = await self._load_accessible(data.id, current_user)
 
@@ -369,8 +382,8 @@ class UserApplicationService:
             await self.user_repo.update(user)
             # 设置角色：`[]` 也要处理（清空全部角色），故判 None 而非真假
             if data.role_ids is not None:
-                await user_role_app_service.set_user_roles(
-                    user.id, data.role_ids, current_user, request_meta)
+                await self._sync_roles(user.id, data.role_ids, current_user, request_meta,
+                                       action='set')
             detail = {'before': before, 'after': after, 'changed': changed}
             if data.role_ids is not None:
                 detail['role_ids'] = [str(r) for r in data.role_ids]
@@ -387,7 +400,33 @@ class UserApplicationService:
             )
         # 事务已提交，通知订阅方失效该用户的快照（如昵称/部门/状态变更）
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
+        if data.role_ids is not None:
+            await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user.id))
         return user
+
+    async def _sync_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
+                          current_user: CurrentUser, request_meta: RequestMeta | None,
+                          *, action: str) -> None:
+        """在调用方事务内把用户角色设为目标集：数据范围授权 + 审计在此收口。"""
+        plan = await self.user_role_assignment_service.plan(
+            user_id, role_ids, current_user.user_id)
+        if not await self.role_access_service.can_access(plan.added | plan.removed, current_user):
+            raise PermissionDeniedException('存在您无权访问的角色')
+        await self.user_role_assignment_service.apply(plan, current_user.user_id)
+        await self.audit_log_writer.write(
+            current_user=current_user,
+            request_meta=request_meta,
+            resource='user_role',
+            action=action,
+            summary=f'为用户 {user_id} 分配角色',
+            target_type='user',
+            target_id=str(user_id.value),
+            detail={
+                'role_ids': sorted(str(r.value) for r in set(role_ids)),
+                'added_role_ids': sorted(str(r.value) for r in plan.added),
+                'removed_role_ids': sorted(str(r.value) for r in plan.removed),
+            },
+        )
 
     @requires_permission('iam:user:update')
     async def set_user_status(self, user_id: UserId, status: StatusEnum,

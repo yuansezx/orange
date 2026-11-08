@@ -43,6 +43,7 @@ export default function UserPage() {
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const { modal } = App.useApp()
   const { can, me } = usePermission()
+  const canAssignRoles = can('iam:user_role:assign')
   const { create, update, remove, setStatus, restore, hardDelete, resetPassword } =
     useUserMutations()
 
@@ -89,7 +90,8 @@ export default function UserPage() {
     const phone = values.phone?.trim() || null
     const description = values.description?.trim() || null
     const deptId = values.dept_id ?? null
-    const roleIds = values.role_ids ?? []
+    // 无 assign 权限时字段不渲染，也不能提交 role_ids（否则会把角色清空）
+    const roles = canAssignRoles ? { role_ids: values.role_ids ?? [] } : {}
 
     if (dialog.mode === 'edit' && dialog.userId) {
       update.mutate(
@@ -101,7 +103,7 @@ export default function UserPage() {
             phone,
             status: values.status,
             description,
-            role_ids: roleIds,
+            ...roles,
             dept_id: deptId,
           },
         },
@@ -117,7 +119,7 @@ export default function UserPage() {
           phone,
           status: values.status,
           description,
-          role_ids: roleIds,
+          ...roles,
           dept_id: deptId,
         },
         {
@@ -230,6 +232,7 @@ export default function UserPage() {
         open={dialog.open}
         mode={dialog.mode}
         userId={dialog.userId}
+        canAssignRoles={canAssignRoles}
         pending={pending}
         onSubmit={submit}
         onClose={close}
