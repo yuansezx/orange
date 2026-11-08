@@ -149,14 +149,19 @@ export function filterWorkspacesByPermission(
             }))
             .filter((group) => group.links.length > 0),
         }))
-        .filter((feature) => feature.groups.length > 0),
+        // hidden 链接只供路由/详情匹配，不算"可见页面"。
+        .filter((feature) =>
+          feature.groups.some((group) => group.links.some((link) => !link.hidden)),
+        ),
     }))
     .filter((workspace) => workspace.features.length > 0)
 }
 
-/** workspace 默认落地页：第一个有权限的 feature 页面。 */
+/** workspace 默认落地页：第一个有权限且非隐藏的菜单页。 */
 export function workspaceHomePath(workspace: WorkspaceNav): string {
-  const link = workspace.features[0]?.groups[0]?.links[0]
+  const link = workspace.features
+    .flatMap((feature) => feature.groups.flatMap((group) => group.links))
+    .find((item) => !item.hidden)
   return link ? `/${link.fullPath}` : '/'
 }
 

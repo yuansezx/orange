@@ -15,6 +15,8 @@ export interface MenuLink {
   permission?: string
   /** 菜单图标（ReactNode）；缺省无图标。 */
   icon?: ReactNode
+  /** 只注册路由、不在导航中展示（详情页等深链）；缺省为普通菜单项。 */
+  hidden?: boolean
   element: ReactNode
 }
 

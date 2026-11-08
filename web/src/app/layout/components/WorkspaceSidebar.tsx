@@ -16,38 +16,36 @@ interface Props {
 /** workspace 级侧栏（secondary navigation）：标题 + 菜单，占默认布局的第一列。 */
 export function WorkspaceSidebar({ workspace, selectedKey, onNavigate }: Props) {
   const palette = useWorkspacePalette()
-  const links = workspace.features.flatMap((feature) =>
-    feature.groups.flatMap((group) => group.links),
+  /** 隐藏链接只注册路由，不进 navigation。 */
+  const visibleLinks = workspace.features.flatMap((feature) =>
+    feature.groups.flatMap((group) => group.links.filter((link) => !link.hidden)),
   )
 
   const sections = workspace.features.flatMap((feature) =>
-    feature.groups.map((group) => ({
-      key: `${feature.key}:${group.key}`,
-      label:
-        feature.groups.length === 1
-          ? feature.label
-          : `${feature.label} · ${group.label}`,
-      links: group.links,
-    })),
+    feature.groups
+      .map((group) => ({
+        key: `${feature.key}:${group.key}`,
+        label:
+          feature.groups.length === 1
+            ? feature.label
+            : `${feature.label} · ${group.label}`,
+        links: group.links.filter((link) => !link.hidden),
+      }))
+      .filter((section) => section.links.length > 0),
   )
 
-  const items: MenuProps['items'] =
-    sections.length === 1
-      ? sections[0].links.map((link) => ({
-          key: link.key,
-          icon: link.icon,
-          label: link.label,
-        }))
-      : sections.map((section) => ({
-          key: section.key,
-          type: 'group' as const,
-          label: section.label,
-          children: section.links.map((link) => ({
-            key: link.key,
-            icon: link.icon,
-            label: link.label,
-          })),
-        }))
+  // 始终按模块（feature）分组：workspace 只有一个模块时也保留分组头，
+  // 避免后续加入新模块时导航层次突然从"平铺"变成"分组"。
+  const items: MenuProps['items'] = sections.map((section) => ({
+    key: section.key,
+    type: 'group' as const,
+    label: section.label,
+    children: section.links.map((link) => ({
+      key: link.key,
+      icon: link.icon,
+      label: link.label,
+    })),
+  }))
 
   return (
     <aside
@@ -84,7 +82,7 @@ export function WorkspaceSidebar({ workspace, selectedKey, onNavigate }: Props) 
             selectedKeys={selectedKey ? [selectedKey] : []}
             items={items}
             onClick={({ key }) => {
-              const link = links.find((item) => item.key === key)
+              const link = visibleLinks.find((item) => item.key === key)
               if (link) onNavigate(link)
             }}
           />

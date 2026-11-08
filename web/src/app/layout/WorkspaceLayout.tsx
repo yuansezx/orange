@@ -35,6 +35,7 @@ export function WorkspaceLayout({ workspace }: Props) {
     filtered?.features.flatMap((feature) =>
       feature.groups.flatMap((group) => group.links),
     ) ?? []
+  const visibleLinks = links.filter((link) => !link.hidden)
   const current = matchNavLink(links, pathname)
   /** workspace 调色板：未声明的项回退默认（系统壳不受影响）。 */
   const palette = useMemo(
@@ -42,7 +43,7 @@ export function WorkspaceLayout({ workspace }: Props) {
     [filtered?.theme],
   )
 
-  if (!filtered || links.length === 0) {
+  if (!filtered || visibleLinks.length === 0) {
     return <Empty description="暂无可访问页面" style={{ marginTop: 80 }} />
   }
 
@@ -92,7 +93,7 @@ export function WorkspaceLayout({ workspace }: Props) {
   const options = filtered.features.map((feature) => ({
     label: feature.label,
     options: feature.groups
-      .flatMap((group) => group.links)
+      .flatMap((group) => group.links.filter((link) => !link.hidden))
       .map((link) => ({ label: link.label, value: link.key })),
   }))
 
@@ -111,7 +112,7 @@ export function WorkspaceLayout({ workspace }: Props) {
           value={current?.key}
           options={options}
           onChange={(key) => {
-            const link = links.find((item) => item.key === key)
+            const link = visibleLinks.find((item) => item.key === key)
             if (link) navigate(`/${link.fullPath}`)
           }}
         />
