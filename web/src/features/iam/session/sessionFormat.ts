@@ -62,7 +62,7 @@ export function toRevokeTargets(sessions: SessionItem[]): RevokeSessionsTarget[]
 }
 
 export function userLabel(group: SessionGroupRow): string {
-  return group.nickname || group.username || group.user_id
+  return group.username || group.user_id
 }
 
 export function browserText(session: SessionItem): string {

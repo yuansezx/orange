@@ -38,7 +38,7 @@ export function SessionCardList({
                 />
               ) : undefined
             }
-            description={`${group.username ? `@${group.username} · ` : ''}${group.session_count} 个会话`}
+            description={`${group.session_count} 个会话`}
             extra={
               canRevokeUsers ? (
                 <Button size="mini" color="danger" fill="none" onClick={() => onRevokeUser(group)}>

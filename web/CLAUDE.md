@@ -38,6 +38,13 @@ web/src/
   - **个人中心**：系统级 `/account`，设置菜单由各 feature 的 `settings` 聚合，路径 `/account/{feature}/{path}`。
   - 菜单项不带 `permission` = 永远可见；过滤只是 UX，后端 403 兜底。
 - **features 对齐后端模块**：模块型切片与后端模块**同名同边界**（`iam` / `monitor`…），**不按"iam 的某张表"平铺**（否则 iam 专属的共享件无处安放）；控制台级切片（`auth`）例外。例：`features/iam/user`。
+- **用户身份展示（按空间富余度分层）**：`username` 是稳定标识，`nickname` 是可长可变的展示名。
+  - **高密度列表 / 审计流**（表格创建人·删除人、审计日志列表、在线会话、确认弹窗）：**只显示 `username`**，nickname 不占识别位；
+  - **用户自身列表**：桌面保留「用户名 / 昵称」两列；移动卡片只 `username`，nickname 进详情；
+  - **选择器**（用户下拉、成员管理）：`昵称（username）`（认人优先，长昵称省略）；
+  - **详情**：username / nickname 分成独立字段；单行引用用 `username（nickname）`；
+  - **个人中心**：保留 `nickname` 主 + `@username` 次（自我展示语境）。
+  - 括号统一全角；`@username` 只用于个人展示，不混入管理列表。格式化函数收口在 `shared/ui/userLabel.ts`。
 - **平台分叉**：**默认一份响应式实现**；`shared/platform` 的 `<Platform desktop={} mobile={}/>` 是**逃生口、按需用**。判据：同一行为、不同长相 → 共用；不同行为 → 才拆。跨端**共用**组件放 `components/` **根目录**，只有**确实分叉**的才进 `components/desktop/` `mobile/`；取数等逻辑放页面层共用、视图只渲染。范例：`features/iam/user`（一处叶子分叉）；系统壳本身也是分叉——桌面 = 系统侧栏 `SystemSidebar`（三态）+ 内容（workspace 自管左中右），移动 = 顶栏（汉堡）+ workspace 抽屉 + 内容；个人中心暂用顶部设置选择器。
 - **服务器状态**用 TanStack Query；`shared/api` 只出 `get/post/put/del<T>`，错误统一归一为 `ApiError`（`code` 对齐后端错误体，可 `except`/按 `code` 区分）。
 - **配置**：值是**数据**，放 `src/config.json`；读取层 `shared/config/index.ts` 只"读数据 + 定型"，不含配置值。`appVersion` 构建期从 `package.json` 注入（`__APP_VERSION__`），dev 未注入时 `typeof` 兜底 `'dev'`。

@@ -36,12 +36,12 @@ export function UserCardList({
           <List.Item
             key={user.id}
             onClick={() => setActive(user)}
-            description={`${user.username} · ${USER_TYPE_LABELS[user.user_type]} · ${dayjs(
-              user.created_at,
-            ).format('YYYY-MM-DD')}`}
+            description={`${USER_TYPE_LABELS[user.user_type]} · ${dayjs(user.created_at).format(
+              'YYYY-MM-DD',
+            )}`}
             extra={STATUS_LABELS[user.status]}
           >
-            {user.nickname || user.username}
+            {user.username}
           </List.Item>
         ))}
         {loading && <List.Item>加载中…</List.Item>}

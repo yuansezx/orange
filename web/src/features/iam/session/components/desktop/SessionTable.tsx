@@ -1,4 +1,4 @@
-import { Alert, Button, Table, theme, Tooltip, Typography } from 'antd'
+import { Alert, Button, Table, theme, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import { useMemo, useState } from 'react'
 import type { Key } from 'react'
@@ -45,12 +45,7 @@ export function SessionTable({
       ellipsis: true,
       render: (_, record) =>
         record.kind === 'user' ? (
-          <span>
-            <strong>{userLabel(record)}</strong>
-            {record.username && (
-              <Typography.Text type="secondary"> @{record.username}</Typography.Text>
-            )}
-          </span>
+          <strong>{userLabel(record)}</strong>
         ) : (
           browserText(record)
         ),

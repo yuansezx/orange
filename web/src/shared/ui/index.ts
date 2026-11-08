@@ -2,6 +2,7 @@ export { PageLoading } from './PageLoading'
 export { BrandLogo } from './BrandLogo'
 export { UserAvatar } from './UserAvatar'
 export { DetailDrawer } from './DetailDrawer'
+export { userChoiceLabel, userRefLabel } from './userLabel'
 export {
   IconBox,
   IconBuildingPlus,
