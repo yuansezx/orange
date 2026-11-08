@@ -1,8 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
+import path from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 
 import react from '@vitejs/plugin-react'
-import { defineConfig, searchForWorkspaceRoot } from 'vite'
+import type { Plugin } from 'vite'
+import { defineConfig, normalizePath, searchForWorkspaceRoot } from 'vite'
 
 const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
@@ -17,9 +19,66 @@ const moduleRoots = (process.env.ORANGE_MODULE_ROOTS ?? '')
   .map((s) => s.trim())
   .filter(Boolean)
 
+/**
+ * 目录链接模块的「真实路径 → 宿主链接路径」映射。
+ *
+ * 模块在 `web/src/features/<name>` 下以目录链接存在，Vite 默认真实路径解析，
+ * 会让模块内的裸依赖（antd / dayjs…）从仓外真实路径向上找 node_modules 而失败。
+ * 这里只把**链接进来的 feature 目录**改写回宿主路径，其余文件维持默认解析。
+ */
+interface ModulePathMapping {
+  real: string
+  linked: string
+}
+
+const featureRoot = resolve('./src/features')
+
+const modulePathMappings: ModulePathMapping[] = readdirSync(featureRoot).flatMap((name) => {
+  const linked = normalizePath(path.join(featureRoot, name))
+  try {
+    if (!statSync(linked).isDirectory()) return []
+    const real = normalizePath(realpathSync(linked))
+    return real === linked ? [] : [{ real, linked }]
+  } catch {
+    return []
+  }
+})
+
+// Windows 路径大小写不敏感；其他平台保持严格比较。
+const normalizeCase = (value: string) =>
+  process.platform === 'win32' ? value.toLowerCase() : value
+
+const isUnder = (id: string, base: string) =>
+  normalizeCase(id) === normalizeCase(base)
+  || normalizeCase(id).startsWith(`${normalizeCase(base)}/`)
+
+/** 把解析到模块真实路径的 id 改写回宿主链接路径（不改变其他文件的解析）。 */
+function modulePathPlugin(mappings: ModulePathMapping[]): Plugin {
+  return {
+    name: 'orange-module-path',
+    enforce: 'post',
+    async resolveId(source, importer, options) {
+      const resolved = await this.resolve(source, importer, { ...options, skipSelf: true })
+      if (!resolved) {
+        // 裸依赖从仓外真实路径解析失败：换用宿主链接路径的 importer 再解析一次。
+        if (!importer) return null
+        const cleanImporter = importer.split('?')[0]
+        const mapping = mappings.find((item) => isUnder(cleanImporter, item.real))
+        if (!mapping) return null
+        const linkedImporter = mapping.linked + cleanImporter.slice(mapping.real.length)
+        return this.resolve(source, linkedImporter, { ...options, skipSelf: true })
+      }
+      const id = normalizePath(resolved.id)
+      const mapping = mappings.find((item) => isUnder(id, item.real))
+      if (!mapping) return null
+      return { ...resolved, id: mapping.linked + id.slice(mapping.real.length) }
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), modulePathPlugin(modulePathMappings)],
   // 构建期把 __APP_VERSION__ 注入为编译常量（全局声明见 src/env.d.ts）。
   //
   // ⚠️ 已知（框架）问题：本环境 vite 8.3.4 的 **dev 下 define 未生效**——

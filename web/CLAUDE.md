@@ -37,6 +37,7 @@ web/src/
   - **FeatureModule**：对齐后端模块（iam/monitor…），声明 `workspace`、`groups`（workspace 内菜单）和可选 `settings`（个人中心设置）。完整路由为 `{workspace.basePath}/{feature}/{path}`（如 `/admin/iam/users`）；没有导航页，`/` 按权限落到第一个可访问页面。
   - **个人中心**：系统级 `/account`，设置菜单由各 feature 的 `settings` 聚合，路径 `/account/{feature}/{path}`。
   - 菜单项不带 `permission` = 永远可见；过滤只是 UX，后端 403 兜底。
+- **非平台模块目录链接**：`web/src/features/*` 下的目录链接由 `vite.config.ts` 的 `modulePathPlugin` 自动发现；解析到仓外真实路径的模块 id 会改写回宿主链接路径，保证模块内裸依赖（antd / dayjs…）从 `web/node_modules` 解析，dev 与 build 一致。`ORANGE_MODULE_ROOTS` 仅作 dev server `fs.allow` 兜底。
 - **features 对齐后端模块**：模块型切片与后端模块**同名同边界**（`iam` / `monitor`…），**不按"iam 的某张表"平铺**（否则 iam 专属的共享件无处安放）；控制台级切片（`auth`）例外。例：`features/iam/user`。
 - **用户身份展示（按空间富余度分层）**：`username` 是稳定标识，`nickname` 是可长可变的展示名。
   - **高密度列表 / 审计流**（表格创建人·删除人、审计日志列表、在线会话、确认弹窗）：**只显示 `username`**，nickname 不占识别位；
