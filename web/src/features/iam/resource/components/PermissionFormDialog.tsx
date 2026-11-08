@@ -1,6 +1,7 @@
-import { Form, Input, Modal } from 'antd'
+import { Form, Input, Modal, Select } from 'antd'
 import { useEffect } from 'react'
 
+import { STATUS_OPTIONS } from '../../constants'
 import type { PermissionFormValues, ResourcePermission } from '../types'
 
 const TITLES = { create: '新增权限', edit: '编辑权限' } as const
@@ -26,8 +27,9 @@ export function PermissionFormDialog({ open, mode, initial, pending, onSubmit, o
             action: initial.action,
             name: initial.name,
             description: initial.description ?? undefined,
+            status: initial.status,
           }
-        : { action: '', name: '', description: '' },
+        : { action: '', name: '', description: '', status: 'active' },
     )
   }, [open, initial, form])
 
@@ -54,6 +56,9 @@ export function PermissionFormDialog({ open, mode, initial, pending, onSubmit, o
         </Form.Item>
         <Form.Item name="description" label="描述">
           <Input.TextArea rows={3} maxLength={200} placeholder="描述" />
+        </Form.Item>
+        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+          <Select options={STATUS_OPTIONS} />
         </Form.Item>
       </Form>
     </Modal>

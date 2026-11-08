@@ -35,7 +35,7 @@ export interface GetDeptsQuery {
   deleted?: boolean
 }
 
-/** 创建部门——对齐后端 `CreateDeptReq`（无 `status`，服务端默认 ACTIVE）。 */
+/** 创建部门——对齐后端 `CreateDeptReq`。 */
 export interface CreateDeptReq {
   name: string
   parent_id?: string | null
@@ -43,6 +43,7 @@ export interface CreateDeptReq {
   email?: string | null
   phone?: string | null
   description?: string | null
+  status: Status
 }
 
 /** 更新部门——对齐后端 `UpdateDeptReq`；**移动 = 带新 `parent_id`**。 */

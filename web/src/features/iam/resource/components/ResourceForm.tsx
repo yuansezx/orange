@@ -1,5 +1,6 @@
-import { Form, Input } from 'antd'
+import { Form, Input, Select } from 'antd'
 
+import { STATUS_OPTIONS } from '../../constants'
 import type { Resource, ResourceFormValues } from '../types'
 
 interface Props {
@@ -26,8 +27,9 @@ export function ResourceForm({ formId, mode, initial, onSubmit }: Props) {
               code: initial.code,
               name: initial.name,
               description: initial.description ?? undefined,
+              status: initial.status,
             }
-          : undefined
+          : { status: 'active' }
       }
       onFinish={onSubmit}
     >
@@ -50,6 +52,9 @@ export function ResourceForm({ formId, mode, initial, onSubmit }: Props) {
       </Form.Item>
       <Form.Item name="description" label="描述">
         <Input.TextArea rows={3} maxLength={200} placeholder="描述" />
+      </Form.Item>
+      <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+        <Select options={STATUS_OPTIONS} />
       </Form.Item>
     </Form>
   )

@@ -1,4 +1,4 @@
-import { Button, Form, Modal } from 'antd'
+import { Button, Drawer, Form, Space } from 'antd'
 import { Popup } from 'antd-mobile'
 import { useEffect } from 'react'
 
@@ -20,8 +20,8 @@ interface Props {
   onClose: () => void
 }
 
-/** 部门表单弹层：同一份 `DeptForm`，桌面 Modal / 移动 Popup（平台分叉收口于此）。 */
-export function DeptFormDialog({
+/** 部门表单弹层：同一份 `DeptForm`，桌面 Drawer / 移动全屏 Popup（与其他管理页一致）。 */
+export function DeptFormDrawer({
   open,
   mode,
   dept,
@@ -47,7 +47,7 @@ export function DeptFormDialog({
       })
     } else {
       form.resetFields()
-      form.setFieldsValue({ parent_id: parentId })
+      form.setFieldsValue({ parent_id: parentId, status: 'active' })
     }
   }, [open, mode, dept, parentId, form])
 
@@ -57,43 +57,36 @@ export function DeptFormDialog({
   }
 
   const title = TITLES[mode]
+  const footer = (
+    <Space>
+      <Button onClick={onClose}>取消</Button>
+      <Button type="primary" loading={pending} onClick={submit}>
+        保存
+      </Button>
+    </Space>
+  )
 
   return (
     <Platform
       desktop={
-        <Modal
-          open={open}
-          title={title}
-          onOk={submit}
-          confirmLoading={pending}
-          onCancel={onClose}
-          maskClosable={false}
-        >
-          <DeptForm form={form} mode={mode} excludeIds={excludeIds} />
-        </Modal>
+        <Drawer open={open} width={520} title={title} onClose={onClose} footer={footer}>
+          {open && <DeptForm form={form} excludeIds={excludeIds} />}
+        </Drawer>
       }
       mobile={
         <Popup
           visible={open}
           onMaskClick={onClose}
-          bodyStyle={{
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-            maxHeight: '90vh',
-            overflow: 'auto',
-          }}
+          bodyStyle={{ height: '100vh', display: 'flex', flexDirection: 'column' }}
         >
-          <div style={{ padding: 16 }}>
-            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 12 }}>{title}</div>
-            <DeptForm form={form} mode={mode} excludeIds={excludeIds} />
-            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-              <Button block onClick={onClose}>
-                取消
-              </Button>
-              <Button block type="primary" loading={pending} onClick={submit}>
-                确定
-              </Button>
-            </div>
+          <div style={{ padding: 16, fontWeight: 600, borderBottom: '1px solid #f0f0f0' }}>
+            {title}
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+            {open && <DeptForm form={form} excludeIds={excludeIds} />}
+          </div>
+          <div style={{ padding: 12, borderTop: '1px solid #f0f0f0', textAlign: 'right' }}>
+            {footer}
           </div>
         </Popup>
       }

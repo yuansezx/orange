@@ -14,6 +14,7 @@ class CreateDeptIn(BaseModel):
     email: Email | None = None
     phone: Phone | None = None
     description: str | None = None
+    status: StatusEnum = StatusEnum.ACTIVE
 
 
 class UpdateDeptIn(BaseModel):

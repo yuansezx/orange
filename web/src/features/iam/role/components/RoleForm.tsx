@@ -39,7 +39,7 @@ export function RoleForm({ formId, mode, initial, onSubmit }: Props) {
               description: initial.description ?? undefined,
               status: initial.status,
             }
-          : { data_scope: 'self', dept_ids: [] }
+          : { data_scope: 'self', dept_ids: [], status: 'active' }
       }
       onFinish={(values) => onSubmit(values, permissionIds)}
     >
@@ -70,11 +70,9 @@ export function RoleForm({ formId, mode, initial, onSubmit }: Props) {
       <Form.Item name="description" label="描述">
         <Input.TextArea rows={2} maxLength={200} placeholder="描述" />
       </Form.Item>
-      {mode === 'edit' && (
-        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
-          <Select options={STATUS_OPTIONS} />
-        </Form.Item>
-      )}
+      <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+        <Select options={STATUS_OPTIONS} />
+      </Form.Item>
       <Form.Item label="权限" style={{ marginBottom: 0 }}>
         <PermissionTree value={permissionIds} onChange={setPermissionIds} />
       </Form.Item>

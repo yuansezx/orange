@@ -92,7 +92,7 @@ class RoleApplicationService:
                 code=data.code,
                 name=data.name,
                 data_scope=data.data_scope,
-                status=StatusEnum.ACTIVE,
+                status=data.status,
                 description=data.description,
                 permission_ids=permission_ids,
                 custom_dept_ids=dept_ids,

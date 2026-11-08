@@ -102,7 +102,7 @@ export default function ResourcePage() {
       mutations.update.mutate(
         {
           id: dialog.resource.id,
-          body: { name: values.name.trim(), description },
+          body: { name: values.name.trim(), description, status: values.status },
         },
         { onSuccess: closeResourceDialog },
       )
@@ -113,6 +113,7 @@ export default function ResourcePage() {
           code: values.code.trim(),
           name: values.name.trim(),
           description,
+          status: values.status,
         },
         { onSuccess: closeResourceDialog },
       )
@@ -125,7 +126,7 @@ export default function ResourcePage() {
       mutations.updatePerm.mutate(
         {
           id: permissionDialog.permission.id,
-          body: { name: values.name.trim(), description },
+          body: { name: values.name.trim(), description, status: values.status },
         },
         { onSuccess: closePermissionDialog },
       )
@@ -138,6 +139,7 @@ export default function ResourcePage() {
           action: values.action.trim(),
           name: values.name.trim(),
           description,
+          status: values.status,
         },
         { onSuccess: closePermissionDialog },
       )

@@ -20,7 +20,7 @@ import type { GetUsersQuery, UserFormValues, UserListItem, UserStatus, UserType 
 interface DialogState {
   open: boolean
   mode: 'create' | 'edit'
-  userId?: string
+  user?: UserListItem
 }
 
 /**
@@ -85,7 +85,7 @@ export default function UserPage() {
 
   const openCreate = () => setDialog({ open: true, mode: 'create' })
   const openEdit = (user: UserListItem) =>
-    setDialog({ open: true, mode: 'edit', userId: user.id })
+    setDialog({ open: true, mode: 'edit', user })
   const close = () => setDialog((prev) => ({ ...prev, open: false }))
 
   const submit = (values: UserFormValues) => {
@@ -94,10 +94,10 @@ export default function UserPage() {
     const description = values.description?.trim() || null
     const deptId = values.dept_id ?? null
 
-    if (dialog.mode === 'edit' && dialog.userId) {
+    if (dialog.mode === 'edit' && dialog.user) {
       update.mutate(
         {
-          id: dialog.userId,
+          id: dialog.user.id,
           body: {
             nickname: values.nickname!.trim(),
             email,
@@ -235,7 +235,7 @@ export default function UserPage() {
       <UserFormDrawer
         open={dialog.open}
         mode={dialog.mode}
-        userId={dialog.userId}
+        user={dialog.user}
         canAssignRoles={canAssignRoles}
         pending={pending}
         onSubmit={submit}

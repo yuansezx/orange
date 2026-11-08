@@ -77,6 +77,7 @@ export default function RolePage() {
           name: values.name.trim(),
           data_scope: dataScope,
           description,
+          status: values.status ?? 'active',
           permission_ids: permissionIds,
           dept_ids: deptIds,
         },

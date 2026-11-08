@@ -8,13 +8,12 @@ import type { DeptFormValues } from '../types'
 
 interface Props {
   form: FormInstance<DeptFormValues>
-  mode: 'create' | 'edit'
   /** 编辑时禁用自身及子孙作为父节点（防环）。 */
   excludeIds?: string[]
 }
 
-/** 部门表单字段（新建 / 编辑共用）；提交/取值由外层 Dialog 承担。详情另见 `DeptDetailDrawer`。 */
-export function DeptForm({ form, mode, excludeIds }: Props) {
+/** 部门表单字段（新建 / 编辑共用）；提交/取值由外层 Drawer 承担。详情另见 `DeptDetailDrawer`。 */
+export function DeptForm({ form, excludeIds }: Props) {
   return (
     <Form form={form} layout="vertical" requiredMark={false}>
       <Form.Item
@@ -39,11 +38,9 @@ export function DeptForm({ form, mode, excludeIds }: Props) {
       <Form.Item name="description" label="描述">
         <Input.TextArea rows={2} maxLength={200} placeholder="描述" />
       </Form.Item>
-      {mode === 'edit' && (
-        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
-          <Select options={STATUS_OPTIONS} placeholder="状态" />
-        </Form.Item>
-      )}
+      <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+        <Select options={STATUS_OPTIONS} placeholder="状态" />
+      </Form.Item>
     </Form>
   )
 }

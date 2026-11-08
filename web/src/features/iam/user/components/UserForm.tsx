@@ -3,14 +3,14 @@ import { Form, Input, Select } from 'antd'
 import { DeptTreeSelect } from '../../components/DeptTreeSelect'
 import { STATUS_OPTIONS } from '../../constants'
 import { useRoles } from '../../role/hooks/useRoles'
-import type { UserDetail, UserFormValues } from '../types'
+import type { UserFormValues, UserListItem } from '../types'
 
 interface Props {
   /** 供抽屉底部的原生 submit 按钮 `form=` 关联。 */
   formId: string
   mode: 'create' | 'edit'
-  /** 编辑时先拉详情（含角色），据此初始化。 */
-  initial?: UserDetail
+  /** 编辑时用列表行初始化（列表已含表单字段；角色走独立管理入口）。 */
+  initial?: UserListItem
   /** 创建时是否展示角色字段（`iam:user_role:assign`）；编辑不改角色。 */
   canAssignRoles: boolean
   onSubmit: (values: UserFormValues) => void

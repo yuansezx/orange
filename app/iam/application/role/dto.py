@@ -12,6 +12,7 @@ class CreateRoleIn(BaseModel):
     name: str
     data_scope: DataScopeEnum
     description: str | None = None
+    status: StatusEnum = StatusEnum.ACTIVE
     permission_ids: list[PermissionId]
     dept_ids: list[DeptId]
 

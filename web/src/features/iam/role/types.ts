@@ -27,6 +27,7 @@ export interface CreateRoleReq {
   name: string
   data_scope: DataScope
   description?: string | null
+  status: Status
   permission_ids: string[]
   dept_ids: string[]
 }

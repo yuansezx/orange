@@ -137,7 +137,8 @@ class Resource(AuditableEntity[UserId]):
         return next((p for p in self.permissions if p.id == permission_id), None)
 
     def declare_permission(self, action: str, name: str, description: str | None,
-                           permission_type: SourceTypeEnum, operator_id: UserId) -> Permission:
+                           permission_type: SourceTypeEnum, operator_id: UserId,
+                           status: StatusEnum = StatusEnum.ACTIVE) -> Permission:
         """**幂等**声明一个权限动作：已存在（含软删）则更新属性并复活，否则新建。
 
         幂等是为了 bootstrap 反复注册——重声明不新插、不撞 `(resource_id, action)` 唯一约束。
@@ -160,7 +161,7 @@ class Resource(AuditableEntity[UserId]):
             action=action,
             name=name,
             description=description,
-            status=StatusEnum.ACTIVE,
+            status=status,
             permission_type=permission_type,
             created_at=datetime.now(UTC),
             created_by=operator_id,
