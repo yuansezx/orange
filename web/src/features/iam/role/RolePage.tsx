@@ -31,7 +31,9 @@ export default function RolePage() {
   const { create, update, remove, setStatus, restore, hardDelete } = useRoleMutations()
   const { modal } = App.useApp()
   const { can } = usePermission()
+  const canReadMembers = can('iam:user_role:read') && can('iam:user:read')
   const canManageMembers = can('iam:user_role:assign') && can('iam:user:read')
+  const canViewMembers = canReadMembers
   const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const [membersTarget, setMembersTarget] = useState<RoleListItem | null>(null)
@@ -126,8 +128,8 @@ export default function RolePage() {
             loading={isLoading}
             error={error}
             recycleMode={recycleMode}
-            canManageMembers={!recycleMode && canManageMembers}
-            onManageMembers={setMembersTarget}
+            canViewMembers={!recycleMode && canViewMembers}
+            onViewMembers={setMembersTarget}
             onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -143,8 +145,8 @@ export default function RolePage() {
             loading={isLoading}
             error={error}
             recycleMode={recycleMode}
-            canManageMembers={!recycleMode && canManageMembers}
-            onManageMembers={setMembersTarget}
+            canViewMembers={!recycleMode && canViewMembers}
+            onViewMembers={setMembersTarget}
             onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -168,6 +170,7 @@ export default function RolePage() {
       {membersTarget && (
         <RoleMembersDrawer
           role={membersTarget}
+          canManage={canManageMembers}
           onClose={() => setMembersTarget(null)}
         />
       )}

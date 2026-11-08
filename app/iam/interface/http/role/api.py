@@ -21,12 +21,13 @@ from app.iam.interface.http.dependencies import get_current_user
 from app.iam.interface.http.role.schemas import (
     CreateRoleReq,
     GetRoleCandidatesReq,
+    GetRoleMembersReq,
     PatchRoleUsersReq,
     RoleCandidateUserResp,
     RoleDetailResp,
     RoleListItemResp,
+    RoleMemberResp,
     RoleResp,
-    RoleUserResp,
     UpdateRoleReq,
 )
 from app.iam.interface.http.schemas import UpdateStatusReq
@@ -81,15 +82,22 @@ async def get_role_detail(
     return RoleDetailResp.model_validate(detail, from_attributes=True)
 
 
-@role_router.get('/{role_id}/users', response_model=list[RoleUserResp],
-                 summary='角色成员（可管理）')
-async def get_role_users(
+@role_router.get('/{role_id}/users', response_model=PageResult[RoleMemberResp],
+                 summary='角色成员（分页只读）')
+async def get_role_members(
     role_id: UUID,
+    filters: Annotated[GetRoleMembersReq, Query()],
     current_user: CurrentUser = Depends(get_current_user),
     user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
-) -> list[RoleUserResp]:
-    users = await user_role_app_service.get_role_users(RoleId(role_id), current_user)
-    return [RoleUserResp(**u.model_dump()) for u in users]
+) -> PageResult[RoleMemberResp]:
+    page = await user_role_app_service.get_role_members(
+        RoleId(role_id), filters, current_user)
+    return PageResult[RoleMemberResp](
+        page=page.page,
+        page_size=page.page_size,
+        total=page.total,
+        data=[RoleMemberResp(**item.model_dump()) for item in (page.data or [])],
+    )
 
 
 @role_router.get('/{role_id}/candidates', response_model=PageResult[RoleCandidateUserResp],

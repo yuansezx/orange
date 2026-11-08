@@ -1,6 +1,7 @@
 from abc import abstractmethod
 
 from app.core.domain.repositories import BaseRepository
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId, UserId, UserRoleId
 from app.iam.domain.user_role_assignment.entities import UserRoleAssignment
 
@@ -30,6 +31,11 @@ class UserRoleRepository(BaseRepository[UserRoleId, UserRoleAssignment]):
     @abstractmethod
     async def get_assigned_user_ids(self, role_id: RoleId, user_ids: list[UserId]) -> set[UserId]:
         """这批用户中持有该角色（未删除分配）的 id 集合——候选列表的 selected 判定。"""
+        ...
+
+    @abstractmethod
+    async def get_assignment_status_map(self, role_id: RoleId) -> dict[UserId, StatusEnum]:
+        """该角色全部未删除分配：user_id → 分配状态（含自助停用）。"""
         ...
 
     @abstractmethod

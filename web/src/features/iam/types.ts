@@ -28,9 +28,3 @@ export interface DeptRef {
   path: string
 }
 
-/** 用户引用（如角色成员，对齐后端 `UserRefOut`）。 */
-export interface UserRef {
-  id: string
-  username: string
-  nickname: string
-}

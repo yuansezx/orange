@@ -7,9 +7,13 @@ from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.role.exceptions import RoleNotFoundException
-from app.iam.application.user.dto import UserRefOut
 from app.iam.application.user.exceptions import UserNotExistException
-from app.iam.application.user_role_assignment.dto import GetRoleCandidatesIn, RoleCandidateUserOut
+from app.iam.application.user_role_assignment.dto import (
+    GetRoleCandidatesIn,
+    GetRoleMembersIn,
+    RoleCandidateUserOut,
+    RoleMemberOut,
+)
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.role.services import RoleAccessService
@@ -129,29 +133,42 @@ class UserRoleApplicationService:
             await self.event_bus.publish(
                 UserRolesChanged(id=EventId.new(), user_id=affected_user_id))
 
-    @requires_permission(('iam:user_role:assign', 'iam:user:read'))
-    async def get_role_users(self, role_id: RoleId, current_user: CurrentUser) -> list[UserRefOut]:
-        """角色当前可管理成员（ACTIVE 分配 ∩ 当前用户数据范围）。"""
+    @requires_permission(('iam:user_role:read', 'iam:user:read'))
+    async def get_role_members(self, role_id: RoleId, data: GetRoleMembersIn,
+                               current_user: CurrentUser) -> PageResult[RoleMemberOut]:
+        """角色成员（未删除分配，含自助停用）；数据范围/关键字交由用户检索。"""
         role = await self.role_repo.get(role_id)
         if role is None:
             raise RoleNotFoundException('角色不存在')
         if not await self.role_access_service.can_access(role_id, current_user):
             raise PermissionDeniedException('无权访问该角色')
 
-        user_ids = await self.user_role_repo.get_user_ids_by_role(role_id)
-        if not user_ids:
-            return []
-        allowed = await self.user_repo.get_allowed_user_ids(current_user)
-        manageable = [uid for uid in user_ids if uid in allowed]
-        if not manageable:
-            return []
+        status_map = await self.user_role_repo.get_assignment_status_map(role_id)
+        if not status_map:
+            return PageResult(page=data.page, page_size=data.page_size, total=0, data=[])
 
-        users = await self.user_repo.get_by_ids(manageable)
-        by_id = {u.id: u for u in users}
-        return sorted(
-            (UserRefOut(id=uid, username=by_id[uid].username, nickname=by_id[uid].nickname)
-             for uid in manageable if uid in by_id),
-            key=lambda u: u.username,
+        page = await self.user_repo.search(
+            SearchUser(keyword=data.keyword, status=data.status, user_ids=list(status_map)),
+            page_size=data.page_size,
+            page=data.page,
+            scope=current_user.data_scope_spec,
+        )
+        users = page.data or []
+        return PageResult[RoleMemberOut](
+            page=page.page,
+            page_size=page.page_size,
+            total=page.total,
+            data=[
+                RoleMemberOut(
+                    id=u.id,
+                    username=u.username,
+                    nickname=u.nickname or u.username,
+                    user_type=u.user_type,
+                    status=u.status,
+                    assignment_status=status_map[u.id],
+                )
+                for u in users if u.id in status_map
+            ],
         )
 
     @requires_permission(('iam:user_role:assign', 'iam:user:read'))

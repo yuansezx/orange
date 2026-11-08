@@ -63,6 +63,7 @@ IAM_RESOURCE_DECLARATIONS: list[RegisterResourceIn] = [
     RegisterResourceIn(
         module=IAM_MODULE, code='user_role', name='用户角色分配',
         permissions=[
+            RegisterPermissionIn(action='read', name='查看角色成员'),
             RegisterPermissionIn(action='assign', name='分配角色'),
         ],
     ),

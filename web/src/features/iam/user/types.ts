@@ -134,6 +134,7 @@ export interface UserToolbarProps {
   keyword: string
   status?: UserStatus
   userType?: UserType
+  deptId?: string
   needChangePassword?: boolean
   recycleMode: boolean
   onChange: (patch: Record<string, string | undefined>) => void

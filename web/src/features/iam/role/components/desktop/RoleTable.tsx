@@ -17,8 +17,8 @@ interface Props {
   onView: (role: RoleListItem) => void
   onEdit: (role: RoleListItem) => void
   onDelete: (role: RoleListItem) => void
-  canManageMembers: boolean
-  onManageMembers: (role: RoleListItem) => void
+  canViewMembers: boolean
+  onViewMembers: (role: RoleListItem) => void
   recycleMode?: boolean
   onRestore: (role: RoleListItem) => void
   onHardDelete: (role: RoleListItem) => void
@@ -34,8 +34,8 @@ export function RoleTable({
   onView,
   onEdit,
   onDelete,
-  canManageMembers,
-  onManageMembers,
+  canViewMembers,
+  onViewMembers,
   recycleMode,
   onRestore,
   onHardDelete,
@@ -138,13 +138,13 @@ export function RoleTable({
                   onClick={withStop(() => onEdit(record))}
                 />
               </Tooltip>
-              <Tooltip title={canManageMembers ? '管理成员' : '无管理成员权限'}>
+              <Tooltip title={canViewMembers ? '成员' : '无成员查看权限'}>
                 <span>
                   <Button
                     type="text"
-                    disabled={!canManageMembers}
+                    disabled={!canViewMembers}
                     icon={<IconUsers size={16} />}
-                    onClick={withStop(() => onManageMembers(record))}
+                    onClick={withStop(() => onViewMembers(record))}
                   />
                 </span>
               </Tooltip>

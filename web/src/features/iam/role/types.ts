@@ -66,6 +66,23 @@ export interface GetRoleCandidatesQuery {
   page_size: number
 }
 
+/** 角色成员（只读）——对齐后端 `RoleMemberResp`；含分配状态。 */
+export interface RoleMember {
+  id: string
+  username: string
+  nickname: string
+  user_type: UserType
+  status: Status
+  assignment_status: Status
+}
+
+export interface GetRoleMembersQuery {
+  keyword?: string
+  status?: Status
+  page: number
+  page_size: number
+}
+
 /** 角色表单值（`code` 仅新建用；`status` 编辑/查看用）。 */
 export interface RoleFormValues {
   code: string

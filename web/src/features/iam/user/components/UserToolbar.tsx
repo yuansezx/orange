@@ -1,5 +1,6 @@
 import { Button, Input, Select, Space } from 'antd'
 
+import { DeptTreeSelect } from '../../components/DeptTreeSelect'
 import { RecycleModeSwitch } from '../../components/RecycleModeSwitch'
 import { NEED_CHANGE_PASSWORD_OPTIONS, STATUS_OPTIONS, USER_TYPE_OPTIONS } from '../constants'
 import type { UserToolbarProps } from '../types'
@@ -12,6 +13,7 @@ export function UserToolbar({
   keyword,
   status,
   userType,
+  deptId,
   needChangePassword,
   recycleMode,
   onChange,
@@ -28,6 +30,13 @@ export function UserToolbar({
         style={{ width: 280, maxWidth: '100%' }}
         onSearch={(value) => onChange({ keyword: value.trim() || undefined })}
       />
+      <div style={{ width: 180 }}>
+        <DeptTreeSelect
+          value={deptId}
+          onChange={(value) => onChange({ dept_id: value })}
+          placeholder="部门"
+        />
+      </div>
       <Select
         allowClear
         placeholder="状态"

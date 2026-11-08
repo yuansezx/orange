@@ -70,13 +70,6 @@ class RoleRefOut(BaseModel):
     name: str
 
 
-class UserRefOut(BaseModel):
-    """角色成员里的用户引用（id + 账号 + 昵称）。"""
-    id: UserId
-    username: str
-    nickname: str
-
-
 class UserDetailOut(UserOut, AuditOut):
     """用户详情——数据字段 + 审计（平铺）+ 部门引用 + 已分配角色。"""
     dept_ref: DeptRefOut | None = None

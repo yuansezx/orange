@@ -22,3 +22,21 @@ class RoleCandidateUserOut(BaseModel):
     user_type: UserTypeEnum
     status: StatusEnum
     selected: bool
+
+
+class GetRoleMembersIn(BaseModel):
+    """角色成员只读查询（分页 + 用户检索；成员 = 未删除分配，含自助停用）。"""
+    keyword: str | None = None
+    status: StatusEnum | None = None
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+
+
+class RoleMemberOut(BaseModel):
+    """角色成员：用户信息 + 该条角色分配的状态（ACTIVE/DISABLED）。"""
+    id: UserId
+    username: str
+    nickname: str
+    user_type: UserTypeEnum
+    status: StatusEnum
+    assignment_status: StatusEnum

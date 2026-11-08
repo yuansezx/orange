@@ -55,6 +55,7 @@ export default function UserPage() {
   const keyword = params.get('keyword') ?? ''
   const status = (params.get('status') as UserStatus | null) ?? undefined
   const userType = (params.get('user_type') as UserType | null) ?? undefined
+  const deptId = params.get('dept_id') ?? undefined
   const needChangePasswordParam = params.get('need_change_password')
   const needChangePassword =
     needChangePasswordParam === null ? undefined : needChangePasswordParam === 'true'
@@ -66,6 +67,7 @@ export default function UserPage() {
     keyword: keyword || undefined,
     status,
     user_type: userType,
+    dept_id: deptId,
     need_change_password: needChangePassword,
     deleted: recycleMode || undefined,
   }
@@ -175,6 +177,7 @@ export default function UserPage() {
         keyword={keyword}
         status={status}
         userType={userType}
+        deptId={deptId}
         needChangePassword={needChangePassword}
         recycleMode={recycleMode}
         onChange={updateQuery}

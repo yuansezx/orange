@@ -169,6 +169,12 @@ class UserRepositoryTortoiseImpl(UserRepository):
         if (cond := scope_filter(scope)) is not None:
             qs = qs.filter(cond)
 
+        # 限定用户 id（如角色成员）；空集合直接返回空页，避免 IN ()
+        if search_by.user_ids is not None:
+            if not search_by.user_ids:
+                return PageResult(page=page, page_size=page_size, total=0, data=[])
+            qs = qs.filter(id__in=[u.value for u in search_by.user_ids])
+
         # keyword：跨文本字段 OR 模糊
         if search_by.keyword:
             conds = [Q(**{f'{f}__icontains': search_by.keyword})

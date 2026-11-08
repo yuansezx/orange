@@ -11,10 +11,11 @@ from app.iam.application.role.dto import (
     RoleListItemOut,
     RoleOut,
 )
-from app.iam.application.user.dto import UserRefOut
 from app.iam.application.user_role_assignment.dto import (
     GetRoleCandidatesIn,
+    GetRoleMembersIn,
     RoleCandidateUserOut,
+    RoleMemberOut,
 )
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, UserId
@@ -46,8 +47,12 @@ class RoleDetailResp(RoleDetailOut):
     """角色详情响应——数据字段 + 审计（平铺）。"""
 
 
-class RoleUserResp(UserRefOut):
-    """角色成员响应（可管理范围内的用户引用）。"""
+class GetRoleMembersReq(GetRoleMembersIn):
+    """角色成员只读查询参数——线格式同 DTO。"""
+
+
+class RoleMemberResp(RoleMemberOut):
+    """角色成员响应（用户信息 + 分配状态）。"""
 
 
 class GetRoleCandidatesReq(GetRoleCandidatesIn):
