@@ -6,7 +6,7 @@ import { Platform } from '@shared/platform'
 
 import { RoleDetailDrawer } from './components/RoleDetailDrawer'
 import { RoleFormDrawer } from './components/RoleFormDrawer'
-import { RoleMembersModal } from './components/RoleMembersModal'
+import { RoleMembersDrawer } from './components/RoleMembersDrawer'
 import { RoleToolbar } from './components/RoleToolbar'
 import { RoleTable } from './components/desktop/RoleTable'
 import { RoleCardList } from './components/mobile/RoleCardList'
@@ -165,7 +165,7 @@ export default function RolePage() {
         />
       )}
       {membersTarget && (
-        <RoleMembersModal
+        <RoleMembersDrawer
           role={membersTarget}
           onClose={() => setMembersTarget(null)}
         />

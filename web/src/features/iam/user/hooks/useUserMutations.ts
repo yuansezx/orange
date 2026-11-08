@@ -25,6 +25,7 @@ export function useUserMutations() {
     queryClient.invalidateQueries({ queryKey: ['user-detail'] })
     queryClient.invalidateQueries({ queryKey: ['user-directory'] })
     queryClient.invalidateQueries({ queryKey: ['role-users'] })
+    queryClient.invalidateQueries({ queryKey: ['role-candidates'] })
   }
   const onError = (error: unknown) =>
     message.error(isApiError(error) ? error.message : '操作失败，请重试')

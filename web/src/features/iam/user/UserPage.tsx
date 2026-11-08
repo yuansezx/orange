@@ -9,7 +9,7 @@ import { ResetPasswordModal } from './components/ResetPasswordModal'
 import { TemporaryPasswordModal } from './components/TemporaryPasswordModal'
 import { UserDetailDrawer } from './components/UserDetailDrawer'
 import { UserFormDrawer } from './components/UserFormDrawer'
-import { UserRolesModal } from './components/UserRolesModal'
+import { UserRolesDrawer } from './components/UserRolesDrawer'
 import { UserToolbar } from './components/UserToolbar'
 import { UserTable } from './components/desktop/UserTable'
 import { UserCardList } from './components/mobile/UserCardList'
@@ -249,7 +249,7 @@ export default function UserPage() {
         />
       )}
       {roleTarget && (
-        <UserRolesModal user={roleTarget} onClose={() => setRoleTarget(null)} />
+        <UserRolesDrawer user={roleTarget} onClose={() => setRoleTarget(null)} />
       )}
       <TemporaryPasswordModal
         username={issuedPassword?.username ?? null}

@@ -12,6 +12,10 @@ from app.iam.application.role.dto import (
     RoleOut,
 )
 from app.iam.application.user.dto import UserRefOut
+from app.iam.application.user_role_assignment.dto import (
+    GetRoleCandidatesIn,
+    RoleCandidateUserOut,
+)
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, UserId
 
@@ -44,6 +48,14 @@ class RoleDetailResp(RoleDetailOut):
 
 class RoleUserResp(UserRefOut):
     """角色成员响应（可管理范围内的用户引用）。"""
+
+
+class GetRoleCandidatesReq(GetRoleCandidatesIn):
+    """角色成员候选查询参数——线格式同 DTO。"""
+
+
+class RoleCandidateUserResp(RoleCandidateUserOut):
+    """候选用户响应（含 selected 标记）。"""
 
 
 class PatchRoleUsersReq(BaseModel):

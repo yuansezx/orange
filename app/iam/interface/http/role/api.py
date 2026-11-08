@@ -2,12 +2,14 @@
 
 鉴权：功能权限由应用服务（@requires_permission）判定；接口层只 `Depends(get_current_user)` 提取身份。
 """
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
 from app.core.application.dto import RequestMeta
 from app.core.interface.http.dependencies import get_request_meta
+from app.core.utils.schemas import PageResult
 from app.iam.application.role.dto import UpdateRoleIn
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
@@ -18,7 +20,9 @@ from app.iam.interface.dependences import get_role_app_service, get_user_role_ap
 from app.iam.interface.http.dependencies import get_current_user
 from app.iam.interface.http.role.schemas import (
     CreateRoleReq,
+    GetRoleCandidatesReq,
     PatchRoleUsersReq,
+    RoleCandidateUserResp,
     RoleDetailResp,
     RoleListItemResp,
     RoleResp,
@@ -86,6 +90,24 @@ async def get_role_users(
 ) -> list[RoleUserResp]:
     users = await user_role_app_service.get_role_users(RoleId(role_id), current_user)
     return [RoleUserResp(**u.model_dump()) for u in users]
+
+
+@role_router.get('/{role_id}/candidates', response_model=PageResult[RoleCandidateUserResp],
+                 summary='角色成员候选（分页 + selected 标记）')
+async def get_role_candidates(
+    role_id: UUID,
+    filters: Annotated[GetRoleCandidatesReq, Query()],
+    current_user: CurrentUser = Depends(get_current_user),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> PageResult[RoleCandidateUserResp]:
+    page = await user_role_app_service.get_role_candidates(
+        RoleId(role_id), filters, current_user)
+    return PageResult[RoleCandidateUserResp](
+        page=page.page,
+        page_size=page.page_size,
+        total=page.total,
+        data=[RoleCandidateUserResp(**item.model_dump()) for item in (page.data or [])],
+    )
 
 
 @role_router.patch('/{role_id}/users', status_code=status.HTTP_204_NO_CONTENT,

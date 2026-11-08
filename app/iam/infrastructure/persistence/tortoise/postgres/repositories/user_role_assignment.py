@@ -99,6 +99,16 @@ class UserRoleRepositoryTortoiseImpl(UserRoleRepository):
         ).values_list('user_id', flat=True)
         return [UserId(u) for u in rows]
 
+    async def get_assigned_user_ids(self, role_id: RoleId, user_ids: list[UserId]) -> set[UserId]:
+        if not user_ids:
+            return set()
+        rows = await UserRoleAssignmentModel.filter(
+            role_id=role_id.value,
+            user_id__in=[u.value for u in user_ids],
+            deleted_at__isnull=True,
+        ).values_list('user_id', flat=True)
+        return {UserId(u) for u in rows}
+
     async def hard_delete_by_user(self, user_id: UserId) -> int:
         return await UserRoleAssignmentModel.filter(user_id=user_id.value).delete()
 

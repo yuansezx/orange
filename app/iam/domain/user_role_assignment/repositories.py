@@ -28,6 +28,11 @@ class UserRoleRepository(BaseRepository[UserRoleId, UserRoleAssignment]):
         ...
 
     @abstractmethod
+    async def get_assigned_user_ids(self, role_id: RoleId, user_ids: list[UserId]) -> set[UserId]:
+        """这批用户中持有该角色（未删除分配）的 id 集合——候选列表的 selected 判定。"""
+        ...
+
+    @abstractmethod
     async def hard_delete_by_user(self, user_id: UserId) -> int:
         """物理清理悬空引用：删掉该用户的全部角色分配（彻底删除用户时用）。"""
         ...

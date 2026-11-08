@@ -51,6 +51,7 @@ export function useRoleMutations() {
     onSuccess: () => {
       message.success('已保存')
       queryClient.invalidateQueries({ queryKey: ['role-users'] })
+      queryClient.invalidateQueries({ queryKey: ['role-candidates'] })
       queryClient.invalidateQueries({ queryKey: ['user-detail'] })
       invalidate()
     },

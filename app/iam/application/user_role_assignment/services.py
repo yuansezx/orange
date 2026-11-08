@@ -2,17 +2,19 @@ from app.core.application.dto import RequestMeta
 from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
+from app.core.utils.schemas import PageResult
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.role.exceptions import RoleNotFoundException
 from app.iam.application.user.dto import UserRefOut
 from app.iam.application.user.exceptions import UserNotExistException
+from app.iam.application.user_role_assignment.dto import GetRoleCandidatesIn, RoleCandidateUserOut
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.shared.value_objects import RoleId, UserId
-from app.iam.domain.user.repositories import UserRepository
+from app.iam.domain.user.repositories import SearchUser, UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.events import UserRolesChanged
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
@@ -150,4 +152,41 @@ class UserRoleApplicationService:
             (UserRefOut(id=uid, username=by_id[uid].username, nickname=by_id[uid].nickname)
              for uid in manageable if uid in by_id),
             key=lambda u: u.username,
+        )
+
+    @requires_permission(('iam:user_role:assign', 'iam:user:read'))
+    async def get_role_candidates(self, role_id: RoleId, data: GetRoleCandidatesIn,
+                                  current_user: CurrentUser) -> PageResult[RoleCandidateUserOut]:
+        """分页候选用户 + 每行 selected 标记（数据范围在用户检索侧过滤）。"""
+        role = await self.role_repo.get(role_id)
+        if role is None:
+            raise RoleNotFoundException('角色不存在')
+        if not await self.role_access_service.can_access(role_id, current_user):
+            raise PermissionDeniedException('无权访问该角色')
+
+        page = await self.user_repo.search(
+            SearchUser(keyword=data.keyword, status=data.status, user_type=data.user_type),
+            page_size=data.page_size,
+            page=data.page,
+            scope=current_user.data_scope_spec,
+        )
+        users = page.data or []
+        assigned = await self.user_role_repo.get_assigned_user_ids(
+            role_id, [u.id for u in users])
+
+        return PageResult[RoleCandidateUserOut](
+            page=page.page,
+            page_size=page.page_size,
+            total=page.total,
+            data=[
+                RoleCandidateUserOut(
+                    id=u.id,
+                    username=u.username,
+                    nickname=u.nickname or u.username,
+                    user_type=u.user_type,
+                    status=u.status,
+                    selected=u.id in assigned,
+                )
+                for u in users
+            ],
         )

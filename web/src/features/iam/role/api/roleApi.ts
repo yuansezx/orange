@@ -1,11 +1,14 @@
 import { del, get, patch, post, put } from '@shared/api'
+import type { PageResult } from '@shared/api'
 
 import type { Status, UserRef } from '../../types'
 import type {
   Catalog,
   CreateRoleReq,
+  GetRoleCandidatesQuery,
   PatchRoleUsersReq,
   Role,
+  RoleCandidateUser,
   RoleDetail,
   RoleListItem,
   UpdateRoleReq,
@@ -37,6 +40,14 @@ export function updateRole(id: string, body: UpdateRoleReq): Promise<void> {
 /** 角色当前可管理成员（数据范围过滤后）。 */
 export function getRoleUsers(id: string): Promise<UserRef[]> {
   return get<UserRef[]>(`${BASE}/${id}/users`)
+}
+
+/** 角色成员候选：分页 + 每行 selected 标记（数据范围/关键词由后端处理）。 */
+export function getRoleCandidates(
+  id: string,
+  query: GetRoleCandidatesQuery,
+): Promise<PageResult<RoleCandidateUser>> {
+  return get<PageResult<RoleCandidateUser>>(`${BASE}/${id}/candidates`, query)
 }
 
 /** 角色成员管理（增量）：只提交本次增删的用户。 */
