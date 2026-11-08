@@ -20,6 +20,8 @@ interface Props {
   onView: (role: RoleListItem) => void
   onEdit: (role: RoleListItem) => void
   onDelete: (role: RoleListItem) => void
+  canManageMembers: boolean
+  onManageMembers: (role: RoleListItem) => void
   onRestore: (role: RoleListItem) => void
   onHardDelete: (role: RoleListItem) => void
 }
@@ -33,6 +35,8 @@ export function RoleCardList({
   onView,
   onEdit,
   onDelete,
+  canManageMembers,
+  onManageMembers,
   onRestore,
   onHardDelete,
 }: Props) {
@@ -75,6 +79,12 @@ export function RoleCardList({
             : [
                 { key: 'view', text: '查看' },
                 { key: 'edit', text: '编辑' },
+                {
+                  key: 'manageMembers',
+                  text: '管理成员',
+                  disabled: !canManageMembers,
+                  description: canManageMembers ? undefined : '无管理成员权限',
+                },
                 { key: 'delete', text: '删除', danger: true },
               ]
         }
@@ -83,6 +93,7 @@ export function RoleCardList({
           const target = active
           setActive(null)
           if (action.key === 'view') onView(target)
+          else if (action.key === 'manageMembers') onManageMembers(target)
           else if (action.key === 'restore') onRestore(target)
           else if (action.key === 'hardDelete') onHardDelete(target)
           else if (action.key === 'edit') onEdit(target)

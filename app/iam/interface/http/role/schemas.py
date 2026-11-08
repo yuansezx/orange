@@ -3,7 +3,7 @@
 字段直接用 domain 值对象（RoleId / PermissionId / DeptId），经 `SingleValueObject`
 统一裸值出入、OpenAPI 展示为 string（id 带 format: uuid）。
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.iam.application.role.dto import (
     CreateRoleIn,
@@ -11,8 +11,9 @@ from app.iam.application.role.dto import (
     RoleListItemOut,
     RoleOut,
 )
+from app.iam.application.user.dto import UserRefOut
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
-from app.iam.domain.shared.value_objects import DeptId, PermissionId
+from app.iam.domain.shared.value_objects import DeptId, PermissionId, UserId
 
 
 class CreateRoleReq(CreateRoleIn):
@@ -39,3 +40,13 @@ class RoleListItemResp(RoleListItemOut):
 
 class RoleDetailResp(RoleDetailOut):
     """角色详情响应——数据字段 + 审计（平铺）。"""
+
+
+class RoleUserResp(UserRefOut):
+    """角色成员响应（可管理范围内的用户引用）。"""
+
+
+class PatchRoleUsersReq(BaseModel):
+    """角色成员管理（增量）：只改本次指定的关系。"""
+    add_user_ids: list[UserId] = Field(default_factory=list)
+    remove_user_ids: list[UserId] = Field(default_factory=list)

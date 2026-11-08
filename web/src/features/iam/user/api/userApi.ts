@@ -1,10 +1,11 @@
-import { del, get, post, put } from '@shared/api'
+import { del, get, patch, post, put } from '@shared/api'
 import type { PageResult } from '@shared/api'
 
 import type {
   CreateUserReq,
   CreateUserResult,
   GetUsersQuery,
+  PatchUserRolesReq,
   PasswordIssueResult,
   UpdateUserReq,
   UserDetail,
@@ -35,6 +36,11 @@ export function resetUserPassword(id: string, password?: string): Promise<Passwo
 
 export function updateUser(id: string, body: UpdateUserReq): Promise<void> {
   return put<void>(`${BASE}/${id}`, body)
+}
+
+/** 角色管理（增量）：只提交本次增删的角色。 */
+export function patchUserRoles(id: string, body: PatchUserRolesReq): Promise<void> {
+  return patch<void>(`${BASE}/${id}/roles`, body)
 }
 
 export function deleteUser(id: string): Promise<void> {

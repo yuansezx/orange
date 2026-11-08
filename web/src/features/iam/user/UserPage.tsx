@@ -9,6 +9,7 @@ import { ResetPasswordModal } from './components/ResetPasswordModal'
 import { TemporaryPasswordModal } from './components/TemporaryPasswordModal'
 import { UserDetailDrawer } from './components/UserDetailDrawer'
 import { UserFormDrawer } from './components/UserFormDrawer'
+import { UserRolesModal } from './components/UserRolesModal'
 import { UserToolbar } from './components/UserToolbar'
 import { UserTable } from './components/desktop/UserTable'
 import { UserCardList } from './components/mobile/UserCardList'
@@ -36,6 +37,7 @@ export default function UserPage() {
   const [params, setParams] = useSearchParams()
   const [viewingId, setViewingId] = useState<string>()
   const [resetTarget, setResetTarget] = useState<UserListItem | null>(null)
+  const [roleTarget, setRoleTarget] = useState<UserListItem | null>(null)
   const [issuedPassword, setIssuedPassword] = useState<{
     username: string
     password: string
@@ -44,6 +46,7 @@ export default function UserPage() {
   const { modal } = App.useApp()
   const { can, me } = usePermission()
   const canAssignRoles = can('iam:user_role:assign')
+  const canManageRoles = canAssignRoles && can('iam:role:read')
   const { create, update, remove, setStatus, restore, hardDelete, resetPassword } =
     useUserMutations()
 
@@ -90,8 +93,6 @@ export default function UserPage() {
     const phone = values.phone?.trim() || null
     const description = values.description?.trim() || null
     const deptId = values.dept_id ?? null
-    // 无 assign 权限时字段不渲染，也不能提交 role_ids（否则会把角色清空）
-    const roles = canAssignRoles ? { role_ids: values.role_ids ?? [] } : {}
 
     if (dialog.mode === 'edit' && dialog.userId) {
       update.mutate(
@@ -103,7 +104,6 @@ export default function UserPage() {
             phone,
             status: values.status,
             description,
-            ...roles,
             dept_id: deptId,
           },
         },
@@ -119,7 +119,7 @@ export default function UserPage() {
           phone,
           status: values.status,
           description,
-          ...roles,
+          ...(canAssignRoles ? { role_ids: values.role_ids ?? [] } : {}),
           dept_id: deptId,
         },
         {
@@ -193,7 +193,9 @@ export default function UserPage() {
             recycleMode={recycleMode}
             selfId={me?.user_id}
             canResetPassword={!recycleMode && canResetPassword}
+            canManageRoles={!recycleMode && canManageRoles}
             onResetPassword={setResetTarget}
+            onManageRoles={setRoleTarget}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -213,8 +215,10 @@ export default function UserPage() {
             error={error}
             recycleMode={recycleMode}
             canResetPassword={!recycleMode && canResetPassword}
+            canManageRoles={!recycleMode && canManageRoles}
             selfId={me?.user_id}
             onResetPassword={setResetTarget}
+            onManageRoles={setRoleTarget}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -243,6 +247,9 @@ export default function UserPage() {
           onSubmit={submitResetPassword}
           onClose={() => setResetTarget(null)}
         />
+      )}
+      {roleTarget && (
+        <UserRolesModal user={roleTarget} onClose={() => setRoleTarget(null)} />
       )}
       <TemporaryPasswordModal
         username={issuedPassword?.username ?? null}

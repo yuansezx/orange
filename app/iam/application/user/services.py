@@ -356,10 +356,6 @@ class UserApplicationService:
     @requires_permission('iam:user:update')
     async def update_user(self, data: UpdateUserIn, current_user: CurrentUser,
                           request_meta: RequestMeta | None = None) -> User:
-        # 角色字段出现即视为授权操作（即使集合未变），要求独立的 assign 权限
-        if data.role_ids is not None and not current_user.has_permission('iam:user_role:assign'):
-            raise PermissionDeniedException('缺少分配角色的权限')
-
         user = await self._load_accessible(data.id, current_user)
 
         # 如果涉及部门，检验权限
@@ -374,19 +370,11 @@ class UserApplicationService:
         await self._change_status(user, data.status, current_user)
         after = self._user_snapshot(user)
         changed = [field for field in before if before[field] != after[field]]
-        if data.role_ids is not None:
-            changed.append('role_ids')
 
         async with self.in_transaction():
             # 存储实体
             await self.user_repo.update(user)
-            # 设置角色：`[]` 也要处理（清空全部角色），故判 None 而非真假
-            if data.role_ids is not None:
-                await self._sync_roles(user.id, data.role_ids, current_user, request_meta,
-                                       action='set')
             detail = {'before': before, 'after': after, 'changed': changed}
-            if data.role_ids is not None:
-                detail['role_ids'] = [str(r) for r in data.role_ids]
             await self.audit_log_writer.write(
                 current_user=current_user,
                 request_meta=request_meta,
@@ -400,8 +388,6 @@ class UserApplicationService:
             )
         # 事务已提交，通知订阅方失效该用户的快照（如昵称/部门/状态变更）
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
-        if data.role_ids is not None:
-            await self.event_bus.publish(UserRolesChanged(id=EventId.new(), user_id=user.id))
         return user
 
     async def _sync_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],

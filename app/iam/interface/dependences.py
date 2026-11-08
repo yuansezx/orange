@@ -32,6 +32,7 @@ from app.iam.application.resource.services import ResourceApplicationService
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user.ports import AvatarStoragePort
 from app.iam.application.user.services import UserApplicationService
+from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.shared.services import DataScopeService
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.repositories import DeptRepository
@@ -177,6 +178,20 @@ def get_user_role_repo() -> UserRoleRepository:
 
 def get_user_role_assignment_service() -> UserRoleAssignmentService:
     return UserRoleAssignmentService(get_user_role_repo())
+
+
+def get_user_role_app_service() -> UserRoleApplicationService:
+    return UserRoleApplicationService(
+        in_transaction=get_in_transaction(),
+        user_repo=get_user_repo(),
+        role_repo=get_role_repo(),
+        user_role_repo=get_user_role_repo(),
+        role_access_service=get_role_access_service(),
+        user_access_service=get_user_access_service(),
+        user_role_assignment_service=get_user_role_assignment_service(),
+        audit_log_writer=get_audit_log_writer(),
+        event_bus=get_event_bus(),
+    )
 
 
 # provider → 实现；cache 目前没有独立的 provider 层，provider 即 core.cache.backend

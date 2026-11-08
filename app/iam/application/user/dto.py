@@ -40,7 +40,6 @@ class UpdateUserIn(BaseModel):
     phone: Phone | None = None
     status: StatusEnum
     description: str | None = None
-    role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None
 
 
@@ -69,6 +68,13 @@ class RoleRefOut(BaseModel):
     id: RoleId
     code: str
     name: str
+
+
+class UserRefOut(BaseModel):
+    """角色成员里的用户引用（id + 账号 + 昵称）。"""
+    id: UserId
+    username: str
+    nickname: str
 
 
 class UserDetailOut(UserOut, AuditOut):

@@ -73,6 +73,26 @@ class UserRoleRepositoryTortoiseImpl(UserRoleRepository):
         models = await qs
         return [to_domain(m) for m in models]
 
+    async def get_by_user_and_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
+                                    include_deleted: bool = False) -> list[UserRoleAssignment]:
+        ids = [r.value for r in role_ids]
+        if not ids:
+            return []
+        qs = UserRoleAssignmentModel.filter(user_id=user_id.value, role_id__in=ids)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        return [to_domain(m) for m in await qs]
+
+    async def get_by_role_and_users(self, role_id: RoleId, user_ids: list[UserId] | set[UserId],
+                                    include_deleted: bool = False) -> list[UserRoleAssignment]:
+        ids = [u.value for u in user_ids]
+        if not ids:
+            return []
+        qs = UserRoleAssignmentModel.filter(role_id=role_id.value, user_id__in=ids)
+        if not include_deleted:
+            qs = qs.filter(deleted_at__isnull=True)
+        return [to_domain(m) for m in await qs]
+
     async def get_user_ids_by_role(self, role_id: RoleId) -> list[UserId]:
         rows = await UserRoleAssignmentModel.filter(
             role_id=role_id.value, status=StatusEnum.ACTIVE, deleted_at__isnull=True

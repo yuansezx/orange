@@ -1,9 +1,10 @@
-import { del, get, post, put } from '@shared/api'
+import { del, get, patch, post, put } from '@shared/api'
 
-import type { Status } from '../../types'
+import type { Status, UserRef } from '../../types'
 import type {
   Catalog,
   CreateRoleReq,
+  PatchRoleUsersReq,
   Role,
   RoleDetail,
   RoleListItem,
@@ -31,6 +32,16 @@ export function createRole(body: CreateRoleReq): Promise<Role> {
 
 export function updateRole(id: string, body: UpdateRoleReq): Promise<void> {
   return put<void>(`${BASE}/${id}`, body)
+}
+
+/** 角色当前可管理成员（数据范围过滤后）。 */
+export function getRoleUsers(id: string): Promise<UserRef[]> {
+  return get<UserRef[]>(`${BASE}/${id}/users`)
+}
+
+/** 角色成员管理（增量）：只提交本次增删的用户。 */
+export function patchRoleUsers(id: string, body: PatchRoleUsersReq): Promise<void> {
+  return patch<void>(`${BASE}/${id}/users`, body)
 }
 
 export function deleteRole(id: string): Promise<void> {

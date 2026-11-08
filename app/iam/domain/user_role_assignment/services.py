@@ -72,3 +72,93 @@ class UserRoleAssignmentService:
             await self.user_role_repo.update(assignment)
         if plan.to_create:
             await self.user_role_repo.bulk_create(plan.to_create)
+
+    async def apply_user_role_delta(self, user_id: UserId,
+                                    add_role_ids: list[RoleId] | set[RoleId],
+                                    remove_role_ids: list[RoleId] | set[RoleId],
+                                    operator_id: UserId) -> tuple[set[RoleId], set[RoleId]]:
+        """增量增删用户角色；返回实际生效的 added / removed 角色集。"""
+        remove = set(remove_role_ids)
+        add = set(add_role_ids) - remove
+        if not add and not remove:
+            return set(), set()
+
+        existing = await self.user_role_repo.get_by_user_and_roles(
+            user_id, add | remove, include_deleted=True)
+        by_role = {a.role_id: a for a in existing}
+
+        added: set[RoleId] = set()
+        to_create: list[UserRoleAssignment] = []
+        for role_id in add:
+            assignment = by_role.get(role_id)
+            if assignment is None:
+                to_create.append(UserRoleAssignment(
+                    id=UserRoleId.new(),
+                    user_id=user_id,
+                    role_id=role_id,
+                    status=StatusEnum.ACTIVE,
+                    created_at=datetime.now(UTC),
+                    created_by=operator_id,
+                ))
+                added.add(role_id)
+            elif assignment.is_deleted or assignment.status is not StatusEnum.ACTIVE:
+                assignment.activate(operator_id)
+                await self.user_role_repo.update(assignment)
+                added.add(role_id)
+
+        removed: set[RoleId] = set()
+        for role_id in remove:
+            assignment = by_role.get(role_id)
+            if assignment is not None and not assignment.is_deleted:
+                assignment.delete(operator_id)
+                await self.user_role_repo.update(assignment)
+                removed.add(role_id)
+
+        if to_create:
+            await self.user_role_repo.bulk_create(to_create)
+        return added, removed
+
+    async def apply_role_user_delta(self, role_id: RoleId,
+                                    add_user_ids: list[UserId] | set[UserId],
+                                    remove_user_ids: list[UserId] | set[UserId],
+                                    operator_id: UserId) -> tuple[set[UserId], set[UserId]]:
+        """增量增删角色成员；返回实际生效的 added / removed 用户集。"""
+        remove = set(remove_user_ids)
+        add = set(add_user_ids) - remove
+        if not add and not remove:
+            return set(), set()
+
+        existing = await self.user_role_repo.get_by_role_and_users(
+            role_id, add | remove, include_deleted=True)
+        by_user = {a.user_id: a for a in existing}
+
+        added: set[UserId] = set()
+        to_create: list[UserRoleAssignment] = []
+        for user_id in add:
+            assignment = by_user.get(user_id)
+            if assignment is None:
+                to_create.append(UserRoleAssignment(
+                    id=UserRoleId.new(),
+                    user_id=user_id,
+                    role_id=role_id,
+                    status=StatusEnum.ACTIVE,
+                    created_at=datetime.now(UTC),
+                    created_by=operator_id,
+                ))
+                added.add(user_id)
+            elif assignment.is_deleted or assignment.status is not StatusEnum.ACTIVE:
+                assignment.activate(operator_id)
+                await self.user_role_repo.update(assignment)
+                added.add(user_id)
+
+        removed: set[UserId] = set()
+        for user_id in remove:
+            assignment = by_user.get(user_id)
+            if assignment is not None and not assignment.is_deleted:
+                assignment.delete(operator_id)
+                await self.user_role_repo.update(assignment)
+                removed.add(user_id)
+
+        if to_create:
+            await self.user_role_repo.bulk_create(to_create)
+        return added, removed

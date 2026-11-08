@@ -40,6 +40,12 @@ export interface UpdateRoleReq {
   dept_ids: string[]
 }
 
+/** 角色成员管理（增量）——对齐后端 `PATCH /roles/{id}/users`。 */
+export interface PatchRoleUsersReq {
+  add_user_ids: string[]
+  remove_user_ids: string[]
+}
+
 /** 角色表单值（`code` 仅新建用；`status` 编辑/查看用）。 */
 export interface RoleFormValues {
   code: string

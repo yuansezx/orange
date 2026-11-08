@@ -11,7 +11,7 @@ interface Props {
   mode: 'create' | 'edit'
   /** 编辑时先拉详情（含角色），据此初始化。 */
   initial?: UserDetail
-  /** 无 `iam:user_role:assign` 时隐藏角色字段（后端同样拒绝）。 */
+  /** 创建时是否展示角色字段（`iam:user_role:assign`）；编辑不改角色。 */
   canAssignRoles: boolean
   onSubmit: (values: UserFormValues) => void
 }
@@ -23,7 +23,7 @@ interface Props {
  */
 export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Props) {
   const [form] = Form.useForm<UserFormValues>()
-  const { data: roles = [] } = useRoles()
+  const { data: roles = [] } = useRoles(false, mode === 'create' && canAssignRoles)
   const roleOptions = roles.map((role) => ({
     value: role.id,
     label: `${role.name}（${role.code}）`,
@@ -45,9 +45,8 @@ export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Pr
               status: initial.status,
               description: initial.description ?? undefined,
               dept_id: initial.dept_id ?? undefined,
-              role_ids: initial.roles.map((role) => role.id),
             }
-          : { status: 'active', role_ids: [] }
+          : { status: 'active' }
       }
       onFinish={onSubmit}
     >
@@ -107,7 +106,7 @@ export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Pr
       <Form.Item name="dept_id" label="部门">
         <DeptTreeSelect />
       </Form.Item>
-      {canAssignRoles && (
+      {mode === 'create' && canAssignRoles && (
         <Form.Item name="role_ids" label="角色">
           <Select
             mode="multiple"

@@ -10,16 +10,19 @@ from app.core.application.dto import RequestMeta
 from app.core.interface.http.dependencies import get_request_meta
 from app.iam.application.role.dto import UpdateRoleIn
 from app.iam.application.role.services import RoleApplicationService
+from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId
-from app.iam.interface.dependences import get_role_app_service
+from app.iam.interface.dependences import get_role_app_service, get_user_role_app_service
 from app.iam.interface.http.dependencies import get_current_user
 from app.iam.interface.http.role.schemas import (
     CreateRoleReq,
+    PatchRoleUsersReq,
     RoleDetailResp,
     RoleListItemResp,
     RoleResp,
+    RoleUserResp,
     UpdateRoleReq,
 )
 from app.iam.interface.http.schemas import UpdateStatusReq
@@ -72,6 +75,30 @@ async def get_role_detail(
 ) -> RoleDetailResp:
     detail = await role_app_service.get_role_detail(RoleId(role_id), current_user)
     return RoleDetailResp.model_validate(detail, from_attributes=True)
+
+
+@role_router.get('/{role_id}/users', response_model=list[RoleUserResp],
+                 summary='角色成员（可管理）')
+async def get_role_users(
+    role_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> list[RoleUserResp]:
+    users = await user_role_app_service.get_role_users(RoleId(role_id), current_user)
+    return [RoleUserResp(**u.model_dump()) for u in users]
+
+
+@role_router.patch('/{role_id}/users', status_code=status.HTTP_204_NO_CONTENT,
+                   summary='管理角色成员（增量）')
+async def patch_role_users(
+    role_id: UUID,
+    body: PatchRoleUsersReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> None:
+    await user_role_app_service.patch_role_users(
+        RoleId(role_id), body.add_user_ids, body.remove_user_ids, current_user, request_meta)
 
 
 @role_router.put('/{role_id}', status_code=status.HTTP_204_NO_CONTENT, summary='更新角色')

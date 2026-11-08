@@ -17,11 +17,13 @@ from app.iam.application.current_user.services import CurrentUserApplicationServ
 from app.iam.application.user.dto import MyProfileOut, UpdateUserIn
 from app.iam.application.user.exceptions import AvatarNotFoundException
 from app.iam.application.user.services import AVATAR_MAX_BYTES, UserApplicationService
+from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.interface.dependences import (
     get_current_user_app_service,
     get_user_app_service,
+    get_user_role_app_service,
 )
 from app.iam.interface.http.dependencies import get_current_session_id, get_current_user
 from app.iam.interface.http.schemas import UpdateStatusReq
@@ -33,6 +35,7 @@ from app.iam.interface.http.user.schemas import (
     GetUsersReq,
     MyProfileResp,
     MySessionResp,
+    PatchUserRolesReq,
     ResetPasswordReq,
     ResetPasswordResp,
     RevokeMySessionsReq,
@@ -217,6 +220,19 @@ async def update_user(
     user = await user_app_service.update_user(
         data, current_user, request_meta)
     return UserResp.model_validate(user, from_attributes=True)
+
+
+@user_router.patch('/{user_id}/roles', status_code=status.HTTP_204_NO_CONTENT,
+                   summary='管理用户角色（增量）')
+async def patch_user_roles(
+    user_id: UUID,
+    body: PatchUserRolesReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> None:
+    await user_role_app_service.patch_user_roles(
+        UserId(user_id), body.add_role_ids, body.remove_role_ids, current_user, request_meta)
 
 
 @user_router.put('/{user_id}/status', status_code=status.HTTP_204_NO_CONTENT,

@@ -8,11 +8,12 @@ import {
   createRole,
   deleteRole,
   hardDeleteRole,
+  patchRoleUsers,
   restoreRole,
   setRoleStatus,
   updateRole,
 } from '../api/roleApi'
-import type { CreateRoleReq, UpdateRoleReq } from '../types'
+import type { CreateRoleReq, PatchRoleUsersReq, UpdateRoleReq } from '../types'
 
 /** 角色写操作用例：成功失效角色列表缓存、失败提示后端 `message`。 */
 export function useRoleMutations() {
@@ -39,6 +40,18 @@ export function useRoleMutations() {
     mutationFn: ({ id, body }: { id: string; body: UpdateRoleReq }) => updateRole(id, body),
     onSuccess: () => {
       message.success('已保存')
+      invalidate()
+    },
+    onError,
+  })
+
+  const patchMembers = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: PatchRoleUsersReq }) =>
+      patchRoleUsers(id, body),
+    onSuccess: () => {
+      message.success('已保存')
+      queryClient.invalidateQueries({ queryKey: ['role-users'] })
+      queryClient.invalidateQueries({ queryKey: ['user-detail'] })
       invalidate()
     },
     onError,
@@ -80,5 +93,5 @@ export function useRoleMutations() {
     onError,
   })
 
-  return { create, update, remove, setStatus, restore, hardDelete }
+  return { create, update, patchMembers, remove, setStatus, restore, hardDelete }
 }
