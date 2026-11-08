@@ -185,6 +185,29 @@ app/                               # 后端（本文件详述）；仓库根另�
 
 **跨模块（python api）**：模块的公开 Python API 统一放 **`interface/python/`**，其他模块只从 **infrastructure adapter** 调用它（application/domain 不 import 其他模块；基础设施依赖是可替换边缘，不是核心耦合）。公开入参/出参在 `interface/python/{api}/schemas.py` 定义 **`XxxReq` / `XxxResp`** 契约层，不直接暴露应用层 DTO。调用方 `except BusinessBaseException` + 按 `code` 区分；**模块根与异常类型不对外发布**。故 **`code` 须当稳定接口**（前缀命名空间、不随意改）。**受控例外**：模块 `bootstrap.py` 的资源/权限目录注册可直接调用 iam 的公开注册 API——iam 在此是权限注册中心，bootstrap 是专用初始化位置；前提是不引入循环 import。iam 另经 `interface/python/auth` 暴露 `get_current_user(token) -> CurrentUserResp`（全量身份/权限字段）；消费方在 infrastructure adapter 解析一次，**功能/数据权限在本地判断**（分布式模型：iam 只发身份与权限快照，不逐次鉴权）。monitor 的 `AuthenticationPort` + 本地 `CurrentUser` / `requires_permission` 即此模式。**跨模块 ID 一律传裸值（`UUID` / `str`）**，由各模块自己的值对象承接；禁止把本模块的 ID VO 实例直接传给另一模块。
 
+## 版本与发布
+
+**版本源**：后端 `[project].version`（`pyproject.toml`，`uv.lock` 同步）与前端 `web/package.json` **独立**，不要求两边数字对齐；非平台模块仓同理，由模块仓自持版本。
+
+**语义**：
+- **app（后端）按 API 契约用 SemVer**：新增端口/字段 → minor；修复 → patch；删除/改语义/改鉴权 → major。`0.x` 阶段 API 不承诺稳定，破坏性变更可用 minor 承载，但要在发布说明里写明。
+- **web（前端）是发布标识，不按 API 契约套**：patch = 只修 bug/样式/文案、不依赖新后端能力；minor = 新页面/新交互，可依赖**新增的**后端能力；major = 前端架构/交互大改，或与后端一起做破坏性变更。
+- **真正要守的兼容性轴是「后端 ↔ 已部署的旧前端」**：浏览器可能还跑旧 bundle。后端加接口/字段直接加；删除/改接口按 app major 处理（`0.x` 用 minor + 发布说明）。
+
+**Tag**（lightweight）：
+- 按产物分开：`app/vX.Y.Z`、`web/vX.Y.Z`；非平台模块仓同样按 app/web 分开。
+- 同批发布：两个 tag 指向 main 上的 no-ff 发布合并提交。
+- 单独发布：只给变更的一侧打 tag，打在它的版本号提交/发布提交上。
+
+**提交**：dev 上的版本号调整用 `chore: ...`；main 上的发布合并用 `chore(release): ...`（`--no-ff`）；发布正文写清配套版本（如 `app 0.3.0 + web 0.2.1`）。
+
+**契约面**（版本号覆盖哪些对外承诺）：
+- **app**：HTTP API；`interface/python` 公开 Python API；模块接入约定（`bootstrap`、资源/权限声明、`core.modules`）；`core` 公开门面（persistence / cache / event bus / settings 基类）。
+- **web**：`FeatureModule` / `WorkspaceRef` / `MenuLink` 与路由发现规则；`@shared/*` 导出；workspace 壳行为。
+- 对模块契约的破坏性变更按对应侧（app / web）的破坏性版本处理；`0.x` 期间用 minor 承载并在发布说明写明。
+
+**模块兼容范围**：模块仓声明自己支持的平台版本范围（如 `orange >= 0.2, < 0.3`）。平台当前不是可安装的发布包，**不要**写进 `[project].dependencies` 或 `peerDependencies`（包管理器会去仓库解析）；现阶段写在模块 `CLAUDE.md` 即可。需要机读时用模块 `pyproject.toml` 的 `[tool.orange]` 或 `package.json` 自定义字段，明确它是**约定性元数据**，由后续 CI/启动检查校验。模块与平台目录链接、一起构建，实际兼容性由构建/联调兜底。
+
 ## 运行
 
 ```bash
