@@ -49,7 +49,7 @@ export function RoleForm({ formId, mode, initial, onSubmit }: Props) {
           label="角色标识"
           rules={[{ required: true, message: '请输入角色标识' }]}
         >
-          <Input placeholder="唯一标识，创建后不可改（如 auditor）" />
+          <Input maxLength={32} placeholder="唯一标识，创建后不可改（如 auditor）" />
         </Form.Item>
       ) : (
         <Form.Item label="角色标识">
@@ -57,7 +57,7 @@ export function RoleForm({ formId, mode, initial, onSubmit }: Props) {
         </Form.Item>
       )}
       <Form.Item name="name" label="角色名称" rules={[{ required: true, message: '请输入角色名称' }]}>
-        <Input maxLength={50} placeholder="角色名称" />
+        <Input maxLength={32} placeholder="角色名称" />
       </Form.Item>
       <Form.Item name="data_scope" label="数据范围" rules={[{ required: true }]}>
         <Select options={DATA_SCOPE_OPTIONS} />
@@ -71,7 +71,7 @@ export function RoleForm({ formId, mode, initial, onSubmit }: Props) {
         <Input.TextArea rows={2} maxLength={200} placeholder="描述" />
       </Form.Item>
       {mode === 'edit' && (
-        <Form.Item name="status" label="状态">
+        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
           <Select options={STATUS_OPTIONS} />
         </Form.Item>
       )}

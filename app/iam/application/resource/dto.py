@@ -23,16 +23,16 @@ class RegisterResourceIn(BaseModel):
 
 
 class CreateResourceIn(BaseModel):
-    module: str = Field(min_length=1, max_length=64)
-    code: str = Field(min_length=1, max_length=64)
-    name: str = Field(min_length=1, max_length=128)
+    module: str
+    code: str
+    name: str
     description: str | None = None
 
 
 class CreatePermissionIn(BaseModel):
     resource_id: ResourceId
-    action: str = Field(min_length=1, max_length=64)
-    name: str = Field(min_length=1, max_length=128)
+    action: str
+    name: str
     description: str | None = None
 
 

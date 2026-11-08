@@ -2,16 +2,24 @@ from __future__ import annotations
 
 from datetime import datetime, UTC
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.core.domain.entities import AuditableEntity
 from app.iam.domain.resource.enums import SourceTypeEnum
 from app.iam.domain.resource.exceptions import (
     InvalidPermissionActionException,
+    InvalidPermissionNameException,
     InvalidResourceCodeException,
+    InvalidResourceNameException,
 )
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import PermissionId, ResourceId, UserId
+
+RESOURCE_NAME_MAX_LENGTH = 64
+PERMISSION_NAME_MAX_LENGTH = 64
+RESOURCE_MODULE_MAX_LENGTH = 32
+RESOURCE_CODE_MAX_LENGTH = 32
+PERMISSION_ACTION_MAX_LENGTH = 32
 
 
 class Permission(AuditableEntity[UserId]):
@@ -30,18 +38,30 @@ class Permission(AuditableEntity[UserId]):
     status: StatusEnum
     permission_type: SourceTypeEnum
 
+    @field_validator('name')
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > PERMISSION_NAME_MAX_LENGTH:
+            raise InvalidPermissionNameException(
+                f'权限名长度必须在 1-{PERMISSION_NAME_MAX_LENGTH} 之间')
+        return value
+
     @model_validator(mode='after')
     def _check_action(self):
-        """action 非空且不含分隔符 ':'。"""
+        """action 非空、不含分隔符 ':'，且不超过长度上限。"""
         if not self.action or ':' in self.action:
             raise InvalidPermissionActionException(f'权限 action 非法：{self.action!r}')
+        if len(self.action) > PERMISSION_ACTION_MAX_LENGTH:
+            raise InvalidPermissionActionException(
+                f'权限 action 长度不能超过 {PERMISSION_ACTION_MAX_LENGTH} 个字符')
         return self
 
     def full_code(self, resource: Resource) -> str:
         return f'{resource.module}:{resource.code}:{self.action}'
 
     def change(self, name: str, description: str | None, operator_id: UserId) -> None:
-        self.name = name
+        self.name = self._validate_name(name)
         self.description = description
         self.updated_by = operator_id
         self.updated_at = datetime.now(UTC)
@@ -82,13 +102,28 @@ class Resource(AuditableEntity[UserId]):
     resource_type: SourceTypeEnum
     permissions: list[Permission] = Field(default_factory=list)
 
+    @field_validator('name')
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > RESOURCE_NAME_MAX_LENGTH:
+            raise InvalidResourceNameException(
+                f'资源名长度必须在 1-{RESOURCE_NAME_MAX_LENGTH} 之间')
+        return value
+
     @model_validator(mode='after')
     def _check_key(self):
-        """module/code 非空且不含分隔符 ':'（格式不变式只在此处落地）。"""
+        """module/code 非空、不含分隔符 ':'，且不超过长度上限。"""
         if not self.module or ':' in self.module:
             raise InvalidResourceCodeException(f'资源 module 非法：{self.module!r}')
+        if len(self.module) > RESOURCE_MODULE_MAX_LENGTH:
+            raise InvalidResourceCodeException(
+                f'资源 module 长度不能超过 {RESOURCE_MODULE_MAX_LENGTH} 个字符')
         if not self.code or ':' in self.code:
             raise InvalidResourceCodeException(f'资源 code 非法：{self.code!r}')
+        if len(self.code) > RESOURCE_CODE_MAX_LENGTH:
+            raise InvalidResourceCodeException(
+                f'资源 code 长度不能超过 {RESOURCE_CODE_MAX_LENGTH} 个字符')
         return self
 
     def full_code(self) -> str:
@@ -135,7 +170,7 @@ class Resource(AuditableEntity[UserId]):
 
     # ---------------- 状态 ----------------
     def change(self, name: str, description: str | None, operator_id: UserId) -> None:
-        self.name = name
+        self.name = self._validate_name(name)
         self.description = description
         self.updated_by = operator_id
         self.updated_at = datetime.now(UTC)

@@ -1,11 +1,13 @@
 from datetime import datetime, UTC
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.dept.exceptions import DeptCycleException
+from app.iam.domain.dept.exceptions import DeptCycleException, InvalidDeptNameException
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
+
+DEPT_NAME_MAX_LENGTH = 64
 
 
 class Dept(AuditableEntity):
@@ -21,10 +23,18 @@ class Dept(AuditableEntity):
     status: StatusEnum
     description: str | None = None
 
+    @field_validator('name')
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > DEPT_NAME_MAX_LENGTH:
+            raise InvalidDeptNameException(f'部门名长度必须在 1-{DEPT_NAME_MAX_LENGTH} 之间')
+        return value
+
     def change_profile(self, name: str, leader_id: UserId | None, email: Email | None,
                        phone: Phone | None, description: str | None, operator_id: UserId) -> None:
         """改昵称/负责人/联系方式/描述（不动结构，也不动状态）。"""
-        self.name = name
+        self.name = self._validate_name(name)
         self.leader_id = leader_id
         self.email = email
         self.phone = phone

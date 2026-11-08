@@ -36,17 +36,17 @@ export function ResourceForm({ formId, mode, initial, onSubmit }: Props) {
         label="模块"
         rules={[{ required: true, message: '请输入模块代号' }]}
       >
-        <Input maxLength={64} placeholder="如 iam / monitor" disabled={mode === 'edit'} />
+        <Input maxLength={32} placeholder="如 iam / monitor" disabled={mode === 'edit'} />
       </Form.Item>
       <Form.Item
         name="code"
         label="资源标识"
         rules={[{ required: true, message: '请输入资源标识' }]}
       >
-        <Input maxLength={64} placeholder="模块内唯一，创建后不可改（如 report）" disabled={mode === 'edit'} />
+        <Input maxLength={32} placeholder="模块内唯一，创建后不可改（如 report）" disabled={mode === 'edit'} />
       </Form.Item>
       <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
-        <Input maxLength={128} placeholder="名称" />
+        <Input maxLength={64} placeholder="名称" />
       </Form.Item>
       <Form.Item name="description" label="描述">
         <Input.TextArea rows={3} maxLength={200} placeholder="描述" />

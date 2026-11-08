@@ -7,9 +7,15 @@ class PasswordPolicyViolationException(IAMBusinessBaseException):
     kind = ErrorKindEnum.VALIDATION
 
 
-class UserProfileValidationException(IAMBusinessBaseException):
-    """自助资料字段不合法（如昵称为空）。"""
-    code = 'IAM_USER_PROFILE_INVALID'
+class InvalidUsernameException(IAMBusinessBaseException):
+    """用户名不合法（空 / 超长）。"""
+    code = 'IAM_USER_USERNAME_INVALID'
+    kind = ErrorKindEnum.VALIDATION
+
+
+class InvalidNicknameException(IAMBusinessBaseException):
+    """昵称不合法（空 / 超长）。"""
+    code = 'IAM_USER_NICKNAME_INVALID'
     kind = ErrorKindEnum.VALIDATION
 
 

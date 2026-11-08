@@ -64,10 +64,10 @@ export function EditProfileModal({ open, profile, onClose }: Props) {
           label="昵称"
           rules={[
             { required: true, whitespace: true, message: '请输入昵称' },
-            { max: 64, message: '昵称不能超过 64 个字符' },
+            { max: 32, message: '昵称不能超过 32 个字符' },
           ]}
         >
-          <Input prefix={<IconUserCircle size={16} />} maxLength={64} placeholder="请输入昵称" />
+          <Input prefix={<IconUserCircle size={16} />} maxLength={32} placeholder="请输入昵称" />
         </Form.Item>
 
         <Form.Item

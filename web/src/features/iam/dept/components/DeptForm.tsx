@@ -22,7 +22,7 @@ export function DeptForm({ form, mode, excludeIds }: Props) {
         label="部门名称"
         rules={[{ required: true, message: '请输入部门名称' }]}
       >
-        <Input maxLength={50} placeholder="部门名称" />
+        <Input maxLength={64} placeholder="部门名称" />
       </Form.Item>
       <Form.Item name="parent_id" label="上级部门">
         <DeptTreeSelect excludeIds={excludeIds} placeholder="不选则为根部门" />
@@ -40,7 +40,7 @@ export function DeptForm({ form, mode, excludeIds }: Props) {
         <Input.TextArea rows={2} maxLength={200} placeholder="描述" />
       </Form.Item>
       {mode === 'edit' && (
-        <Form.Item name="status" label="状态">
+        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
           <Select options={STATUS_OPTIONS} placeholder="状态" />
         </Form.Item>
       )}

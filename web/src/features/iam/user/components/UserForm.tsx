@@ -57,7 +57,7 @@ export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Pr
           label="用户名"
           rules={[{ required: true, whitespace: true, message: '请输入用户名' }]}
         >
-          <Input maxLength={50} placeholder="登录名，创建后不可改" />
+          <Input maxLength={32} placeholder="登录名，创建后不可改" />
         </Form.Item>
       ) : (
         <Form.Item label="用户名">
@@ -74,7 +74,7 @@ export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Pr
         }
       >
         <Input
-          maxLength={50}
+          maxLength={32}
           placeholder={mode === 'create' ? '留空则与用户名相同' : '昵称'}
         />
       </Form.Item>
