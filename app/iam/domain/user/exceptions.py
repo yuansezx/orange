@@ -3,7 +3,7 @@ from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
 class PasswordPolicyViolationException(IAMBusinessBaseException):
-    code = 'IAM_PASSWORD_POLICY_VIOLATION'
+    code = 'IAM_USER_PASSWORD_POLICY_VIOLATION'
     kind = ErrorKindEnum.VALIDATION
 
 
@@ -20,7 +20,7 @@ class UserImmutableException(IAMBusinessBaseException):
 
 
 class ReservedUsernameException(IAMBusinessBaseException):
-    code = 'IAM_RESERVED_USERNAME'
+    code = 'IAM_USER_RESERVED_USERNAME'
     kind = ErrorKindEnum.VALIDATION
 
 
@@ -32,5 +32,5 @@ class UserNotDeletedException(IAMBusinessBaseException):
 
 class SuperAdminSelfDisableException(IAMBusinessBaseException):
     """超管不能停用自己——否则可能失去唯一能恢复系统的账号（死档）。"""
-    code = 'IAM_SUPER_ADMIN_SELF_DISABLE'
+    code = 'IAM_USER_SUPER_ADMIN_SELF_DISABLE'
     kind = ErrorKindEnum.CONFLICT

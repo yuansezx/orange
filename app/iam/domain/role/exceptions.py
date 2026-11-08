@@ -3,7 +3,7 @@ from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
 class InvalidRoleCodeException(IAMBusinessBaseException):
-    code = 'IAM_INVALID_ROLE_CODE'
+    code = 'IAM_ROLE_INVALID_CODE'
     kind = ErrorKindEnum.VALIDATION
 
 

@@ -3,10 +3,10 @@ from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
 class InvalidResourceCodeException(IAMBusinessBaseException):
-    code = 'IAM_INVALID_RESOURCE_CODE'
+    code = 'IAM_RESOURCE_INVALID_CODE'
     kind = ErrorKindEnum.VALIDATION
 
 
 class InvalidPermissionActionException(IAMBusinessBaseException):
-    code = 'IAM_INVALID_PERMISSION_ACTION'
+    code = 'IAM_PERMISSION_INVALID_ACTION'
     kind = ErrorKindEnum.VALIDATION
