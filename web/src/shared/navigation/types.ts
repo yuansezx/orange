@@ -66,6 +66,17 @@ export interface WorkspaceRef {
   layout?: WorkspaceLayoutComponent
 }
 
+/**
+ * 平台级「后台管理」workspace（**技术管理**）的唯一定义。
+ * 模块的管理页走 `FeatureModule.admin` 贡献；不要各自重复声明这个 ref。
+ */
+export const ADMIN_WORKSPACE: WorkspaceRef = {
+  key: 'admin',
+  label: '后台管理',
+  basePath: 'admin',
+  systemSidebarBehavior: 'push',
+}
+
 /** 模块递给应用壳的布局偏好。 */
 export interface ShellPreference {
   content?: 'standard' | 'full'
@@ -82,7 +93,15 @@ export interface FeatureModule {
   /** 归属的用户视角 workspace；缺省自成一 workspace。 */
   workspace?: WorkspaceRef
   shell?: ShellPreference
+  /** 用户侧菜单；归属 `workspace`（缺省自成一 workspace）。 */
   groups?: MenuGroup[]
+  /**
+   * 贡献到「后台管理」的菜单分组（平台技术管理页）——**标准通道**。
+   * 路径相对 admin workspace：`/admin/{feature}/{path}`；可与 groups 并存。
+   * 不要把模块业务菜单整体用 `workspace: ADMIN_WORKSPACE` 塞进后台管理：
+   * iam 目前是「归属未定」的临时写法，不是标准模板。
+   */
+  admin?: MenuGroup[]
   /** 该模块向「个人中心」贡献的设置分组。 */
   settings?: SettingsGroup[]
 }

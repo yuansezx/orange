@@ -14,4 +14,5 @@ export type {
   WorkspaceLayoutComponent,
   WorkspaceRef,
 } from './types'
+export { ADMIN_WORKSPACE } from './types'
 export { matchNavLink } from './match'
