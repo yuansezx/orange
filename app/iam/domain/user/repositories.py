@@ -27,6 +27,7 @@ class SearchUser(BaseModel):
     created_at_end: datetime | None = None
     password_updated_at_start: datetime | None = None
     password_updated_at_end: datetime | None = None
+    user_ids: list[UserId] | None = None               # 限定用户 id（如角色成员）；None = 不过滤
 
 
 class UserRepository(BaseRepository[UserId, User]):

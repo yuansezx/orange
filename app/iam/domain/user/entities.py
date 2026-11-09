@@ -1,17 +1,18 @@
 from datetime import datetime, UTC
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 
 from app.core.domain.entities import AuditableEntity
 from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, DeptId, UserId
 from app.iam.domain.user.exceptions import (
+    InvalidNicknameException,
+    InvalidUsernameException,
     PasswordPolicyViolationException,
     ReservedUsernameException,
     SuperAdminSelfDisableException,
     UserImmutableException,
-    UserProfileValidationException,
 )
 from app.core.utils.password_hash import hash_password, verify_password
 
@@ -23,6 +24,9 @@ RESERVED_USERNAMES: frozenset[str] = frozenset({SUPER_ADMIN_USERNAME})
 PASSWORD_MIN_LENGTH = 8
 # bcrypt 只使用前 72 字节，超出部分会被静默截断，因此必须显式拒绝
 PASSWORD_MAX_BYTES = 72
+
+USERNAME_MAX_LENGTH = 32
+NICKNAME_MAX_LENGTH = 32
 
 
 class User(AuditableEntity[UserId]):
@@ -39,6 +43,27 @@ class User(AuditableEntity[UserId]):
     description: str | None = None
     avatar_key: str | None = None  # 对象存储里的 key；URL 由接口层拼
     dept_id: DeptId | None = None
+
+    @field_validator('username')
+    @classmethod
+    def _validate_username(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > USERNAME_MAX_LENGTH:
+            raise InvalidUsernameException(f'用户名长度必须在 1-{USERNAME_MAX_LENGTH} 之间')
+        return value
+
+    @field_validator('nickname')
+    @classmethod
+    def _validate_nickname(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        # 空串交给 _default_nickname 回退 username（构造路径）
+        if not value:
+            return None
+        if len(value) > NICKNAME_MAX_LENGTH:
+            raise InvalidNicknameException(f'昵称长度必须在 1-{NICKNAME_MAX_LENGTH} 之间')
+        return value
 
     @model_validator(mode='after')
     def _default_nickname(self):
@@ -108,9 +133,9 @@ class User(AuditableEntity[UserId]):
         """自助资料更新：只允许昵称/邮箱/手机号（状态/部门/角色走管理员接口）。"""
         if not self.can_update():
             raise UserImmutableException('用户不可更改')
-        nickname = nickname.strip()
-        if not nickname:
-            raise UserProfileValidationException('昵称不能为空')
+        nickname = self._validate_nickname(nickname)
+        if nickname is None:
+            raise InvalidNicknameException('昵称不能为空')
         self.nickname = nickname
         self.email = email
         self.phone = phone
@@ -129,6 +154,9 @@ class User(AuditableEntity[UserId]):
                        dept_id: DeptId | None, operator_id: UserId):
         if not self.can_update():
             raise UserImmutableException('用户不可更改')
+        nickname = self._validate_nickname(nickname)
+        if nickname is None:
+            raise InvalidNicknameException('昵称不能为空')
         self.nickname = nickname
         self.email = email
         self.phone = phone

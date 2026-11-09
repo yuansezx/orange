@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
 
+import { ADMIN_WORKSPACE } from '@shared/navigation'
 import type {
   AccountSettingsGroup,
   FeatureModule,
+  MenuGroup,
   MenuLink,
   NavGroup,
   NavLink,
@@ -82,43 +84,62 @@ function toNavLink(
 
 const workspaceMap = new Map<string, WorkspaceNav>()
 
-for (const feature of features) {
-  const groups = (feature.groups ?? []).map((group) => {
-    const workspace = workspaceOfFeature(feature, group.label)
-    return {
-      ...group,
-      links: group.links.map((link) => toNavLink(workspace, feature, link)),
-    }
-  })
-  if (groups.length === 0) continue
-
-  const workspaceRef = workspaceOfFeature(feature, groups[0].label)
-  let workspace = workspaceMap.get(workspaceRef.key)
+function ensureWorkspace(ref: WorkspaceRef, feature: FeatureModule): WorkspaceNav {
+  let workspace = workspaceMap.get(ref.key)
   if (!workspace) {
     workspace = {
-      key: workspaceRef.key,
-      label: workspaceRef.label,
+      key: ref.key,
+      label: ref.label,
       icon: feature.icon,
-      basePath: workspaceRef.basePath,
-      systemSidebarBehavior: workspaceRef.systemSidebarBehavior,
-      theme: workspaceRef.theme,
-      layout: workspaceRef.layout,
+      basePath: ref.basePath,
+      systemSidebarBehavior: ref.systemSidebarBehavior,
+      theme: ref.theme,
+      layout: ref.layout,
       features: [],
     }
-    workspaceMap.set(workspaceRef.key, workspace)
+    workspaceMap.set(ref.key, workspace)
   }
   if (!workspace.icon) workspace.icon = feature.icon
-  if (workspaceRef.theme) {
-    workspace.theme = { ...workspace.theme, ...workspaceRef.theme }
+  if (ref.theme) {
+    workspace.theme = { ...workspace.theme, ...ref.theme }
   }
-  if (workspaceRef.layout) workspace.layout = workspaceRef.layout
+  if (ref.layout) workspace.layout = ref.layout
+  return workspace
+}
 
-  workspace.features.push({
-    key: feature.name,
-    label: feature.label ?? groups[0].label,
-    icon: feature.icon,
-    groups,
-  })
+function toNavGroups(ref: WorkspaceRef, feature: FeatureModule,
+                     groups: MenuGroup[]): NavGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    links: group.links.map((link) => toNavLink(ref, feature, link)),
+  }))
+}
+
+for (const feature of features) {
+  // 用户侧：归 feature 自己声明的 workspace（缺省自成一 workspace）。
+  const userGroups = feature.groups ?? []
+  if (userGroups.length > 0) {
+    const workspaceRef = workspaceOfFeature(feature, userGroups[0].label)
+    const groups = toNavGroups(workspaceRef, feature, userGroups)
+    ensureWorkspace(workspaceRef, feature).features.push({
+      key: feature.name,
+      label: feature.label ?? groups[0].label,
+      icon: feature.icon,
+      groups,
+    })
+  }
+
+  // 管理侧：贡献到平台统一的后台管理（技术管理页）。
+  const adminGroups = feature.admin ?? []
+  if (adminGroups.length > 0) {
+    const groups = toNavGroups(ADMIN_WORKSPACE, feature, adminGroups)
+    ensureWorkspace(ADMIN_WORKSPACE, feature).features.push({
+      key: feature.name,
+      label: feature.label ?? groups[0].label,
+      icon: feature.icon,
+      groups,
+    })
+  }
 }
 
 /** 系统级 workspace 列表（含内部的 feature/菜单）。 */
@@ -149,14 +170,19 @@ export function filterWorkspacesByPermission(
             }))
             .filter((group) => group.links.length > 0),
         }))
-        .filter((feature) => feature.groups.length > 0),
+        // hidden 链接只供路由/详情匹配，不算"可见页面"。
+        .filter((feature) =>
+          feature.groups.some((group) => group.links.some((link) => !link.hidden)),
+        ),
     }))
     .filter((workspace) => workspace.features.length > 0)
 }
 
-/** workspace 默认落地页：第一个有权限的 feature 页面。 */
+/** workspace 默认落地页：第一个有权限且非隐藏的菜单页。 */
 export function workspaceHomePath(workspace: WorkspaceNav): string {
-  const link = workspace.features[0]?.groups[0]?.links[0]
+  const link = workspace.features
+    .flatMap((feature) => feature.groups.flatMap((group) => group.links))
+    .find((item) => !item.hidden)
   return link ? `/${link.fullPath}` : '/'
 }
 

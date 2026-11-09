@@ -43,6 +43,7 @@ from app.iam.domain.role.services import RoleAccessService
 from app.iam.domain.user.repositories import UserRepository
 from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
+from app.iam.domain.user_role_assignment.services import UserRoleAssignmentService
 from app.iam.infrastructure.adapters.audit_log_writer_adapter import AuditLogWriterAdapter
 from app.iam.infrastructure.adapters.avatar_storage.base import AvatarStorageS3Adapter
 from app.iam.infrastructure.adapters.avatar_storage.rustfs import (
@@ -124,6 +125,8 @@ def get_user_app_service() -> UserApplicationService:
         dept_repo=get_dept_repo(),
         user_role_repo=get_user_role_repo(),
         role_repo=get_role_repo(),
+        role_access_service=get_role_access_service(),
+        user_role_assignment_service=get_user_role_assignment_service(),
         audit_service=get_audit_service(),
         audit_log_writer=get_audit_log_writer(),
         dept_ref_service=get_dept_ref_service(),
@@ -173,11 +176,19 @@ def get_user_role_repo() -> UserRoleRepository:
     return _repos.UserRoleRepositoryTortoiseImpl()
 
 
+def get_user_role_assignment_service() -> UserRoleAssignmentService:
+    return UserRoleAssignmentService(get_user_role_repo())
+
+
 def get_user_role_app_service() -> UserRoleApplicationService:
     return UserRoleApplicationService(
         in_transaction=get_in_transaction(),
+        user_repo=get_user_repo(),
+        role_repo=get_role_repo(),
         user_role_repo=get_user_role_repo(),
         role_access_service=get_role_access_service(),
+        user_access_service=get_user_access_service(),
+        user_role_assignment_service=get_user_role_assignment_service(),
         audit_log_writer=get_audit_log_writer(),
         event_bus=get_event_bus(),
     )

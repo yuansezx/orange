@@ -3,7 +3,13 @@ from app.iam.domain.shared.exceptions import IAMBusinessBaseException
 
 
 class InvalidRoleCodeException(IAMBusinessBaseException):
-    code = 'IAM_INVALID_ROLE_CODE'
+    code = 'IAM_ROLE_INVALID_CODE'
+    kind = ErrorKindEnum.VALIDATION
+
+
+class InvalidRoleNameException(IAMBusinessBaseException):
+    """角色名不合法（空 / 超长）。"""
+    code = 'IAM_ROLE_NAME_INVALID'
     kind = ErrorKindEnum.VALIDATION
 
 

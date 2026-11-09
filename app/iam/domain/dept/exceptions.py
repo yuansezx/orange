@@ -8,6 +8,12 @@ class DeptCycleException(IAMBusinessBaseException):
     kind = ErrorKindEnum.VALIDATION
 
 
+class InvalidDeptNameException(IAMBusinessBaseException):
+    """部门名不合法（空 / 超长）。"""
+    code = 'IAM_DEPT_NAME_INVALID'
+    kind = ErrorKindEnum.VALIDATION
+
+
 class DeptNotDeletedException(IAMBusinessBaseException):
     """对象未处于已删状态：恢复 / 彻底删除的前提不成立。"""
     code = 'IAM_DEPT_NOT_DELETED'

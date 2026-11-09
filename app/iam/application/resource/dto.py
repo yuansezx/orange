@@ -23,31 +23,35 @@ class RegisterResourceIn(BaseModel):
 
 
 class CreateResourceIn(BaseModel):
-    module: str = Field(min_length=1, max_length=64)
-    code: str = Field(min_length=1, max_length=64)
-    name: str = Field(min_length=1, max_length=128)
+    module: str
+    code: str
+    name: str
     description: str | None = None
+    status: StatusEnum = StatusEnum.ACTIVE
 
 
 class CreatePermissionIn(BaseModel):
     resource_id: ResourceId
-    action: str = Field(min_length=1, max_length=64)
-    name: str = Field(min_length=1, max_length=128)
+    action: str
+    name: str
     description: str | None = None
+    status: StatusEnum = StatusEnum.ACTIVE
 
 
 class UpdateResourceIn(BaseModel):
-    """后台可改的只有展示字段；module/code 是身份，不可改。"""
+    """后台可改的只有展示字段与状态；module/code 是身份，不可改。"""
     id: ResourceId
     name: str
     description: str | None = None
+    status: StatusEnum
 
 
 class UpdatePermissionIn(BaseModel):
-    """后台可改的只有展示字段；action 是身份，不可改。"""
+    """后台可改的只有展示字段与状态；action 是身份，不可改。"""
     id: PermissionId
     name: str
     description: str | None = None
+    status: StatusEnum
 
 
 class CatalogPermissionOut(BaseModel):

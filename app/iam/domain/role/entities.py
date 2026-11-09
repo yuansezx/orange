@@ -1,11 +1,14 @@
 from datetime import datetime, UTC
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.core.domain.entities import AuditableEntity
-from app.iam.domain.role.exceptions import InvalidRoleCodeException
+from app.iam.domain.role.exceptions import InvalidRoleCodeException, InvalidRoleNameException
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
+
+ROLE_CODE_MAX_LENGTH = 32
+ROLE_NAME_MAX_LENGTH = 32
 
 
 
@@ -25,16 +28,27 @@ class Role(AuditableEntity[UserId]):
     permission_ids: set[PermissionId] = Field(default_factory=set)
     custom_dept_ids: set[DeptId] = Field(default_factory=set)
 
+    @field_validator('name')
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > ROLE_NAME_MAX_LENGTH:
+            raise InvalidRoleNameException(f'角色名长度必须在 1-{ROLE_NAME_MAX_LENGTH} 之间')
+        return value
+
     @model_validator(mode='after')
     def _check_code(self):
-        """code 非空且不含分隔符 ':'（与权限标识的分段约定保持一致）。"""
+        """code 非空、不含分隔符 ':'，且不超过长度上限。"""
         if not self.code or ':' in self.code:
             raise InvalidRoleCodeException(f'角色 code 非法：{self.code!r}')
+        if len(self.code) > ROLE_CODE_MAX_LENGTH:
+            raise InvalidRoleCodeException(
+                f'角色 code 长度不能超过 {ROLE_CODE_MAX_LENGTH} 个字符')
         return self
 
     def change(self, name: str, data_scope: DataScopeEnum, description: str | None, operator_id: UserId) -> None:
         """改昵称/数据范围/描述（code 不可改）。"""
-        self.name = name
+        self.name = self._validate_name(name)
         self.data_scope = data_scope
         self.description = description
         self.updated_by = operator_id

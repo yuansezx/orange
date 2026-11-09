@@ -35,6 +35,7 @@ from app.iam.interface.http.user.schemas import (
     GetUsersReq,
     MyProfileResp,
     MySessionResp,
+    PatchUserRolesReq,
     ResetPasswordReq,
     ResetPasswordResp,
     RevokeMySessionsReq,
@@ -70,10 +71,9 @@ async def create_user(
     current_user: CurrentUser = Depends(get_current_user),
     request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
-    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
 ) -> CreateUserResp:
     user, temporary_password = await user_app_service.create_user_by_admin(
-        body, current_user, user_role_app_service, request_meta)
+        body, current_user, request_meta)
     return CreateUserResp(
         **UserResp.model_validate(user, from_attributes=True).model_dump(),
         temporary_password=temporary_password,
@@ -215,12 +215,24 @@ async def update_user(
     current_user: CurrentUser = Depends(get_current_user),
     request_meta: RequestMeta = Depends(get_request_meta),
     user_app_service: UserApplicationService = Depends(get_user_app_service),
-    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
 ) -> UserResp:
     data = UpdateUserIn(id=UserId(user_id), **body.model_dump())
     user = await user_app_service.update_user(
-        data, current_user, user_role_app_service, request_meta)
+        data, current_user, request_meta)
     return UserResp.model_validate(user, from_attributes=True)
+
+
+@user_router.patch('/{user_id}/roles', status_code=status.HTTP_204_NO_CONTENT,
+                   summary='管理用户角色（增量）')
+async def patch_user_roles(
+    user_id: UUID,
+    body: PatchUserRolesReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> None:
+    await user_role_app_service.patch_user_roles(
+        UserId(user_id), body.add_role_ids, body.remove_role_ids, current_user, request_meta)
 
 
 @user_router.put('/{user_id}/status', status_code=status.HTTP_204_NO_CONTENT,

@@ -1,7 +1,7 @@
 import { Descriptions, Tag } from 'antd'
 import dayjs from 'dayjs'
 
-import { DetailDrawer } from '@shared/ui'
+import { DetailDrawer, userRefLabel } from '@shared/ui'
 
 import { RESULT_LABELS } from '../constants'
 import type { AuditLogItem } from '../types'
@@ -14,11 +14,8 @@ interface Props {
 
 export function AuditLogDetailDrawer({ open, log, onClose }: Props) {
   const operator = log
-    ? log.operator_nickname || log.operator_username || '-'
+    ? userRefLabel(log.operator_username, log.operator_nickname) || '-'
     : '-'
-  const operatorAccount = log?.operator_username && log.operator_nickname
-    ? ` (${log.operator_username})`
-    : ''
 
   return (
     <DetailDrawer open={open} title="审计日志详情" onClose={onClose}>
@@ -29,9 +26,7 @@ export function AuditLogDetailDrawer({ open, log, onClose }: Props) {
           </Descriptions.Item>
           <Descriptions.Item label="动作码">{log.key}</Descriptions.Item>
           <Descriptions.Item label="摘要">{log.summary}</Descriptions.Item>
-          <Descriptions.Item label="操作人">
-            {operator}{operatorAccount}
-          </Descriptions.Item>
+          <Descriptions.Item label="操作人">{operator}</Descriptions.Item>
           <Descriptions.Item label="目标">
             {log.target_name || log.target_id || '-'}
             {log.target_type ? ` (${log.target_type})` : ''}

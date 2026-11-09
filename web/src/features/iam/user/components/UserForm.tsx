@@ -3,14 +3,16 @@ import { Form, Input, Select } from 'antd'
 import { DeptTreeSelect } from '../../components/DeptTreeSelect'
 import { STATUS_OPTIONS } from '../../constants'
 import { useRoles } from '../../role/hooks/useRoles'
-import type { UserDetail, UserFormValues } from '../types'
+import type { UserFormValues, UserListItem } from '../types'
 
 interface Props {
   /** 供抽屉底部的原生 submit 按钮 `form=` 关联。 */
   formId: string
   mode: 'create' | 'edit'
-  /** 编辑时先拉详情（含角色），据此初始化。 */
-  initial?: UserDetail
+  /** 编辑时用列表行初始化（列表已含表单字段；角色走独立管理入口）。 */
+  initial?: UserListItem
+  /** 创建时是否展示角色字段（`iam:user_role:assign`）；编辑不改角色。 */
+  canAssignRoles: boolean
   onSubmit: (values: UserFormValues) => void
 }
 
@@ -19,9 +21,9 @@ interface Props {
  * 由外层以 `key` 重挂，故用 `initialValues` 初始化即可。
  * （只读详情另见 `UserDetailDrawer`，不复用本表单。）
  */
-export function UserForm({ formId, mode, initial, onSubmit }: Props) {
+export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Props) {
   const [form] = Form.useForm<UserFormValues>()
-  const { data: roles = [] } = useRoles()
+  const { data: roles = [] } = useRoles(false, mode === 'create' && canAssignRoles)
   const roleOptions = roles.map((role) => ({
     value: role.id,
     label: `${role.name}（${role.code}）`,
@@ -43,9 +45,8 @@ export function UserForm({ formId, mode, initial, onSubmit }: Props) {
               status: initial.status,
               description: initial.description ?? undefined,
               dept_id: initial.dept_id ?? undefined,
-              role_ids: initial.roles.map((role) => role.id),
             }
-          : { status: 'active', role_ids: [] }
+          : { status: 'active' }
       }
       onFinish={onSubmit}
     >
@@ -55,7 +56,7 @@ export function UserForm({ formId, mode, initial, onSubmit }: Props) {
           label="用户名"
           rules={[{ required: true, whitespace: true, message: '请输入用户名' }]}
         >
-          <Input maxLength={50} placeholder="登录名，创建后不可改" />
+          <Input maxLength={32} placeholder="登录名，创建后不可改" />
         </Form.Item>
       ) : (
         <Form.Item label="用户名">
@@ -72,7 +73,7 @@ export function UserForm({ formId, mode, initial, onSubmit }: Props) {
         }
       >
         <Input
-          maxLength={50}
+          maxLength={32}
           placeholder={mode === 'create' ? '留空则与用户名相同' : '昵称'}
         />
       </Form.Item>
@@ -105,15 +106,17 @@ export function UserForm({ formId, mode, initial, onSubmit }: Props) {
       <Form.Item name="dept_id" label="部门">
         <DeptTreeSelect />
       </Form.Item>
-      <Form.Item name="role_ids" label="角色">
-        <Select
-          mode="multiple"
-          options={roleOptions}
-          placeholder="选择角色"
-          optionFilterProp="label"
-          showSearch
-        />
-      </Form.Item>
+      {mode === 'create' && canAssignRoles && (
+        <Form.Item name="role_ids" label="角色">
+          <Select
+            mode="multiple"
+            options={roleOptions}
+            placeholder="选择角色"
+            optionFilterProp="label"
+            showSearch
+          />
+        </Form.Item>
+      )}
       <Form.Item name="description" label="描述">
         <Input.TextArea rows={2} maxLength={200} placeholder="描述" />
       </Form.Item>

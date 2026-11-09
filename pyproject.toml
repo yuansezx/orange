@@ -1,6 +1,6 @@
 [project]
 name = "orange"
-version = "0.1.0"
+version = "0.2.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -25,3 +25,6 @@ dependencies = [
     "ua-parser>=1.0.2",
     "uvicorn>=0.48.0",
 ]
+
+[tool.uv.workspace]
+members = ["app/tools"]

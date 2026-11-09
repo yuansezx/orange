@@ -3,7 +3,7 @@ import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import type { MouseEvent } from 'react'
 
-import { IconEdit, IconRestore, IconTrash, IconTrashX } from '@shared/ui'
+import { IconEdit, IconRestore, IconTrash, IconTrashX, IconUsers } from '@shared/ui'
 
 import { StatusSwitch } from '../../../components/StatusSwitch'
 import { DATA_SCOPE_LABELS } from '../../../constants'
@@ -17,6 +17,8 @@ interface Props {
   onView: (role: RoleListItem) => void
   onEdit: (role: RoleListItem) => void
   onDelete: (role: RoleListItem) => void
+  canViewMembers: boolean
+  onViewMembers: (role: RoleListItem) => void
   recycleMode?: boolean
   onRestore: (role: RoleListItem) => void
   onHardDelete: (role: RoleListItem) => void
@@ -32,6 +34,8 @@ export function RoleTable({
   onView,
   onEdit,
   onDelete,
+  canViewMembers,
+  onViewMembers,
   recycleMode,
   onRestore,
   onHardDelete,
@@ -104,7 +108,7 @@ export function RoleTable({
     ...recycleColumns,
     {
       title: '操作',
-      width: recycleMode ? 100 : 120,
+      width: recycleMode ? 100 : 160,
       render: (_, record) => (
         <Space size={8}>
           {recycleMode ? (
@@ -133,6 +137,16 @@ export function RoleTable({
                   icon={<IconEdit size={16} />}
                   onClick={withStop(() => onEdit(record))}
                 />
+              </Tooltip>
+              <Tooltip title={canViewMembers ? '成员' : '无成员查看权限'}>
+                <span>
+                  <Button
+                    type="text"
+                    disabled={!canViewMembers}
+                    icon={<IconUsers size={16} />}
+                    onClick={withStop(() => onViewMembers(record))}
+                  />
+                </span>
               </Tooltip>
               <Tooltip title="删除">
                 <Button

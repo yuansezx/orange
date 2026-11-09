@@ -61,6 +61,13 @@ IAM_RESOURCE_DECLARATIONS: list[RegisterResourceIn] = [
         permissions=_crud_permissions('用户', hard_delete=True),
     ),
     RegisterResourceIn(
+        module=IAM_MODULE, code='user_role', name='用户角色分配',
+        permissions=[
+            RegisterPermissionIn(action='read', name='查看角色成员'),
+            RegisterPermissionIn(action='assign', name='分配角色'),
+        ],
+    ),
+    RegisterResourceIn(
         module=IAM_MODULE, code='role', name='角色资源',
         permissions=_crud_permissions('角色', hard_delete=True),
     ),

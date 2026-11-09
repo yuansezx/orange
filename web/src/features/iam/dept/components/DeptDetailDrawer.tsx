@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Descriptions, Spin, Tag } from 'antd'
 
-import { DetailDrawer } from '@shared/ui'
+import { DetailDrawer, userRefLabel } from '@shared/ui'
 
 import { auditItems } from '../../components/auditItems'
 import { STATUS_COLORS, STATUS_LABELS } from '../../constants'
@@ -36,7 +36,7 @@ export function DeptDetailDrawer({ open, deptId, onClose }: Props) {
           <Descriptions.Item label="部门名称">{data.name}</Descriptions.Item>
           <Descriptions.Item label="上级部门">{data.parent?.path ?? '（顶级部门）'}</Descriptions.Item>
           <Descriptions.Item label="负责人">
-            {data.leader_nickname || data.leader_username || '-'}
+            {userRefLabel(data.leader_username, data.leader_nickname) || '-'}
           </Descriptions.Item>
           <Descriptions.Item label="邮箱">{data.email || '-'}</Descriptions.Item>
           <Descriptions.Item label="手机号">{data.phone || '-'}</Descriptions.Item>

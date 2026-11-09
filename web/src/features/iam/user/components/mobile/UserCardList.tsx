@@ -15,8 +15,10 @@ export function UserCardList({
   error,
   recycleMode,
   canResetPassword,
+  canManageRoles,
   selfId,
   onResetPassword,
+  onManageRoles,
   onView,
   onEdit,
   onDelete,
@@ -36,12 +38,12 @@ export function UserCardList({
           <List.Item
             key={user.id}
             onClick={() => setActive(user)}
-            description={`${user.username} · ${USER_TYPE_LABELS[user.user_type]} · ${dayjs(
-              user.created_at,
-            ).format('YYYY-MM-DD')}`}
+            description={`${USER_TYPE_LABELS[user.user_type]} · ${dayjs(user.created_at).format(
+              'YYYY-MM-DD',
+            )}`}
             extra={STATUS_LABELS[user.status]}
           >
-            {user.nickname || user.username}
+            {user.username}
           </List.Item>
         ))}
         {loading && <List.Item>加载中…</List.Item>}
@@ -61,20 +63,23 @@ export function UserCardList({
               ]
             : [
                 { key: 'view', text: '查看' },
-                ...(canResetPassword
-                  ? [
-                      {
-                        key: 'resetPassword',
-                        text: '重置密码',
-                        disabled: active?.id === selfId,
-                        description:
-                          active?.id === selfId
-                            ? '不能重置自己的密码，请使用「修改密码」'
-                            : undefined,
-                      },
-                    ]
-                  : []),
                 { key: 'edit', text: '编辑' },
+                {
+                  key: 'manageRoles',
+                  text: '管理角色',
+                  disabled: !canManageRoles,
+                  description: canManageRoles ? undefined : '无分配角色权限',
+                },
+                {
+                  key: 'resetPassword',
+                  text: '重置密码',
+                  disabled: !canResetPassword || active?.id === selfId,
+                  description: !canResetPassword
+                    ? '无重置密码权限'
+                    : active?.id === selfId
+                      ? '不能重置自己的密码，请使用「修改密码」'
+                      : undefined,
+                },
                 { key: 'delete', text: '删除', danger: true },
               ]
         }
@@ -83,6 +88,7 @@ export function UserCardList({
           const target = active
           setActive(null)
           if (action.key === 'view') onView(target)
+          else if (action.key === 'manageRoles') onManageRoles(target)
           else if (action.key === 'restore') onRestore(target)
           else if (action.key === 'hardDelete') onHardDelete(target)
           else if (action.key === 'resetPassword') onResetPassword(target)

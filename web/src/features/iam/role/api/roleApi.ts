@@ -1,12 +1,18 @@
-import { del, get, post, put } from '@shared/api'
+import { del, get, patch, post, put } from '@shared/api'
+import type { PageResult } from '@shared/api'
 
 import type { Status } from '../../types'
 import type {
   Catalog,
   CreateRoleReq,
+  GetRoleCandidatesQuery,
+  GetRoleMembersQuery,
+  PatchRoleUsersReq,
   Role,
+  RoleCandidateUser,
   RoleDetail,
   RoleListItem,
+  RoleMember,
   UpdateRoleReq,
 } from '../types'
 
@@ -31,6 +37,27 @@ export function createRole(body: CreateRoleReq): Promise<Role> {
 
 export function updateRole(id: string, body: UpdateRoleReq): Promise<void> {
   return put<void>(`${BASE}/${id}`, body)
+}
+
+/** 角色成员（分页只读；含自助停用的分配）。 */
+export function getRoleMembers(
+  id: string,
+  query: GetRoleMembersQuery,
+): Promise<PageResult<RoleMember>> {
+  return get<PageResult<RoleMember>>(`${BASE}/${id}/users`, query)
+}
+
+/** 角色成员候选：分页 + 每行 selected 标记（数据范围/关键词由后端处理）。 */
+export function getRoleCandidates(
+  id: string,
+  query: GetRoleCandidatesQuery,
+): Promise<PageResult<RoleCandidateUser>> {
+  return get<PageResult<RoleCandidateUser>>(`${BASE}/${id}/candidates`, query)
+}
+
+/** 角色成员管理（增量）：只提交本次增删的用户。 */
+export function patchRoleUsers(id: string, body: PatchRoleUsersReq): Promise<void> {
+  return patch<void>(`${BASE}/${id}/users`, body)
 }
 
 export function deleteRole(id: string): Promise<void> {

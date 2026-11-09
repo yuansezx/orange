@@ -49,12 +49,14 @@ export interface CreateResourceReq {
   code: string
   name: string
   description?: string | null
+  status: Status
 }
 
 /** 更新资源（module/code 是身份，不可改）。 */
 export interface UpdateResourceReq {
   name: string
   description?: string | null
+  status: Status
 }
 
 /** 资源表单值。 */
@@ -63,6 +65,7 @@ export interface ResourceFormValues {
   code: string
   name: string
   description?: string
+  status: Status
 }
 
 /** 新建自定义权限。 */
@@ -71,12 +74,14 @@ export interface CreatePermissionReq {
   action: string
   name: string
   description?: string | null
+  status: Status
 }
 
 /** 更新权限（action 是身份，不可改）。 */
 export interface UpdatePermissionReq {
   name: string
   description?: string | null
+  status: Status
 }
 
 /** 权限表单值。 */
@@ -84,4 +89,5 @@ export interface PermissionFormValues {
   action: string
   name: string
   description?: string
+  status: Status
 }

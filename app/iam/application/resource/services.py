@@ -153,7 +153,7 @@ class ResourceApplicationService:
                 code=data.code,
                 name=data.name,
                 description=data.description,
-                status=StatusEnum.ACTIVE,
+                status=data.status,
                 resource_type=SourceTypeEnum.CUSTOM,
                 created_at=datetime.now(UTC),
                 created_by=current_user.user_id,
@@ -174,11 +174,15 @@ class ResourceApplicationService:
     @requires_permission('iam:resource:update')
     async def update_resource(self, data: UpdateResourceIn, current_user: CurrentUser,
                               request_meta: RequestMeta | None = None) -> None:
+        status_changed = False
         async with self.in_transaction():
             resource = await self._load(data.id)
             _ensure_custom_resource(resource)
             before = self._resource_snapshot(resource)
             resource.change(data.name, data.description, current_user.user_id)
+            if data.status != resource.status:
+                resource.change_status(data.status, current_user.user_id)
+                status_changed = True
             await self.resource_repo.update(resource)
             after = self._resource_snapshot(resource)
             await self.audit_log_writer.write(
@@ -196,6 +200,8 @@ class ResourceApplicationService:
                     'changed': [f for f in before if before[f] != after[f]],
                 },
             )
+        if status_changed:
+            await self._publish(p.id for p in resource.permissions)
 
     @requires_permission('iam:resource:update')
     async def set_resource_status(self, resource_id: ResourceId, status: StatusEnum,
@@ -325,7 +331,7 @@ class ResourceApplicationService:
                     f'权限已存在：{resource.full_code()}:{data.action}')
             permission = resource.declare_permission(
                 data.action, data.name, data.description, SourceTypeEnum.CUSTOM,
-                current_user.user_id)
+                current_user.user_id, status=data.status)
             await self.resource_repo.update(resource)
             await self.audit_log_writer.write(
                 current_user=current_user,
@@ -340,6 +346,7 @@ class ResourceApplicationService:
                     'resource_id': str(resource.id.value),
                     'resource_key': resource.full_code(),
                     'action': permission.action,
+                    'status': permission.status.value,
                 },
             )
         return _permission_out(
@@ -348,11 +355,15 @@ class ResourceApplicationService:
     @requires_permission('iam:permission:update')
     async def update_permission(self, data: UpdatePermissionIn, current_user: CurrentUser,
                                 request_meta: RequestMeta | None = None) -> None:
+        status_changed = False
         async with self.in_transaction():
             resource, permission = await self._load_permission(data.id)
             _ensure_custom_permission(permission)
             before = self._permission_snapshot(permission)
             permission.change(data.name, data.description, current_user.user_id)
+            if data.status != permission.status:
+                permission.change_status(data.status, current_user.user_id)
+                status_changed = True
             await self.resource_repo.update(resource)
             after = self._permission_snapshot(permission)
             await self.audit_log_writer.write(
@@ -372,6 +383,8 @@ class ResourceApplicationService:
                     'changed': [f for f in before if before[f] != after[f]],
                 },
             )
+        if status_changed:
+            await self._publish([permission.id])
 
     @requires_permission('iam:permission:update')
     async def set_permission_status(self, permission_id: PermissionId, status: StatusEnum,

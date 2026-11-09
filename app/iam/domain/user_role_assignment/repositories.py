@@ -1,6 +1,7 @@
 from abc import abstractmethod
 
 from app.core.domain.repositories import BaseRepository
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId, UserId, UserRoleId
 from app.iam.domain.user_role_assignment.entities import UserRoleAssignment
 
@@ -11,8 +12,30 @@ class UserRoleRepository(BaseRepository[UserRoleId, UserRoleAssignment]):
     async def get_by_user_id(self, user_id: UserId, include_deleted: bool = False) -> list[UserRoleAssignment]: ...
 
     @abstractmethod
+    async def get_by_user_and_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
+                                    include_deleted: bool = False) -> list[UserRoleAssignment]:
+        """按用户 + 指定角色取分配行（增量增删用；含已删才能复活）。"""
+        ...
+
+    @abstractmethod
+    async def get_by_role_and_users(self, role_id: RoleId, user_ids: list[UserId] | set[UserId],
+                                    include_deleted: bool = False) -> list[UserRoleAssignment]:
+        """按角色 + 指定用户取分配行（增量增删用；含已删才能复活）。"""
+        ...
+
+    @abstractmethod
     async def get_user_ids_by_role(self, role_id: RoleId) -> list[UserId]:
         """持有该角色的用户（ACTIVE 分配）——角色变动时扇出失效用。"""
+        ...
+
+    @abstractmethod
+    async def get_assigned_user_ids(self, role_id: RoleId, user_ids: list[UserId]) -> set[UserId]:
+        """这批用户中持有该角色（未删除分配）的 id 集合——候选列表的 selected 判定。"""
+        ...
+
+    @abstractmethod
+    async def get_assignment_status_map(self, role_id: RoleId) -> dict[UserId, StatusEnum]:
+        """该角色全部未删除分配：user_id → 分配状态（含自助停用）。"""
         ...
 
     @abstractmethod

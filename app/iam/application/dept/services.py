@@ -141,7 +141,7 @@ class DeptApplicationService:
                 leader_id=data.leader_id,
                 email=data.email,
                 phone=data.phone,
-                status=StatusEnum.ACTIVE,
+                status=data.status,
                 description=data.description,
                 created_at=datetime.now(UTC),
                 created_by=current_user.user_id,

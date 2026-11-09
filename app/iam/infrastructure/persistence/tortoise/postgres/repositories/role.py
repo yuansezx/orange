@@ -161,9 +161,10 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
 
     # ---------------- 数据权限 ----------------
     async def get_allowed_role_ids(self, current_user: CurrentUser) -> set[RoleId]:
-        # 角色不受数据范围约束：有 iam:role:* 功能权限即可管理任意未删的 ACTIVE 角色
+        # 角色不受数据范围约束：有功能权限即可管理任意未删角色。
+        # 状态只表可用性，不阻断编辑/启停/授权/成员管理；有效权限读路径自行过滤 ACTIVE。
         ids = await RoleModel.filter(
-            status=StatusEnum.ACTIVE, deleted_at__isnull=True).values_list('id', flat=True)
+            deleted_at__isnull=True).values_list('id', flat=True)
         return {RoleId(i) for i in ids}
 
     # ---------------- 内部 ----------------

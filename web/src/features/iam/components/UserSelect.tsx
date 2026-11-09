@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Select, Spin } from 'antd'
 
+import { userChoiceLabel } from '@shared/ui'
+
 import { getUsers } from '../user/api/userApi'
 
 /** 用户目录一次取量（管理台规模小；无按 id 反查端点，故用目录 + 客户端过滤）。 */
@@ -16,7 +18,7 @@ interface Props {
 
 /**
  * 用户选择器（下拉）。
- * label = `昵称 || 用户名`；支持按 label 客户端过滤。
+ * label = `昵称（username）`；支持按 label 客户端过滤。
  * 无 `iam:user:read` 权限时取数 403 → 选项为空（字段可选，不影响提交）。
  */
 export function UserSelect({
@@ -34,7 +36,7 @@ export function UserSelect({
 
   const options = (data?.data ?? []).map((user) => ({
     value: user.id,
-    label: user.nickname || user.username,
+    label: userChoiceLabel(user.username, user.nickname),
   }))
 
   return (

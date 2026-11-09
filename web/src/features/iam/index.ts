@@ -1,6 +1,6 @@
 import { createElement, lazy } from 'react'
 
-import type { FeatureModule } from '@shared/navigation'
+import { ADMIN_WORKSPACE, type FeatureModule } from '@shared/navigation'
 import {
   IconBox,
   IconDevices,
@@ -30,12 +30,10 @@ export const feature: FeatureModule = {
   name: 'iam',
   label: '权限管理',
   icon: createElement(IconShieldLock, { size: 20 }),
-  workspace: {
-    key: 'admin',
-    label: '后台管理',
-    basePath: 'admin',
-    systemSidebarBehavior: 'push',
-  },
+  // 【未定状态，勿当标准写法】iam 业务菜单目前仍住在后台管理，是否迁出到独立
+  // workspace 尚未决定。新模块的后台技术管理页请用 `admin` 通道（参考 monitor），
+  // 不要复制这里的 `workspace: ADMIN_WORKSPACE` 写法。
+  workspace: ADMIN_WORKSPACE,
   settings: [
     {
       key: 'iam-account',

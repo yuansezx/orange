@@ -1,4 +1,5 @@
 import type { AuditFields, DataScope, DeptRef, Status } from '../types'
+import type { UserType } from '../user/types'
 
 /** 角色读模型——对齐后端 `RoleResp`（含权限集 / 数据范围部门集）。 */
 export interface Role {
@@ -26,6 +27,7 @@ export interface CreateRoleReq {
   name: string
   data_scope: DataScope
   description?: string | null
+  status: Status
   permission_ids: string[]
   dept_ids: string[]
 }
@@ -38,6 +40,47 @@ export interface UpdateRoleReq {
   status: Status
   permission_ids: string[]
   dept_ids: string[]
+}
+
+/** 角色成员管理（增量）——对齐后端 `PATCH /roles/{id}/users`。 */
+export interface PatchRoleUsersReq {
+  add_user_ids: string[]
+  remove_user_ids: string[]
+}
+
+/** 角色成员候选——对齐后端 `RoleCandidateUserResp`（分页 + selected 标记）。 */
+export interface RoleCandidateUser {
+  id: string
+  username: string
+  nickname: string
+  user_type: UserType
+  status: Status
+  selected: boolean
+}
+
+export interface GetRoleCandidatesQuery {
+  keyword?: string
+  status?: Status
+  user_type?: UserType
+  page: number
+  page_size: number
+}
+
+/** 角色成员（只读）——对齐后端 `RoleMemberResp`；含分配状态。 */
+export interface RoleMember {
+  id: string
+  username: string
+  nickname: string
+  user_type: UserType
+  status: Status
+  assignment_status: Status
+}
+
+export interface GetRoleMembersQuery {
+  keyword?: string
+  status?: Status
+  page: number
+  page_size: number
 }
 
 /** 角色表单值（`code` 仅新建用；`status` 编辑/查看用）。 */

@@ -23,7 +23,7 @@ export function ResetPasswordModal({ user, onSubmit, onClose }: Props) {
   const [form] = Form.useForm<FormValues>()
   const [submitting, setSubmitting] = useState(false)
   const [issuedPassword, setIssuedPassword] = useState<string | null>(null)
-  const displayName = user.nickname || user.username
+  const displayName = user.username
 
   const handleFinish = async (values: FormValues) => {
     const password = values.new_password?.trim() || undefined

@@ -2,23 +2,31 @@
 
 鉴权：功能权限由应用服务（@requires_permission）判定；接口层只 `Depends(get_current_user)` 提取身份。
 """
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
 from app.core.application.dto import RequestMeta
 from app.core.interface.http.dependencies import get_request_meta
+from app.core.utils.schemas import PageResult
 from app.iam.application.role.dto import UpdateRoleIn
 from app.iam.application.role.services import RoleApplicationService
+from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId
-from app.iam.interface.dependences import get_role_app_service
+from app.iam.interface.dependences import get_role_app_service, get_user_role_app_service
 from app.iam.interface.http.dependencies import get_current_user
 from app.iam.interface.http.role.schemas import (
     CreateRoleReq,
+    GetRoleCandidatesReq,
+    GetRoleMembersReq,
+    PatchRoleUsersReq,
+    RoleCandidateUserResp,
     RoleDetailResp,
     RoleListItemResp,
+    RoleMemberResp,
     RoleResp,
     UpdateRoleReq,
 )
@@ -72,6 +80,55 @@ async def get_role_detail(
 ) -> RoleDetailResp:
     detail = await role_app_service.get_role_detail(RoleId(role_id), current_user)
     return RoleDetailResp.model_validate(detail, from_attributes=True)
+
+
+@role_router.get('/{role_id}/users', response_model=PageResult[RoleMemberResp],
+                 summary='角色成员（分页只读）')
+async def get_role_members(
+    role_id: UUID,
+    filters: Annotated[GetRoleMembersReq, Query()],
+    current_user: CurrentUser = Depends(get_current_user),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> PageResult[RoleMemberResp]:
+    page = await user_role_app_service.get_role_members(
+        RoleId(role_id), filters, current_user)
+    return PageResult[RoleMemberResp](
+        page=page.page,
+        page_size=page.page_size,
+        total=page.total,
+        data=[RoleMemberResp(**item.model_dump()) for item in (page.data or [])],
+    )
+
+
+@role_router.get('/{role_id}/candidates', response_model=PageResult[RoleCandidateUserResp],
+                 summary='角色成员候选（分页 + selected 标记）')
+async def get_role_candidates(
+    role_id: UUID,
+    filters: Annotated[GetRoleCandidatesReq, Query()],
+    current_user: CurrentUser = Depends(get_current_user),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> PageResult[RoleCandidateUserResp]:
+    page = await user_role_app_service.get_role_candidates(
+        RoleId(role_id), filters, current_user)
+    return PageResult[RoleCandidateUserResp](
+        page=page.page,
+        page_size=page.page_size,
+        total=page.total,
+        data=[RoleCandidateUserResp(**item.model_dump()) for item in (page.data or [])],
+    )
+
+
+@role_router.patch('/{role_id}/users', status_code=status.HTTP_204_NO_CONTENT,
+                   summary='管理角色成员（增量）')
+async def patch_role_users(
+    role_id: UUID,
+    body: PatchRoleUsersReq,
+    current_user: CurrentUser = Depends(get_current_user),
+    request_meta: RequestMeta = Depends(get_request_meta),
+    user_role_app_service: UserRoleApplicationService = Depends(get_user_role_app_service),
+) -> None:
+    await user_role_app_service.patch_role_users(
+        RoleId(role_id), body.add_user_ids, body.remove_user_ids, current_user, request_meta)
 
 
 @role_router.put('/{role_id}', status_code=status.HTTP_204_NO_CONTENT, summary='更新角色')

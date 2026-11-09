@@ -5,18 +5,13 @@ import { IconFileText } from '@shared/ui'
 
 const AuditLogPage = lazy(() => import('./auditLog/AuditLogPage'))
 
-/** monitor 模块门面：监控分组 + 审计日志入口。 */
+/** monitor 模块门面：向后台管理贡献监控分组 + 审计日志入口。 */
 export const feature: FeatureModule = {
   name: 'monitor',
   label: '监控',
   icon: createElement(IconFileText, { size: 20 }),
-  workspace: {
-    key: 'admin',
-    label: '后台管理',
-    basePath: 'admin',
-    systemSidebarBehavior: 'push',
-  },
-  groups: [
+  // 后台技术管理页的标准写法：用 `admin` 通道贡献到平台统一的 ADMIN_WORKSPACE。
+  admin: [
     {
       key: 'monitor',
       label: '监控',

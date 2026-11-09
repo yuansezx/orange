@@ -28,14 +28,19 @@ class CreateUserReq(CreateUserIn):
 
 
 class UpdateUserReq(BaseModel):
-    """更新用户请求——id 来自路径，故不含 id。"""
+    """更新用户请求——id 来自路径，故不含 id；角色走独立管理接口。"""
     nickname: str
     email: Email | None = None
     phone: Phone | None = None
     status: StatusEnum
     description: str | None = None
-    role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None
+
+
+class PatchUserRolesReq(BaseModel):
+    """用户角色管理（增量）：只改本次指定的关系。"""
+    add_role_ids: list[RoleId] = Field(default_factory=list)
+    remove_role_ids: list[RoleId] = Field(default_factory=list)
 
 
 class GetUsersReq(GetUsersIn):

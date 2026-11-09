@@ -24,13 +24,13 @@ class PermissionActionConflictException(IAMBusinessBaseException):
 
 class SystemResourceReadOnlyException(IAMBusinessBaseException):
     """SYSTEM = 代码声明拥有；后台只读（否则下次启动会被声明覆盖）。"""
-    code = 'IAM_SYSTEM_RESOURCE_READ_ONLY'
+    code = 'IAM_RESOURCE_SYSTEM_READ_ONLY'
     kind = ErrorKindEnum.FORBIDDEN
 
 
 class SystemPermissionReadOnlyException(IAMBusinessBaseException):
     """SYSTEM = 代码声明拥有；后台只读。"""
-    code = 'IAM_SYSTEM_PERMISSION_READ_ONLY'
+    code = 'IAM_PERMISSION_SYSTEM_READ_ONLY'
     kind = ErrorKindEnum.FORBIDDEN
 
 

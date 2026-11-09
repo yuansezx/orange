@@ -44,7 +44,7 @@ export function AuditLogTable({
       title: '操作人',
       key: 'operator',
       width: 130,
-      render: (_, record) => record.operator_nickname || record.operator_username || '-',
+      render: (_, record) => record.operator_username || '-',
     },
     {
       title: '目标',

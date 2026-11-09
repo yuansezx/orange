@@ -42,7 +42,7 @@ export function AuditLogCardList({
             <div style={{ fontWeight: 600 }}>{log.summary}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
               <span style={{ color: '#999' }}>
-                操作人：{log.operator_nickname || log.operator_username || '-'}
+                操作人：{log.operator_username || '-'}
               </span>
               <Tag color={log.result === 'success' ? 'success' : 'danger'}>
                 {RESULT_LABELS[log.result]}

@@ -9,6 +9,7 @@ import { ResetPasswordModal } from './components/ResetPasswordModal'
 import { TemporaryPasswordModal } from './components/TemporaryPasswordModal'
 import { UserDetailDrawer } from './components/UserDetailDrawer'
 import { UserFormDrawer } from './components/UserFormDrawer'
+import { UserRolesDrawer } from './components/UserRolesDrawer'
 import { UserToolbar } from './components/UserToolbar'
 import { UserTable } from './components/desktop/UserTable'
 import { UserCardList } from './components/mobile/UserCardList'
@@ -19,7 +20,7 @@ import type { GetUsersQuery, UserFormValues, UserListItem, UserStatus, UserType 
 interface DialogState {
   open: boolean
   mode: 'create' | 'edit'
-  userId?: string
+  user?: UserListItem
 }
 
 /**
@@ -36,6 +37,7 @@ export default function UserPage() {
   const [params, setParams] = useSearchParams()
   const [viewingId, setViewingId] = useState<string>()
   const [resetTarget, setResetTarget] = useState<UserListItem | null>(null)
+  const [roleTarget, setRoleTarget] = useState<UserListItem | null>(null)
   const [issuedPassword, setIssuedPassword] = useState<{
     username: string
     password: string
@@ -43,6 +45,8 @@ export default function UserPage() {
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const { modal } = App.useApp()
   const { can, me } = usePermission()
+  const canAssignRoles = can('iam:user_role:assign')
+  const canManageRoles = canAssignRoles && can('iam:role:read')
   const { create, update, remove, setStatus, restore, hardDelete, resetPassword } =
     useUserMutations()
 
@@ -51,6 +55,7 @@ export default function UserPage() {
   const keyword = params.get('keyword') ?? ''
   const status = (params.get('status') as UserStatus | null) ?? undefined
   const userType = (params.get('user_type') as UserType | null) ?? undefined
+  const deptId = params.get('dept_id') ?? undefined
   const needChangePasswordParam = params.get('need_change_password')
   const needChangePassword =
     needChangePasswordParam === null ? undefined : needChangePasswordParam === 'true'
@@ -62,6 +67,7 @@ export default function UserPage() {
     keyword: keyword || undefined,
     status,
     user_type: userType,
+    dept_id: deptId,
     need_change_password: needChangePassword,
     deleted: recycleMode || undefined,
   }
@@ -81,7 +87,7 @@ export default function UserPage() {
 
   const openCreate = () => setDialog({ open: true, mode: 'create' })
   const openEdit = (user: UserListItem) =>
-    setDialog({ open: true, mode: 'edit', userId: user.id })
+    setDialog({ open: true, mode: 'edit', user })
   const close = () => setDialog((prev) => ({ ...prev, open: false }))
 
   const submit = (values: UserFormValues) => {
@@ -89,19 +95,17 @@ export default function UserPage() {
     const phone = values.phone?.trim() || null
     const description = values.description?.trim() || null
     const deptId = values.dept_id ?? null
-    const roleIds = values.role_ids ?? []
 
-    if (dialog.mode === 'edit' && dialog.userId) {
+    if (dialog.mode === 'edit' && dialog.user) {
       update.mutate(
         {
-          id: dialog.userId,
+          id: dialog.user.id,
           body: {
             nickname: values.nickname!.trim(),
             email,
             phone,
             status: values.status,
             description,
-            role_ids: roleIds,
             dept_id: deptId,
           },
         },
@@ -117,7 +121,7 @@ export default function UserPage() {
           phone,
           status: values.status,
           description,
-          role_ids: roleIds,
+          ...(canAssignRoles ? { role_ids: values.role_ids ?? [] } : {}),
           dept_id: deptId,
         },
         {
@@ -173,6 +177,7 @@ export default function UserPage() {
         keyword={keyword}
         status={status}
         userType={userType}
+        deptId={deptId}
         needChangePassword={needChangePassword}
         recycleMode={recycleMode}
         onChange={updateQuery}
@@ -191,7 +196,9 @@ export default function UserPage() {
             recycleMode={recycleMode}
             selfId={me?.user_id}
             canResetPassword={!recycleMode && canResetPassword}
+            canManageRoles={!recycleMode && canManageRoles}
             onResetPassword={setResetTarget}
+            onManageRoles={setRoleTarget}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -211,8 +218,10 @@ export default function UserPage() {
             error={error}
             recycleMode={recycleMode}
             canResetPassword={!recycleMode && canResetPassword}
+            canManageRoles={!recycleMode && canManageRoles}
             selfId={me?.user_id}
             onResetPassword={setResetTarget}
+            onManageRoles={setRoleTarget}
             onView={(user) => setViewingId(user.id)}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -229,7 +238,8 @@ export default function UserPage() {
       <UserFormDrawer
         open={dialog.open}
         mode={dialog.mode}
-        userId={dialog.userId}
+        user={dialog.user}
+        canAssignRoles={canAssignRoles}
         pending={pending}
         onSubmit={submit}
         onClose={close}
@@ -240,6 +250,9 @@ export default function UserPage() {
           onSubmit={submitResetPassword}
           onClose={() => setResetTarget(null)}
         />
+      )}
+      {roleTarget && (
+        <UserRolesDrawer user={roleTarget} onClose={() => setRoleTarget(null)} />
       )}
       <TemporaryPasswordModal
         username={issuedPassword?.username ?? null}

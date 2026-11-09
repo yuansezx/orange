@@ -7,12 +7,13 @@ import {
   createUser,
   deleteUser,
   hardDeleteUser,
+  patchUserRoles,
   resetUserPassword,
   restoreUser,
   setUserStatus,
   updateUser,
 } from '../api/userApi'
-import type { CreateUserReq, UpdateUserReq, UserStatus } from '../types'
+import type { CreateUserReq, PatchUserRolesReq, UpdateUserReq, UserStatus } from '../types'
 
 /** 用户写操作用例：成功失效列表 / 详情 / 下拉目录缓存，失败提示后端 `message`。 */
 export function useUserMutations() {
@@ -23,6 +24,9 @@ export function useUserMutations() {
     queryClient.invalidateQueries({ queryKey: ['users'] })
     queryClient.invalidateQueries({ queryKey: ['user-detail'] })
     queryClient.invalidateQueries({ queryKey: ['user-directory'] })
+    queryClient.invalidateQueries({ queryKey: ['role-users'] })
+    queryClient.invalidateQueries({ queryKey: ['role-candidates'] })
+    queryClient.invalidateQueries({ queryKey: ['role-members'] })
   }
   const onError = (error: unknown) =>
     message.error(isApiError(error) ? error.message : '操作失败，请重试')
@@ -38,6 +42,15 @@ export function useUserMutations() {
 
   const update = useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateUserReq }) => updateUser(id, body),
+    onSuccess: () => {
+      message.success('已保存')
+      invalidate()
+    },
+    onError,
+  })
+
+  const patchRoles = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: PatchUserRolesReq }) => patchUserRoles(id, body),
     onSuccess: () => {
       message.success('已保存')
       invalidate()
@@ -92,5 +105,5 @@ export function useUserMutations() {
     onError,
   })
 
-  return { create, update, remove, setStatus, restore, hardDelete, resetPassword }
+  return { create, update, patchRoles, remove, setStatus, restore, hardDelete, resetPassword }
 }

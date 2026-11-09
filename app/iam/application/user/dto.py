@@ -40,7 +40,6 @@ class UpdateUserIn(BaseModel):
     phone: Phone | None = None
     status: StatusEnum
     description: str | None = None
-    role_ids: list[RoleId] | None = None
     dept_id: DeptId | None = None
 
 

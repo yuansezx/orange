@@ -3,7 +3,7 @@ import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 import type { MouseEvent } from 'react'
 
-import { IconEdit, IconKey, IconRestore, IconTrash, IconTrashX } from '@shared/ui'
+import { IconEdit, IconKey, IconRestore, IconShieldLock, IconTrash, IconTrashX } from '@shared/ui'
 
 import { StatusSwitch } from '../../../components/StatusSwitch'
 import { USER_TYPE_LABELS } from '../../constants'
@@ -23,7 +23,9 @@ export function UserTable({
   recycleMode,
   selfId,
   canResetPassword,
+  canManageRoles,
   onResetPassword,
+  onManageRoles,
   onView,
   onEdit,
   onDelete,
@@ -99,7 +101,7 @@ export function UserTable({
     ...recycleColumns,
     {
       title: '操作',
-      width: recycleMode ? 100 : 160,
+      width: recycleMode ? 100 : 200,
       render: (_, record) => (
         <Space size={8}>
           {recycleMode ? (
@@ -122,30 +124,40 @@ export function UserTable({
             </>
           ) : (
             <>
-              {canResetPassword && (
-                <Tooltip
-                  title={
-                    record.id === selfId
-                      ? '不能重置自己的密码，请使用「修改密码」'
-                      : '重置密码'
-                  }
-                >
-                  <span>
-                    <Button
-                      type="text"
-                      disabled={record.id === selfId}
-                      icon={<IconKey size={16} />}
-                      onClick={withStop(() => onResetPassword(record))}
-                    />
-                  </span>
-                </Tooltip>
-              )}
               <Tooltip title="编辑">
                 <Button
                   type="text"
                   icon={<IconEdit size={16} />}
                   onClick={withStop(() => onEdit(record))}
                 />
+              </Tooltip>
+              <Tooltip title={canManageRoles ? '管理角色' : '无分配角色权限'}>
+                <span>
+                  <Button
+                    type="text"
+                    disabled={!canManageRoles}
+                    icon={<IconShieldLock size={16} />}
+                    onClick={withStop(() => onManageRoles(record))}
+                  />
+                </span>
+              </Tooltip>
+              <Tooltip
+                title={
+                  !canResetPassword
+                    ? '无重置密码权限'
+                    : record.id === selfId
+                      ? '不能重置自己的密码，请使用「修改密码」'
+                      : '重置密码'
+                }
+              >
+                <span>
+                  <Button
+                    type="text"
+                    disabled={!canResetPassword || record.id === selfId}
+                    icon={<IconKey size={16} />}
+                    onClick={withStop(() => onResetPassword(record))}
+                  />
+                </span>
               </Tooltip>
               <Tooltip title="删除">
                 <Button

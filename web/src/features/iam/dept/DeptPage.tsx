@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Platform } from '@shared/platform'
 
 import { DeptDetailDrawer } from './components/DeptDetailDrawer'
-import { DeptFormDialog } from './components/DeptFormDialog'
+import { DeptFormDrawer } from './components/DeptFormDrawer'
 import { DeptToolbar } from './components/DeptToolbar'
 import { DeletedDeptTable } from './components/desktop/DeletedDeptTable'
 import { DeptTable } from './components/desktop/DeptTable'
@@ -104,7 +104,7 @@ export default function DeptPage() {
         { onSuccess: close },
       )
     } else {
-      create.mutate(body, { onSuccess: close })
+      create.mutate({ ...body, status: values.status ?? 'active' }, { onSuccess: close })
     }
   }
 
@@ -193,7 +193,7 @@ export default function DeptPage() {
       {dialog.mode === 'view' ? (
         <DeptDetailDrawer open={dialog.open} deptId={dialog.dept?.id} onClose={close} />
       ) : (
-        <DeptFormDialog
+        <DeptFormDrawer
           open={dialog.open}
           mode={dialog.mode}
           dept={dialog.dept}

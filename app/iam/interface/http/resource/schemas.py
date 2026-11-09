@@ -9,6 +9,7 @@ from app.iam.application.resource.dto import (
     PermissionOut,
     ResourceOut,
 )
+from app.iam.domain.shared.enums import StatusEnum
 
 
 class CreateResourceReq(CreateResourceIn):
@@ -16,9 +17,10 @@ class CreateResourceReq(CreateResourceIn):
 
 
 class UpdateResourceReq(BaseModel):
-    """更新资源请求——module/code 是身份、不可改；状态走独立接口。"""
+    """更新资源请求——module/code 是身份、不可改。"""
     name: str
     description: str | None = None
+    status: StatusEnum
 
 
 class CreatePermissionReq(CreatePermissionIn):
@@ -26,9 +28,10 @@ class CreatePermissionReq(CreatePermissionIn):
 
 
 class UpdatePermissionReq(BaseModel):
-    """更新权限请求——action 是身份、不可改；状态走独立接口。"""
+    """更新权限请求——action 是身份、不可改。"""
     name: str
     description: str | None = None
+    status: StatusEnum
 
 
 class ResourceResp(ResourceOut):

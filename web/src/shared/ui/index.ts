@@ -2,6 +2,7 @@ export { PageLoading } from './PageLoading'
 export { BrandLogo } from './BrandLogo'
 export { UserAvatar } from './UserAvatar'
 export { DetailDrawer } from './DetailDrawer'
+export { userChoiceLabel, userRefLabel } from './userLabel'
 export {
   IconBox,
   IconBuildingPlus,
@@ -12,6 +13,7 @@ export {
   IconChevronsLeft,
   IconDevices,
   IconDots,
+  IconDownload,
   IconEdit,
   IconFileText,
   IconKey,
@@ -19,6 +21,8 @@ export {
   IconLogout,
   IconMail,
   IconPhone,
+  IconPlayerPlay,
+  IconPlus,
   IconRefresh,
   IconRestore,
   IconShieldLock,
@@ -26,6 +30,7 @@ export {
   IconTrash,
   IconTrashX,
   IconUserCircle,
+  IconUpload,
   IconUserX,
   IconUsers,
   IconX,

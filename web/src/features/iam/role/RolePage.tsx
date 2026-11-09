@@ -1,16 +1,18 @@
 import { App } from 'antd'
 import { useMemo, useState } from 'react'
 
+import { usePermission } from '@features/auth'
 import { Platform } from '@shared/platform'
 
 import { RoleDetailDrawer } from './components/RoleDetailDrawer'
 import { RoleFormDrawer } from './components/RoleFormDrawer'
+import { RoleMembersDrawer } from './components/RoleMembersDrawer'
 import { RoleToolbar } from './components/RoleToolbar'
 import { RoleTable } from './components/desktop/RoleTable'
 import { RoleCardList } from './components/mobile/RoleCardList'
 import { useRoleMutations } from './hooks/useRoleMutations'
 import { useRoles } from './hooks/useRoles'
-import type { Role, RoleFormValues } from './types'
+import type { Role, RoleFormValues, RoleListItem } from './types'
 
 interface DialogState {
   open: boolean
@@ -28,8 +30,13 @@ export default function RolePage() {
   const { data: roles = [], isLoading, error } = useRoles(recycleMode)
   const { create, update, remove, setStatus, restore, hardDelete } = useRoleMutations()
   const { modal } = App.useApp()
+  const { can } = usePermission()
+  const canReadMembers = can('iam:user_role:read') && can('iam:user:read')
+  const canManageMembers = can('iam:user_role:assign') && can('iam:user:read')
+  const canViewMembers = canReadMembers
   const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
+  const [membersTarget, setMembersTarget] = useState<RoleListItem | null>(null)
 
   const filtered = useMemo(() => {
     const query = keyword.trim().toLowerCase()
@@ -72,6 +79,7 @@ export default function RolePage() {
           name: values.name.trim(),
           data_scope: dataScope,
           description,
+          status: values.status ?? 'active',
           permission_ids: permissionIds,
           dept_ids: deptIds,
         },
@@ -120,6 +128,8 @@ export default function RolePage() {
             loading={isLoading}
             error={error}
             recycleMode={recycleMode}
+            canViewMembers={!recycleMode && canViewMembers}
+            onViewMembers={setMembersTarget}
             onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -135,6 +145,8 @@ export default function RolePage() {
             loading={isLoading}
             error={error}
             recycleMode={recycleMode}
+            canViewMembers={!recycleMode && canViewMembers}
+            onViewMembers={setMembersTarget}
             onView={openView}
             onEdit={openEdit}
             onDelete={confirmDelete}
@@ -153,6 +165,13 @@ export default function RolePage() {
           pending={pending}
           onSubmit={submit}
           onClose={close}
+        />
+      )}
+      {membersTarget && (
+        <RoleMembersDrawer
+          role={membersTarget}
+          canManage={canManageMembers}
+          onClose={() => setMembersTarget(null)}
         />
       )}
     </div>

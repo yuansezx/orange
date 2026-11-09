@@ -53,9 +53,12 @@ export interface UserListViewProps {
   recycleMode?: boolean
   /** 是否可重置密码（复用 `iam:user:update`）。 */
   canResetPassword: boolean
+  /** 是否可管理角色（`iam:user_role:assign` + `iam:role:read`）。 */
+  canManageRoles: boolean
   /** 当前登录用户 id（自己的行不提供重置密码）。 */
   selfId?: string
   onResetPassword: (user: UserListItem) => void
+  onManageRoles: (user: UserListItem) => void
   onView: (user: UserListItem) => void
   onEdit: (user: UserListItem) => void
   onDelete: (user: UserListItem) => void
@@ -87,15 +90,20 @@ export interface CreateUserResult extends PasswordIssueResult {
   username: string
 }
 
-/** 更新用户——对齐后端 `UpdateUserReq`（无 username / password）。 */
+/** 更新用户——对齐后端 `UpdateUserReq`（无 username / password / 角色）。 */
 export interface UpdateUserReq {
   nickname: string
   email?: string | null
   phone?: string | null
   status: UserStatus
   description?: string | null
-  role_ids?: string[]
   dept_id?: string | null
+}
+
+/** 用户角色管理（增量）——对齐后端 `PATCH /users/{id}/roles`。 */
+export interface PatchUserRolesReq {
+  add_role_ids: string[]
+  remove_role_ids: string[]
 }
 
 /** 用户表单值（新建 / 编辑共用）。 */
@@ -126,6 +134,7 @@ export interface UserToolbarProps {
   keyword: string
   status?: UserStatus
   userType?: UserType
+  deptId?: string
   needChangePassword?: boolean
   recycleMode: boolean
   onChange: (patch: Record<string, string | undefined>) => void
