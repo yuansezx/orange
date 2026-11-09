@@ -62,6 +62,10 @@ class PermissionId(BaseEntityId):
     pass
 
 
+class ApiKeyId(BaseEntityId):
+    pass
+
+
 class RoleSummary(BaseModel):
     """角色的精简视图（供 CurrentUser 缓存展示 / 可选角色码检查；非完整聚合）。"""
     model_config = ConfigDict(frozen=True)
