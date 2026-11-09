@@ -11,7 +11,9 @@
 
 ## 非平台模块
 
-闭源模块仓通过**目录链接**挂入 `app/<module>`、`web/src/features/<module>`（真身在平台仓之外，链接路径进 `.gitignore`）。在这些目录下工作时，**先读模块仓自己的 `CLAUDE.md`**（如 `../orange-toolbox/CLAUDE.md`），模块内部约定优先于本文件未覆盖的部分；平台通用约定仍然适用。依赖由 workspace 统一解析（uv `members` / pnpm `packages`），模块依赖需 `uv sync --all-packages` 才会安装。后端 workspace 成员按**链接路径**声明（如 `members = ["app/tools"]`），每个模块自带 `app/<module>/pyproject.toml`；仓库真实路径不进入平台配置。
+闭源模块仓通过**目录链接**挂入 `app/<module>`、`web/src/features/<module>`（真身在平台仓之外，链接路径进 `.gitignore`）。在这些目录下工作时，**先读模块仓自己的 `CLAUDE.md`**（如 `../orange-tools/CLAUDE.md`），模块内部约定优先于本文件未覆盖的部分；平台通用约定仍然适用。依赖由 workspace 统一解析（uv `members` / pnpm `packages`），模块依赖需 `uv sync --all-packages` 才会安装。后端 workspace 成员按**链接路径**声明（如 `members = ["app/tools"]`），每个模块自带 `app/<module>/pyproject.toml`；仓库真实路径不进入平台配置。
+
+**分仓原则**：原则上**一个模块一个仓**，便于版本、发布、权限独立管理；也支持一个仓承载多个模块，但每个模块仍需独立维护 app/web 版本（N 个模块 = 2N 套发布），仓级 tag 与发布说明要写清包含的模块。**平台不感知仓库**：接入、权限、路由、模型都按模块名/链接路径管理，仓名不进入平台配置。
 
 ## 技术栈
 

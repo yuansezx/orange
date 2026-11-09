@@ -34,9 +34,12 @@ web/src/
 - **导航 / 菜单（菜单归前端）**：后端只发**权限**（`/me` 的 `permission_codes` + `user_type`），**菜单由前端声明**、按 `usePermission().can(code)` 过滤（**超管 `user_type=super_admin` 旁路**）。层次：
   - **系统壳 `AppShell`**：左侧只放用户视角的 **Workspace**（后台管理、音乐……）+ 用户区。系统侧栏 `SystemSidebar` 的 `hidden/rail/expanded` 三态归**系统统一管理**（全局一份，切换 workspace、进入个人中心都不重置）；workspace 只能用 `systemSidebarBehavior` 声明内容关系（`push` 挤占 / `overlay` 悬浮），**不能**控制系统侧栏形态。形态状态只在内存，不做持久化。
   - **Workspace 壳**（`WorkspaceLayout`）：在系统内容区里展开，默认 = `WorkspaceSidebar`（workspace 级导航）+ workspace 内容区 + `WorkspaceContextPanel`（detail / trends / ranking 等，非模态 overlay，不锁背景）。需要自定义结构的 workspace（如播放器）在 `WorkspaceRef.layout` 提供组件、自行渲染 `<Outlet />`；系统壳与 `WorkspaceThemeProvider` 仍在外层。**不加隐藏左/右栏开关**——定制走布局组件这一条路。
-  - **FeatureModule**：对齐后端模块（iam/monitor…），声明 `workspace`、`groups`（workspace 内菜单）和可选 `settings`（个人中心设置）。完整路由为 `{workspace.basePath}/{feature}/{path}`（如 `/admin/iam/users`）；没有导航页，`/` 按权限落到第一个可访问页面。
+  - **FeatureModule 的三个贡献通道**：`workspace + groups`（用户侧，模块自己的 workspace）；`admin`（技术管理页，挂到后台管理 `/admin/{feature}/{path}`，待实现）；`settings`（个人中心 `/account/{feature}/{path}`）。用户侧完整路由为 `{workspace.basePath}/{feature}/{path}`（如 `/toolbox/tools/tasks`）；没有导航页，`/` 按权限落到第一个可访问页面。
   - **个人中心**：系统级 `/account`，设置菜单由各 feature 的 `settings` 聚合，路径 `/account/{feature}/{path}`。
   - 菜单项不带 `permission` = 永远可见；过滤只是 UX，后端 403 兜底。
+- **后台管理（admin）的语义**：平台**技术管理**入口（monitor、系统配置、模块技术配置），不是所有管理页的容器。模块业务运营/数据管理（如 tools 的全部任务）留在模块 workspace，用权限做「我的 / 全部」视图切换；iam 主业务默认不视为技术管理，只有技术配置类页面才进 admin。
+- **Workspace 的定义与布局**：没有中央注册表。每个 feature 在 `index.ts` 声明 `workspace: WorkspaceRef`，`app/routes.ts` 按 `key` 聚合并合并 `theme`/`layout`（首个 feature 定 icon，`layout` 以最后声明为准）。默认用 `app/layout/WorkspaceLayout`（侧栏 + 内容 + context panel）；自定义结构在 `WorkspaceRef.layout` 提供组件并自行渲染 `<Outlet />`，系统壳与 `WorkspaceThemeProvider` 仍在外层。
+- **workspace 可见性**：没有 workspace 级权限；`filterWorkspacesByPermission` 按菜单项 `permission` 推导，至少一个可见菜单才显示 workspace（超管旁路）。workspace 是聚合入口，不是权限边界。
 - **非平台模块目录链接**：`web/src/features/*` 下的目录链接由 `vite.config.ts` 的 `modulePathPlugin` 自动发现；解析到仓外真实路径的模块 id 会改写回宿主链接路径，保证模块内裸依赖（antd / dayjs…）从 `web/node_modules` 解析，dev 与 build 一致。`ORANGE_MODULE_ROOTS` 仅作 dev server `fs.allow` 兜底。
 - **features 对齐后端模块**：模块型切片与后端模块**同名同边界**（`iam` / `monitor`…），**不按"iam 的某张表"平铺**（否则 iam 专属的共享件无处安放）；控制台级切片（`auth`）例外。例：`features/iam/user`。
 - **用户身份展示（按空间富余度分层）**：`username` 是稳定标识，`nickname` 是可长可变的展示名。

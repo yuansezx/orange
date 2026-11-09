@@ -13,7 +13,7 @@ resolution-markers = [
 [manifest]
 members = [
     "orange",
-    "orange-toolbox-tools",
+    "orange-tools",
 ]
 
 [[package]]
@@ -800,7 +800,7 @@ requires-dist = [
 ]
 
 [[package]]
-name = "orange-toolbox-tools"
+name = "orange-tools"
 version = "0.1.0"
 source = { virtual = "app/tools" }
 dependencies = [
