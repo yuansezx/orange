@@ -58,7 +58,8 @@ export function AuditLogTable({
       dataIndex: 'result',
       width: 90,
       render: (value: AuditLogItem['result']) => (
-        <Tag color={value === 'success' ? 'success' : 'error'}>
+        // solid 成功用预设绿（#52c41a）；语义 success 已被调成 filled 档的柔和色
+        <Tag variant="solid" color={value === 'success' ? 'green' : 'error'}>
           {RESULT_LABELS[value]}
         </Tag>
       ),

@@ -1,4 +1,4 @@
-import { Descriptions, Tag } from 'antd'
+import { Descriptions, Space, Tag } from 'antd'
 import dayjs from 'dayjs'
 
 import { DetailDrawer, userRefLabel } from '@shared/ui'
@@ -28,11 +28,14 @@ export function AuditLogDetailDrawer({ open, log, onClose }: Props) {
           <Descriptions.Item label="摘要">{log.summary}</Descriptions.Item>
           <Descriptions.Item label="操作人">{operator}</Descriptions.Item>
           <Descriptions.Item label="目标">
-            {log.target_name || log.target_id || '-'}
-            {log.target_type ? ` (${log.target_type})` : ''}
+            <Space size={6}>
+              <span>{log.target_name || log.target_id || '-'}</span>
+              {log.target_type && <Tag style={{ marginInlineEnd: 0 }}>{log.target_type}</Tag>}
+            </Space>
           </Descriptions.Item>
           <Descriptions.Item label="结果">
-            <Tag color={log.result === 'success' ? 'success' : 'error'}>
+            {/* solid 成功用预设绿（#52c41a）；语义 success 已被调成 filled 档的柔和色 */}
+            <Tag variant="solid" color={log.result === 'success' ? 'green' : 'error'}>
               {RESULT_LABELS[log.result]}
             </Tag>
           </Descriptions.Item>

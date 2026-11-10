@@ -1,6 +1,6 @@
 import type { ThemeConfig } from 'antd'
 
-import type { WorkspacePalette } from './tokens'
+import { semanticColors, type WorkspacePalette } from './tokens'
 
 /**
  * 把一套调色板映射成 antd 主题。
@@ -20,6 +20,10 @@ export function buildAntdTheme(palette: WorkspacePalette): ThemeConfig {
       colorText: palette.text,
       colorTextSecondary: palette.textSecondary,
       colorTextTertiary: palette.textTertiary,
+      // 语义色全局一致（不进 workspace 调色板）：只影响 filled 档
+      colorSuccess: semanticColors.success,
+      colorSuccessBg: semanticColors.successBg,
+      colorSuccessBorder: semanticColors.successBorder,
       borderRadius: 6,
     },
     components: {

@@ -107,6 +107,17 @@ function resolveColorScheme(name: string): (typeof colorSchemes)[ColorSchemeName
 export const colorTokens = resolveColorScheme(appConfig.colorScheme)
 
 /**
+ * 语义色：不进 workspace 调色板，跨 workspace 保持一致。
+ * 只用于 filled（浅底深字）档：成功色换成低饱和深绿，避免 antd 默认
+ * 亮绿字 + 淡绿底的荧光感；solid 档仍用库预设色。
+ */
+export const semanticColors = {
+  success: '#2f6f3a',
+  successBg: '#eff5ea',
+  successBorder: '#cfe0c7',
+}
+
+/**
  * workspace 级配色：workspace 内部用到的颜色都从这里取（左栏、画布、容器、边框、文字、交互色）。
  * 各 workspace 可在 `workspace.theme` 覆盖任意项，未声明的回退到 `defaultWorkspacePalette`
  * （= 当前全局配色方案）。系统壳不读它，仍走全局品牌配色。
