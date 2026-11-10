@@ -13,7 +13,12 @@ wheels/
 config.yaml
 config_dev.yaml
 config_prod.yaml
+
+# env：实际配置不入库，只提交模板（与 config_example.yaml / config_dev.yaml 同构）
+.env
 .env.*
+!.env.example
+!.env.*.example
 
 /docker/docker-compose-base-dev.yaml
 /docker/postgres/init_dev.sql

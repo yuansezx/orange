@@ -57,7 +57,7 @@ web/src/
 
 ## 对接后端
 
-- dev 走 vite **proxy**：`/api` → `http://127.0.0.1:41000`（后端不做 CORS，部署走 nginx）。
+- dev 走 vite **proxy**：`/api` → `http://127.0.0.1:41000`（后端不做 CORS，部署走 nginx）。dev server 的 host/port 与 proxy 目标均可用 `web/.env` 的 `ORANGE_DEV_HOST` / `ORANGE_DEV_PORT` / `ORANGE_API_PROXY_TARGET` 覆盖，默认值在 `vite.config.ts`、模板见 `web/.env.example`（`.env` 不入库）。
 - 路由前缀 `/api/{module}`（iam 即 `/api/iam`，如 `/api/iam/auth/login`、`/api/iam/users`）；`Authorization: Bearer` 认证。
 - iam 列表/详情响应带审计（生命周期时间 + 操作人快照）；回收站视图用 `?deleted=true`；启用/停用走统一 `PUT /{resource}/{id}/status`。
 - 错误体统一 `{code, message, details}`（成功侧不套信封）。
