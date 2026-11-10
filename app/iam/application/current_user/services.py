@@ -24,9 +24,9 @@ from app.iam.application.current_user.ports import (
     SessionMeta,
     SessionVerificationException,
 )
-from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.current_user.entities import AuthContext, CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import AuthMethodEnum, StatusEnum
 from app.iam.domain.shared.services import DataScopeService
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.entities import User
@@ -69,7 +69,10 @@ class CurrentUserApplicationService:
 
         current_user = await self._build_current_user(user)
         # 成功审计失败即登录失败（fail-closed）：认证事件不留痕是安全风险
-        await self._audit_login_success(current_user, request_meta)
+        # 登录事件按密码认证记录来源；auth 是单次上下文，不落快照
+        await self._audit_login_success(
+            current_user.model_copy(update={'auth': AuthContext(method=AuthMethodEnum.PASSWORD)}),
+            request_meta)
 
         ttl = IAM_SETTINGS.jwt_config.expire_minutes * 60
         now = datetime.now(UTC)
@@ -92,7 +95,12 @@ class CurrentUserApplicationService:
             session = await self.session_manager.authenticate(token)
         except SessionVerificationException:
             raise InvalidTokenException('无效令牌')
-        user_id = session.user_id
+        current_user = await self.get_current_user_by_id(session.user_id)
+        return current_user.model_copy(
+            update={'auth': AuthContext(method=AuthMethodEnum.SESSION)})
+
+    async def get_current_user_by_id(self, user_id: UserId) -> CurrentUser:
+        """按用户取快照；缺失时重解析并回填。API Key 认证复用此入口。"""
         current_user = await self.current_user_repo.get(user_id)
         if current_user is not None:
             return current_user
