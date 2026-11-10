@@ -334,7 +334,7 @@ class UserApplicationService:
             ))
             # 初始角色与用户在同一事务内落库
             if data.role_ids:
-                await self._sync_roles(user.id, data.role_ids, current_user, request_meta,
+                await self._sync_roles(user, data.role_ids, current_user, request_meta,
                                        action='assign')
             await self.audit_log_writer.write(
                 current_user=current_user,
@@ -393,12 +393,12 @@ class UserApplicationService:
         await self.event_bus.publish(UserChanged(id=EventId.new(), user_id=user.id))
         return user
 
-    async def _sync_roles(self, user_id: UserId, role_ids: list[RoleId] | set[RoleId],
+    async def _sync_roles(self, user: User, role_ids: list[RoleId] | set[RoleId],
                           current_user: CurrentUser, request_meta: RequestMeta | None,
                           *, action: str) -> None:
         """在调用方事务内把用户角色设为目标集：数据范围授权 + 审计在此收口。"""
         plan = await self.user_role_assignment_service.plan(
-            user_id, role_ids, current_user.user_id)
+            user.id, role_ids, current_user.user_id)
         if not await self.role_access_service.can_access(plan.added | plan.removed, current_user):
             raise PermissionDeniedException('存在您无权访问的角色')
         await self.user_role_assignment_service.apply(plan, current_user.user_id)
@@ -407,9 +407,10 @@ class UserApplicationService:
             request_meta=request_meta,
             resource='user_role',
             action=action,
-            summary=f'为用户 {user_id} 分配角色',
+            summary=f'为用户 {user.username} 分配角色',
             target_type='user',
-            target_id=str(user_id.value),
+            target_id=str(user.id.value),
+            target_name=user.username,
             detail={
                 'role_ids': sorted(str(r.value) for r in set(role_ids)),
                 'added_role_ids': sorted(str(r.value) for r in plan.added),
