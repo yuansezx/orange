@@ -9,7 +9,7 @@ from app.core.utils.user_agent import parse_user_agent
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import AuthenticationException, InvalidTokenException
 from app.iam.application.common.ports import AuditLogWriterPort
-from app.iam.application.common.queries import EffectivePermissionQuery
+from app.iam.application.common.services import CurrentUserSnapshotService
 from app.iam.application.user.exceptions import OldPasswordMismatchException
 from app.iam.application.current_user.dto import (
     ChangePasswordIn,
@@ -27,7 +27,6 @@ from app.iam.application.current_user.ports import (
 from app.iam.domain.current_user.entities import AuthContext, CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import AuthMethodEnum, StatusEnum
-from app.iam.domain.shared.services import DataScopeService
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.repositories import UserRepository
@@ -43,15 +42,13 @@ class CurrentUserApplicationService:
     def __init__(self, *,
                  user_repo: UserRepository,
                  current_user_repo: CurrentUserRepository,
-                 effective_permission_query: EffectivePermissionQuery,
-                 data_scope_service: DataScopeService,
+                 current_user_snapshot: CurrentUserSnapshotService,
                  session_manager: SessionManagerPort,
                  audit_log_writer: AuditLogWriterPort,
                  in_transaction: InTransactionType) -> None:
         self.user_repo = user_repo
         self.current_user_repo = current_user_repo
-        self.effective_permission_query = effective_permission_query
-        self.data_scope_service = data_scope_service
+        self.current_user_snapshot = current_user_snapshot
         self.session_manager = session_manager
         self.audit_log_writer = audit_log_writer
         self.in_transaction = in_transaction
@@ -67,7 +64,7 @@ class CurrentUserApplicationService:
             await self._audit_login_failure(data.username, user, 'disabled', request_meta)
             raise AuthenticationException('账户不可用')
 
-        current_user = await self._build_current_user(user)
+        current_user = await self.current_user_snapshot.build(user)
         # 成功审计失败即登录失败（fail-closed）：认证事件不留痕是安全风险
         # 登录事件按密码认证记录来源；auth 是单次上下文，不落快照
         await self._audit_login_success(
@@ -95,22 +92,9 @@ class CurrentUserApplicationService:
             session = await self.session_manager.authenticate(token)
         except SessionVerificationException:
             raise InvalidTokenException('无效令牌')
-        current_user = await self.get_current_user_by_id(session.user_id)
+        current_user = await self.current_user_snapshot.get_by_id(session.user_id)
         return current_user.model_copy(
             update={'auth': AuthContext(method=AuthMethodEnum.SESSION)})
-
-    async def get_current_user_by_id(self, user_id: UserId) -> CurrentUser:
-        """按用户取快照；缺失时重解析并回填。API Key 认证复用此入口。"""
-        current_user = await self.current_user_repo.get(user_id)
-        if current_user is not None:
-            return current_user
-        # 快照缺失（过期/被清）→ 重解析并回填，不要求重登
-        user = await self.user_repo.get(user_id)  # 仓储默认不返回已删
-        if user is None or user.status is not StatusEnum.ACTIVE:
-            raise InvalidTokenException('用户不可用')
-        current_user = await self._build_current_user(user)
-        await self.current_user_repo.set(current_user)
-        return current_user
 
     async def logout(self, token: str) -> None:
         try:
@@ -234,21 +218,6 @@ class CurrentUserApplicationService:
         return deleted
 
     # ---------------- 内部 ----------------
-    async def _build_current_user(self, user: User) -> CurrentUser:
-        effective = await self.effective_permission_query.resolve(user.id)
-        data_scope_spec = await self.data_scope_service.resolve(user)
-        return CurrentUser(
-            user_id=user.id,
-            username=user.username,
-            nickname=user.nickname,
-            user_type=user.user_type,
-            roles=sorted(effective.roles, key=lambda r: r.code),
-            dept_id=user.dept_id,
-            avatar_key=user.avatar_key,
-            permission_codes=sorted(effective.permission_codes),
-            data_scope_spec=data_scope_spec,
-        )
-
     async def _audit_login_success(self, current_user: CurrentUser,
                                    request_meta: RequestMeta | None) -> None:
         async with self.in_transaction():

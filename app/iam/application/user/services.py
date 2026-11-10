@@ -7,6 +7,7 @@ from app.core.domain.event_bus import EventBus
 from app.core.domain.value_objects import EventId
 from app.core.utils.file_type import detect_mime_type
 from app.core.utils.schemas import PageResult
+from app.iam.domain.api_key.repositories import ApiKeyRepository
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import StatusEnum
@@ -70,6 +71,7 @@ class UserApplicationService:
                  dept_access_service: DeptAccessService,
                  dept_repo: DeptRepository,
                  user_role_repo: UserRoleRepository,
+                 api_key_repo: ApiKeyRepository,
                  role_repo: RoleRepository,
                  role_access_service: RoleAccessService,
                  user_role_assignment_service: UserRoleAssignmentService,
@@ -88,6 +90,7 @@ class UserApplicationService:
         self.dept_access_service = dept_access_service
         self.dept_repo = dept_repo
         self.user_role_repo = user_role_repo
+        self.api_key_repo = api_key_repo
         self.role_repo = role_repo
         self.role_access_service = role_access_service
         self.user_role_assignment_service = user_role_assignment_service
@@ -531,6 +534,7 @@ class UserApplicationService:
                 raise PermissionDeniedException('无权访问该用户')
             previous_status = user.status
             await self.user_role_repo.hard_delete_by_user(user.id)
+            await self.api_key_repo.hard_delete_by_user(user.id)
             await self.dept_repo.clear_leader(user.id)
             await self.user_repo.hard_delete(user.id)
             await self.audit_log_writer.write(

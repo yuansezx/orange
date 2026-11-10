@@ -4,7 +4,7 @@ from loguru import logger
 
 from app.core.exceptions import PersistenceException
 from app.iam.application.common.exceptions import InvalidTokenException
-from app.iam.application.current_user.services import CurrentUserApplicationService
+from app.iam.application.common.services import CurrentUserSnapshotService
 from app.iam.domain.api_key.entities import ApiKey
 from app.iam.domain.api_key.exceptions import InvalidApiKeyTokenException
 from app.iam.domain.api_key.repositories import ApiKeyRepository
@@ -26,9 +26,9 @@ class ApiKeyAuthenticationService:
     """
 
     def __init__(self, *, api_key_repo: ApiKeyRepository,
-                 current_user_service: CurrentUserApplicationService) -> None:
+                 current_user_snapshot: CurrentUserSnapshotService) -> None:
         self.api_key_repo = api_key_repo
-        self.current_user_service = current_user_service
+        self.current_user_snapshot = current_user_snapshot
 
     async def authenticate(self, token: str) -> CurrentUser:
         if not ApiKeyToken.is_api_key_token(token):
@@ -43,7 +43,7 @@ class ApiKeyAuthenticationService:
         if key is None or not key.can_authenticate(now):
             raise InvalidTokenException('无效令牌')
 
-        base = await self.current_user_service.get_current_user_by_id(key.user_id)
+        base = await self.current_user_snapshot.get_by_id(key.user_id)
         if base.user_type is UserTypeEnum.SUPER_ADMIN:
             raise InvalidTokenException('无效令牌')
 

@@ -17,6 +17,8 @@ from typing import Any
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure import cache, object_storage, persistence
+from app.iam.application.api_key.services import ApiKeyAuthenticationService
+from app.iam.application.authentication.services import AuthenticationApplicationService
 from app.iam.application.common.queries import (
     EffectivePermissionQuery,
     PermissionExistsQuery,
@@ -24,7 +26,7 @@ from app.iam.application.common.queries import (
     UsersAffectedByPermissionChangeQuery,
 )
 from app.iam.application.common.ports import AuditLogWriterPort
-from app.iam.application.common.services import AuditService, DeptRefService
+from app.iam.application.common.services import AuditService, CurrentUserSnapshotService, DeptRefService
 from app.iam.application.current_user.ports import SessionManagerPort
 from app.iam.application.current_user.services import CurrentUserApplicationService
 from app.iam.application.dept.services import DeptApplicationService
@@ -34,6 +36,7 @@ from app.iam.application.user.ports import AvatarStoragePort
 from app.iam.application.user.services import UserApplicationService
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.shared.services import DataScopeService
+from app.iam.domain.api_key.repositories import ApiKeyRepository
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.dept.services import DeptAccessService
@@ -64,6 +67,10 @@ def get_in_transaction() -> InTransactionType:
 
 def get_user_repo() -> UserRepository:
     return _repos.UserRepositoryTortoiseImpl()
+
+
+def get_api_key_repo() -> ApiKeyRepository:
+    return _repos.ApiKeyRepositoryTortoiseImpl()
 
 
 def get_dept_repo() -> DeptRepository:
@@ -124,6 +131,7 @@ def get_user_app_service() -> UserApplicationService:
         dept_access_service=get_dept_access_service(),
         dept_repo=get_dept_repo(),
         user_role_repo=get_user_role_repo(),
+        api_key_repo=get_api_key_repo(),
         role_repo=get_role_repo(),
         role_access_service=get_role_access_service(),
         user_role_assignment_service=get_user_role_assignment_service(),
@@ -239,15 +247,37 @@ def get_session_manager() -> SessionManagerPort:
     return impl(get_cache_client())
 
 
-def get_current_user_app_service() -> CurrentUserApplicationService:
-    return CurrentUserApplicationService(
+def get_current_user_snapshot_service() -> CurrentUserSnapshotService:
+    return CurrentUserSnapshotService(
         user_repo=get_user_repo(),
         current_user_repo=get_current_user_repo(),
         effective_permission_query=get_effective_permission_query(),
         data_scope_service=get_data_scope_service(),
+    )
+
+
+def get_current_user_app_service() -> CurrentUserApplicationService:
+    return CurrentUserApplicationService(
+        user_repo=get_user_repo(),
+        current_user_repo=get_current_user_repo(),
+        current_user_snapshot=get_current_user_snapshot_service(),
         session_manager=get_session_manager(),
         audit_log_writer=get_audit_log_writer(),
         in_transaction=get_in_transaction(),
+    )
+
+
+def get_api_key_auth_service() -> ApiKeyAuthenticationService:
+    return ApiKeyAuthenticationService(
+        api_key_repo=get_api_key_repo(),
+        current_user_snapshot=get_current_user_snapshot_service(),
+    )
+
+
+def get_authentication_service() -> AuthenticationApplicationService:
+    return AuthenticationApplicationService(
+        session_auth=get_current_user_app_service(),
+        api_key_auth=get_api_key_auth_service(),
     )
 
 
