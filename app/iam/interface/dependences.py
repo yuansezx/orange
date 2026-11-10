@@ -17,7 +17,10 @@ from typing import Any
 from app.core import get_event_bus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.infrastructure import cache, object_storage, persistence
-from app.iam.application.api_key.services import ApiKeyAuthenticationService
+from app.iam.application.api_key.services import (
+    ApiKeyApplicationService,
+    ApiKeyAuthenticationService,
+)
 from app.iam.application.authentication.services import AuthenticationApplicationService
 from app.iam.application.common.queries import (
     EffectivePermissionQuery,
@@ -275,6 +278,16 @@ def get_api_key_auth_service() -> ApiKeyAuthenticationService:
     return ApiKeyAuthenticationService(
         api_key_repo=get_api_key_repo(),
         current_user_snapshot=get_current_user_snapshot_service(),
+    )
+
+
+def get_api_key_app_service() -> ApiKeyApplicationService:
+    return ApiKeyApplicationService(
+        api_key_repo=get_api_key_repo(),
+        user_repo=get_user_repo(),
+        resource_repo=get_resource_repo(),
+        audit_log_writer=get_audit_log_writer(),
+        in_transaction=get_in_transaction(),
     )
 
 
