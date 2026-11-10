@@ -53,6 +53,7 @@ from app.iam.infrastructure.adapters.avatar_storage.rustfs import (
     AvatarStorageS3RustFSAdapter,
 )
 from app.iam.infrastructure.adapters.session_manager_adapter import SessionManagerJWTRedisAdapter
+from app.iam.infrastructure.cache.api_key_repo import ApiKeyRepositoryWithRedisCacheImpl
 from app.iam.infrastructure.cache.current_user_repo import CurrentUserRepositoryRedisImpl
 from app.iam.infrastructure.settings import IAM_SETTINGS
 
@@ -70,7 +71,10 @@ def get_user_repo() -> UserRepository:
 
 
 def get_api_key_repo() -> ApiKeyRepository:
-    return _repos.ApiKeyRepositoryTortoiseImpl()
+    return ApiKeyRepositoryWithRedisCacheImpl(
+        inner=_repos.ApiKeyRepositoryTortoiseImpl(),
+        redis_conn=get_cache_client(),
+    )
 
 
 def get_dept_repo() -> DeptRepository:
