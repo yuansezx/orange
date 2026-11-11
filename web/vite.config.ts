@@ -116,6 +116,8 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: env.ORANGE_API_PROXY_TARGET || 'http://127.0.0.1:8100',
           changeOrigin: true,
+          // 带上 X-Forwarded-For：uvicorn 默认信任 127.0.0.1，会把 request.client 还原成真实 IP
+          xfwd: true,
         },
       },
     },
