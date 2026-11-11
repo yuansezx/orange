@@ -15,6 +15,12 @@ class AuthMethodEnum(str, Enum):
     OAUTH = "oauth"        # 第三方委派（预留）
 
 
+class SortOrderEnum(str, Enum):
+    """列表排序方向（单字段排序用）。"""
+    ASC = "asc"
+    DESC = "desc"
+
+
 class DataScopeEnum(str, Enum):
     """数据范围（数据权限）——某用户能看/操作哪些数据。"""
     ALL = "all"                        # 不限（超管）

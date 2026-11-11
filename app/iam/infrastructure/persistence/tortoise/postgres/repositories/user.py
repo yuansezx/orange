@@ -6,13 +6,21 @@ from tortoise.expressions import Q
 
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.shared.enums import DataScopeEnum
+from app.iam.domain.shared.enums import DataScopeEnum, SortOrderEnum
 from app.iam.domain.shared.value_objects import Email, Phone, UserId, DeptId, DataScopeSpec
 from app.iam.domain.user.entities import User
-from app.iam.domain.user.enums import UserTypeEnum
+from app.iam.domain.user.enums import UserSortFieldEnum, UserTypeEnum
 from app.iam.domain.user.repositories import SearchUser, UserRepository
 from app.iam.infrastructure.persistence.tortoise.postgres.models import UserModel
 from app.iam.infrastructure.persistence.tortoise.postgres.repositories._scope import scope_filter
+
+
+_USER_SORT_COLUMNS = {
+    UserSortFieldEnum.USERNAME: 'username',
+    UserSortFieldEnum.NICKNAME: 'nickname',
+    UserSortFieldEnum.CREATED_AT: 'created_at',
+    UserSortFieldEnum.UPDATED_AT: 'updated_at',
+}
 
 
 def to_domain(m: UserModel) -> User:
@@ -206,5 +214,10 @@ class UserRepositoryTortoiseImpl(UserRepository):
             qs = qs.filter(status=search_by.status)
 
         total = await qs.count()
-        rows = await qs.order_by('-created_at').offset((page - 1) * page_size).limit(page_size)
+        prefix = '-' if search_by.order is SortOrderEnum.DESC else ''
+        column = _USER_SORT_COLUMNS[search_by.sort_by]
+        # 追加 id 同向兜底，保证分页在排序值并列时稳定
+        rows = await qs.order_by(
+            f'{prefix}{column}', f'{prefix}id',
+        ).offset((page - 1) * page_size).limit(page_size)
         return PageResult(page=page, page_size=page_size, total=total, data=[to_domain(m) for m in rows])

@@ -22,11 +22,12 @@ from app.iam.application.role.exceptions import RoleCodeConflictException, RoleN
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.role.entities import Role
+from app.iam.domain.role.enums import RoleSortFieldEnum
 from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.role.exceptions import RoleNotDeletedException
 from app.iam.domain.role.repositories import RoleRepository
 from app.iam.domain.role.services import RoleAccessService
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import SortOrderEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
@@ -284,10 +285,16 @@ class RoleApplicationService:
         return _to_out(role)
 
     @requires_permission('iam:role:read')
-    async def get_all_roles(self, current_user: CurrentUser,
-                            status: StatusEnum | None = None,
-                            deleted: bool = False) -> list[RoleListItemOut]:
-        roles = await self.role_repo.get_all(status, deleted)
+    async def get_all_roles(
+        self,
+        current_user: CurrentUser,
+        status: StatusEnum | None = None,
+        deleted: bool = False,
+        *,
+        sort_by: RoleSortFieldEnum = RoleSortFieldEnum.CODE,
+        order: SortOrderEnum = SortOrderEnum.ASC,
+    ) -> list[RoleListItemOut]:
+        roles = await self.role_repo.get_all(status, deleted, sort_by=sort_by, order=order)
         audits = await self.audit_service.build_many(roles)
         items: list[RoleListItemOut] = []
         for role, audit in zip(roles, audits):

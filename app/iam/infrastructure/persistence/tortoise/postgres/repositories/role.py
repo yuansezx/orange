@@ -5,14 +5,23 @@ get/get_all 装配完整聚合；create/update/hard_delete 整体落库；关系
 """
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.entities import Role
+from app.iam.domain.role.enums import RoleSortFieldEnum
 from app.iam.domain.role.repositories import RoleRepository
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import SortOrderEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
 from app.iam.infrastructure.persistence.tortoise.postgres.models import (
     RoleDeptModel,
     RoleModel,
     RolePermissionModel,
 )
+
+
+_ROLE_SORT_COLUMNS = {
+    RoleSortFieldEnum.CODE: 'code',
+    RoleSortFieldEnum.NAME: 'name',
+    RoleSortFieldEnum.CREATED_AT: 'created_at',
+    RoleSortFieldEnum.UPDATED_AT: 'updated_at',
+}
 
 
 def to_domain(m: RoleModel) -> Role:
@@ -103,12 +112,21 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
         perms, depts = await self._load_relations([m.id for m in models])
         return [_assemble(m, perms, depts) for m in models]
 
-    async def get_all(self, status: StatusEnum | None = None, deleted: bool = False) -> list[Role]:
+    async def get_all(
+        self,
+        status: StatusEnum | None = None,
+        deleted: bool = False,
+        *,
+        sort_by: RoleSortFieldEnum = RoleSortFieldEnum.CODE,
+        order: SortOrderEnum = SortOrderEnum.ASC,
+    ) -> list[Role]:
         qs = (RoleModel.filter(deleted_at__isnull=False) if deleted
               else RoleModel.filter(deleted_at__isnull=True))
         if status is not None:
             qs = qs.filter(status=status)
-        models = await qs.order_by('code')
+        prefix = '-' if order is SortOrderEnum.DESC else ''
+        column = _ROLE_SORT_COLUMNS[sort_by]
+        models = await qs.order_by(f'{prefix}{column}', f'{prefix}id')
         if not models:
             return []
         perms, depts = await self._load_relations([m.id for m in models])
