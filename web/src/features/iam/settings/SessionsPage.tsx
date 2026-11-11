@@ -5,7 +5,7 @@ import type { TableProps } from 'antd'
 import { Platform } from '@shared/platform'
 import { IconDevices, IconLogout } from '@shared/ui'
 
-import { browserText, formatTime, osText } from '../session/sessionFormat'
+import { browserText, formatTime, loginMethodText, osText } from '../session/sessionFormat'
 import { useMySessions, useRevokeMySessions } from './hooks/useMySessions'
 import type { MySession } from './types'
 
@@ -72,6 +72,12 @@ export default function SessionsPage() {
       render: (value: string | null) => value || '-',
     },
     {
+      title: '登录方式',
+      key: 'login_method',
+      width: 110,
+      render: (_, session) => loginMethodText(session),
+    },
+    {
       title: '登录时间',
       dataIndex: 'login_at',
       width: 180,
@@ -124,7 +130,8 @@ export default function SessionsPage() {
               <div>
                 <div>{osText(session)}</div>
                 <div>
-                  {session.login_ip || '未知 IP'} · 登录 {formatTime(session.login_at)}
+                  {loginMethodText(session)} · {session.login_ip || '未知 IP'} · 登录{' '}
+                  {formatTime(session.login_at)}
                 </div>
                 <div>过期 {formatTime(session.expires_at)}</div>
               </div>
