@@ -60,6 +60,7 @@ web/src/
 
 - dev 走 vite **proxy**：`/api` → `http://127.0.0.1:41000`（后端不做 CORS，部署走 nginx）。dev server 的 host/port 与 proxy 目标均可用 `web/.env` 的 `ORANGE_DEV_HOST` / `ORANGE_DEV_PORT` / `ORANGE_API_PROXY_TARGET` 覆盖，默认值在 `vite.config.ts`、模板见 `web/.env.example`（`.env` 不入库）。
 - 路由前缀 `/api/{module}`（iam 即 `/api/iam`，如 `/api/iam/auth/login`、`/api/iam/users`）；`Authorization: Bearer` 认证。
+- 部门选择器统一用 `GET /api/iam/depts/visible`（登录即可、按数据范围过滤的精简 id/name 树）；管理端 `GET /api/iam/depts/tree` 需要 `iam:dept:read`，只给部门管理页。
 - iam 列表/详情响应带审计（生命周期时间 + 操作人快照）；回收站视图用 `?deleted=true`；启用/停用走统一 `PUT /{resource}/{id}/status`。
 - 错误体统一 `{code, message, details}`（成功侧不套信封）。
 - **401 与会话失效**：拦截器（`shared/api/client.ts`）按后端 `code` 区分——`IAM_AUTHENTICATION_FAILED`（登录凭据错，留给表单展示）**之外**的 401 一律视为会话失效：清令牌 + 广播；`app/SessionExpiryWatcher` 收到后提示并跳登录页。
