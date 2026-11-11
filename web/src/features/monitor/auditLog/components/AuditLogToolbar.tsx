@@ -1,11 +1,17 @@
 import { Button, DatePicker, Input, Select, Space } from 'antd'
 
-import type { AuditLogFilters, AuditResult } from '../types'
+import { AUTH_METHOD_LABELS } from '../constants'
+import type { AuditLogFilters, AuditResult, AuthMethod } from '../types'
 
 const RESULT_OPTIONS = [
   { label: '成功', value: 'success' },
   { label: '失败', value: 'failure' },
 ]
+
+const AUTH_OPTIONS = (Object.keys(AUTH_METHOD_LABELS) as AuthMethod[]).map((value) => ({
+  value,
+  label: AUTH_METHOD_LABELS[value],
+}))
 
 interface Props {
   value: AuditLogFilters
@@ -13,7 +19,7 @@ interface Props {
   onReset: () => void
 }
 
-/** 审计日志筛选：模块 / 资源 / 动作 / 操作人 / 关键词 / 结果 / 时间范围。 */
+/** 审计日志筛选：模块 / 资源 / 动作 / 操作人 / 关键词 / 来源 / 结果 / 时间范围。 */
 export function AuditLogToolbar({ value, onChange, onReset }: Props) {
   return (
     <Space style={{ display: 'flex', marginBottom: 16 }} size={12} wrap>
@@ -51,6 +57,15 @@ export function AuditLogToolbar({ value, onChange, onReset }: Props) {
         placeholder="关键词（摘要/目标/错误）"
         style={{ width: 220 }}
         onChange={(event) => onChange({ ...value, keyword: event.target.value })}
+      />
+      <Select<AuthMethod>
+        allowClear
+        value={value.authMethod}
+        options={AUTH_OPTIONS}
+        placeholder="来源"
+        style={{ width: 130 }}
+        onChange={(authMethod) => onChange({ ...value, authMethod })}
+        onClear={() => onChange({ ...value, authMethod: undefined })}
       />
       <Select<AuditResult>
         allowClear

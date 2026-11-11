@@ -1,9 +1,9 @@
-import { Descriptions, Space, Tag } from 'antd'
+import { Descriptions, Space, Tag, Typography } from 'antd'
 import dayjs from 'dayjs'
 
 import { DetailDrawer, userRefLabel } from '@shared/ui'
 
-import { RESULT_LABELS } from '../constants'
+import { AUTH_METHOD_COLORS, AUTH_METHOD_LABELS, RESULT_LABELS } from '../constants'
 import type { AuditLogItem } from '../types'
 
 interface Props {
@@ -27,6 +27,20 @@ export function AuditLogDetailDrawer({ open, log, onClose }: Props) {
           <Descriptions.Item label="动作码">{log.key}</Descriptions.Item>
           <Descriptions.Item label="摘要">{log.summary}</Descriptions.Item>
           <Descriptions.Item label="操作人">{operator}</Descriptions.Item>
+          <Descriptions.Item label="来源">
+            {log.auth_method ? (
+              <Tag color={AUTH_METHOD_COLORS[log.auth_method]}>
+                {AUTH_METHOD_LABELS[log.auth_method]}
+              </Tag>
+            ) : (
+              '-'
+            )}
+          </Descriptions.Item>
+          {log.api_key_id && (
+            <Descriptions.Item label="API Key ID">
+              <Typography.Text code>{log.api_key_id}</Typography.Text>
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="目标">
             <Space size={6}>
               <span>{log.target_name || log.target_id || '-'}</span>

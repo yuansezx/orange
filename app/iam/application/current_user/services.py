@@ -78,6 +78,8 @@ class CurrentUserApplicationService:
             expires_at=now + timedelta(seconds=ttl),
             login_ip=request_meta.ip if request_meta else None,
             login_user_agent=request_meta.user_agent if request_meta else None,
+            # 当前登录入口只支持密码；OAuth 登录接入后在此传 OAUTH
+            login_method=AuthMethodEnum.PASSWORD,
         )
         token = await self.session_manager.create(user.id, ttl, meta=meta)
         await self.current_user_repo.set(current_user)
@@ -247,6 +249,8 @@ class CurrentUserApplicationService:
                     target_type='user',
                     target_id=str(user.id) if user else None,
                     target_name=username,
+                    # 登录失败没有 current_user，来源固定为密码尝试
+                    auth_method=AuthMethodEnum.PASSWORD,
                     detail={'username': username, 'reason': reason},
                     success=False,
                     error_code='IAM_AUTHENTICATION_FAILED',
@@ -305,6 +309,7 @@ def _to_session_out(info: SessionInfo,
         expires_at=info.expires_at,
         login_ip=info.login_ip,
         login_user_agent=info.login_user_agent,
+        login_method=info.login_method,
         browser=ua.browser,
         browser_version=ua.browser_version,
         os=ua.os,

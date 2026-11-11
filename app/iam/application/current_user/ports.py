@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.core.exceptions import InfrastructureBaseException
+from app.iam.domain.shared.enums import AuthMethodEnum
 from app.iam.domain.shared.value_objects import UserId
 
 
@@ -13,6 +14,9 @@ class SessionMeta(BaseModel):
     expires_at: datetime
     login_ip: str | None = None
     login_user_agent: str | None = None
+    # 建立会话时使用的凭据来源（当前为 password；OAuth 登录接入后为 oauth）。
+    # 旧会话数据无此字段，按 password 兜底。
+    login_method: AuthMethodEnum = AuthMethodEnum.PASSWORD
 
 
 class AuthenticatedSession(BaseModel):

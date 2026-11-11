@@ -2,6 +2,7 @@
 
 port 只认识调用方上下文；本适配器负责：
 - 操作人快照（`CurrentUser` → `operator_*`）；
+- 认证来源（`CurrentUser.auth` → `auth_method` / `api_key_id`）；
 - 请求元数据（`RequestMeta` → `request_id` / `ip` / `user_agent`）；
 - 映射成 monitor 的公开 DTO 并调用 `write_audit_log`。
 """
@@ -10,6 +11,7 @@ from typing import Any
 from app.core.application.dto import RequestMeta
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.enums import AuthMethodEnum
 from app.monitor.interface.python.audit_log import (
     AuditLogReq as MonitorAuditLogReq,
     write_audit_log,
@@ -25,10 +27,16 @@ class AuditLogWriterAdapter(AuditLogWriterPort):
                     target_type: str | None = None,
                     target_id: str | None = None,
                     target_name: str | None = None,
+                    auth_method: AuthMethodEnum | None = None,
                     detail: dict[str, Any] | None = None,
                     success: bool = True,
                     error_code: str | None = None,
                     error_message: str | None = None) -> None:
+        method = auth_method or (
+            current_user.auth.method if current_user and current_user.auth else None)
+        api_key_id = (str(current_user.auth.api_key_id.value)
+                      if current_user and current_user.auth and current_user.auth.api_key_id
+                      else None)
         await write_audit_log(MonitorAuditLogReq(
             module='iam',
             resource=resource,
@@ -40,6 +48,8 @@ class AuditLogWriterAdapter(AuditLogWriterPort):
             operator_id=current_user.user_id.value if current_user else None,
             operator_username=current_user.username if current_user else None,
             operator_nickname=current_user.nickname if current_user else None,
+            auth_method=method.value if method else None,
+            api_key_id=api_key_id,
             result='success' if success else 'failure',
             error_code=error_code,
             error_message=error_message,

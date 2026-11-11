@@ -2,7 +2,7 @@ import { Alert, Table, Tag } from 'antd'
 import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 
-import { RESULT_LABELS } from '../../constants'
+import { AUTH_METHOD_COLORS, AUTH_METHOD_LABELS, RESULT_LABELS } from '../../constants'
 import type { AuditLogItem } from '../../types'
 
 interface Props {
@@ -52,6 +52,19 @@ export function AuditLogTable({
       width: 160,
       ellipsis: true,
       render: (_, record) => record.target_name || record.target_id || '-',
+    },
+    {
+      title: '来源',
+      key: 'auth',
+      width: 110,
+      render: (_, record) =>
+        record.auth_method ? (
+          <Tag color={AUTH_METHOD_COLORS[record.auth_method]}>
+            {AUTH_METHOD_LABELS[record.auth_method]}
+          </Tag>
+        ) : (
+          '-'
+        ),
     },
     {
       title: '结果',

@@ -3,6 +3,7 @@ from typing import Any
 
 from app.core.application.dto import RequestMeta
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.enums import AuthMethodEnum
 
 
 class AuditLogWriterPort(ABC):
@@ -20,6 +21,8 @@ class AuditLogWriterPort(ABC):
                     target_type: str | None = None,
                     target_id: str | None = None,
                     target_name: str | None = None,
+                    # 无 current_user 的认证事件（如登录失败）显式传来源；否则从 current_user.auth 推导
+                    auth_method: AuthMethodEnum | None = None,
                     detail: dict[str, Any] | None = None,
                     success: bool = True,
                     error_code: str | None = None,
