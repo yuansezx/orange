@@ -21,11 +21,10 @@ from app.iam.application.api_key.exceptions import (
     ApiKeyScopeNotGrantedException,
     SuperAdminApiKeyNotAllowedException,
 )
-from app.iam.application.common.decorators import requires_permission
+from app.iam.application.common.decorators import requires_permission, requires_session
 from app.iam.application.common.exceptions import (
     InvalidTokenException,
     PermissionDeniedException,
-    SessionRequiredException,
 )
 from app.iam.application.common.ports import AuditLogWriterPort
 from app.iam.application.common.services import CurrentUserSnapshotService
@@ -46,6 +45,15 @@ LAST_USED_THROTTLE_SECONDS = 300
 DEFAULT_EXPIRY_DAYS = 90
 
 _AUDIT_VERBS = {'create': '创建', 'update': '更新', 'status': '变更状态', 'delete': '吊销'}
+
+# API Key 不能授予「管理 API Key」类权限：这些接口全部强制会话认证（@requires_session），
+# key 调用必然失败。授权与候选共用同一判定，避免出现「能选但不可用」的 scope。
+# 真正的安全边界是 @requires_session；这里的过滤只是语义统一。
+_API_KEY_MANAGEMENT_SCOPE_PREFIX = 'iam:api_key:'
+
+
+def _is_grantable_scope(code: str) -> bool:
+    return not code.startswith(_API_KEY_MANAGEMENT_SCOPE_PREFIX)
 
 
 class ApiKeyAuthenticationService:
@@ -119,17 +127,18 @@ class ApiKeyApplicationService:
 
     # ---------------- 自助 ----------------
 
+    @requires_session
     async def list_my(self, current_user: CurrentUser) -> list[ApiKeyOut]:
-        self._require_session(current_user)
         keys = await self.api_key_repo.get_all(user_id=current_user.user_id)
         return [_to_out(k) for k in keys]
 
+    @requires_session
     async def create(self, data: CreateApiKeyIn, current_user: CurrentUser,
                      request_meta: RequestMeta | None = None) -> ApiKeyCreatedOut:
-        self._require_session(current_user)
         if current_user.user_type is UserTypeEnum.SUPER_ADMIN:
             raise SuperAdminApiKeyNotAllowedException('超级管理员不允许创建 API Key')
-        self._validate_scopes(data.scopes, current_user)
+        scopes = [code for code in data.scopes if _is_grantable_scope(code)]
+        self._validate_scopes(scopes, current_user)
         self._validate_data_scope(data.data_scope_kind, data.data_scope_dept_ids, current_user)
 
         now = datetime.now(UTC)
@@ -139,7 +148,7 @@ class ApiKeyApplicationService:
         key = ApiKey(
             id=ApiKeyId.new(), user_id=current_user.user_id, name=data.name,
             token_hash=token.digest, token_masked=token.masked,
-            scopes=frozenset(data.scopes),
+            scopes=frozenset(scopes),
             data_scope_kind=data.data_scope_kind,
             data_scope_dept_ids=frozenset(data.data_scope_dept_ids),
             status=StatusEnum.ACTIVE, expires_at=expires_at,
@@ -154,16 +163,17 @@ class ApiKeyApplicationService:
             })
         return ApiKeyCreatedOut(**_to_out(key).model_dump(), token=token.value)
 
+    @requires_session
     async def update(self, api_key_id: ApiKeyId, data: UpdateApiKeyIn,
                      current_user: CurrentUser,
                      request_meta: RequestMeta | None = None) -> ApiKeyOut:
-        self._require_session(current_user)
         key = await self._load_own(api_key_id, current_user)
-        self._validate_scopes(data.scopes, current_user)
+        scopes = [code for code in data.scopes if _is_grantable_scope(code)]
+        self._validate_scopes(scopes, current_user)
         self._validate_data_scope(data.data_scope_kind, data.data_scope_dept_ids, current_user)
 
         key.rename(data.name, current_user.user_id)
-        key.change_scopes(data.scopes, current_user.user_id)
+        key.change_scopes(scopes, current_user.user_id)
         key.change_data_scope(data.data_scope_kind, data.data_scope_dept_ids,
                               current_user.user_id)
         key.change_expiry(data.expires_at, current_user.user_id)
@@ -176,10 +186,10 @@ class ApiKeyApplicationService:
             })
         return _to_out(key)
 
+    @requires_session
     async def change_status(self, api_key_id: ApiKeyId, status: StatusEnum,
                             current_user: CurrentUser,
                             request_meta: RequestMeta | None = None) -> ApiKeyOut:
-        self._require_session(current_user)
         key = await self._load_own(api_key_id, current_user)
         key.change_status(status, current_user.user_id)
         async with self.in_transaction():
@@ -188,18 +198,18 @@ class ApiKeyApplicationService:
                               detail={'status': key.status.value})
         return _to_out(key)
 
+    @requires_session
     async def revoke(self, api_key_id: ApiKeyId, current_user: CurrentUser,
                      request_meta: RequestMeta | None = None) -> None:
-        self._require_session(current_user)
         key = await self._load_own(api_key_id, current_user)
         key.delete(current_user.user_id)
         async with self.in_transaction():
             await self.api_key_repo.update(key)
             await self._audit('delete', key, current_user, request_meta)
 
+    @requires_session
     async def scope_candidates(self, current_user: CurrentUser) -> list[ResourceCandidateOut]:
         """当前用户可授予给 key 的权限（按 module → resource → action 分组）。"""
-        self._require_session(current_user)
         granted = set(current_user.permission_codes or ())
         resources = await self.resource_repo.get_all(status=StatusEnum.ACTIVE)
         result: list[ResourceCandidateOut] = []
@@ -207,7 +217,9 @@ class ApiKeyApplicationService:
             permissions = [
                 PermissionCandidateOut(code=p.full_code(resource), action=p.action, name=p.name)
                 for p in resource.permissions
-                if p.status is StatusEnum.ACTIVE and p.full_code(resource) in granted
+                if p.status is StatusEnum.ACTIVE
+                and p.full_code(resource) in granted
+                and _is_grantable_scope(p.full_code(resource))
             ]
             if permissions:
                 permissions.sort(key=lambda p: p.action)
@@ -219,10 +231,10 @@ class ApiKeyApplicationService:
 
     # ---------------- 管理员 ----------------
 
+    @requires_session
     @requires_permission('iam:api_key:read')
     async def list_all(self, filters: GetApiKeysIn,
                        current_user: CurrentUser) -> list[ApiKeyAdminOut]:
-        self._require_session(current_user)
         if (filters.user_id is not None
                 and not await self._can_manage_owner(filters.user_id, current_user)):
             raise PermissionDeniedException('无权访问该用户的 API Key')
@@ -243,11 +255,11 @@ class ApiKeyApplicationService:
                 username=username, nickname=nickname))
         return result
 
+    @requires_session
     @requires_permission('iam:api_key:update')
     async def admin_change_status(self, api_key_id: ApiKeyId, status: StatusEnum,
                                   current_user: CurrentUser,
                                   request_meta: RequestMeta | None = None) -> ApiKeyAdminOut:
-        self._require_session(current_user)
         key = await self._load_for_admin(api_key_id, current_user, include_deleted=False)
         key.change_status(status, current_user.user_id)
         async with self.in_transaction():
@@ -259,10 +271,10 @@ class ApiKeyApplicationService:
         return ApiKeyAdminOut(**_to_out(key).model_dump(), user_id=key.user_id,
                               username=username, nickname=nickname)
 
+    @requires_session
     @requires_permission('iam:api_key:delete')
     async def admin_revoke(self, api_key_id: ApiKeyId, current_user: CurrentUser,
                            request_meta: RequestMeta | None = None) -> None:
-        self._require_session(current_user)
         key = await self._load_for_admin(api_key_id, current_user, include_deleted=False)
         key.delete(current_user.user_id)
         async with self.in_transaction():
@@ -271,11 +283,6 @@ class ApiKeyApplicationService:
                               detail={'admin': True})
 
     # ---------------- 内部 ----------------
-
-    @staticmethod
-    def _require_session(current_user: CurrentUser) -> None:
-        if current_user.auth is None or current_user.auth.method is not AuthMethodEnum.SESSION:
-            raise SessionRequiredException('该操作仅限交互式会话')
 
     @staticmethod
     def _validate_scopes(scopes: list[str], current_user: CurrentUser) -> None:
