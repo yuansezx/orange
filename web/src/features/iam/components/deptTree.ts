@@ -18,3 +18,8 @@ export function buildDeptTreeData(nodes: DeptTreeLikeNode[], exclude?: Set<strin
     children: buildDeptTreeData(node.children ?? [], exclude),
   }))
 }
+
+/** 收集整棵树的部门 id（用于识别不在可见范围内的历史值）。 */
+export function collectDeptIds(nodes: DeptTreeLikeNode[]): Set<string> {
+  return new Set(nodes.flatMap((node) => [node.id, ...collectDeptIds(node.children ?? [])]))
+}

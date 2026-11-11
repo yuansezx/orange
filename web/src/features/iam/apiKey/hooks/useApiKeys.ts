@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 
 import {
   getScopeCandidates,
-  getVisibleDepts,
   listAdminApiKeys,
   listMyApiKeys,
 } from '../api/apiKeyApi'
@@ -19,14 +18,6 @@ export function useScopeCandidates() {
   return useQuery({
     queryKey: ['me', 'api-key-scope-candidates'],
     queryFn: getScopeCandidates,
-    staleTime: 5 * 60_000,
-  })
-}
-
-export function useVisibleDepts() {
-  return useQuery({
-    queryKey: ['me', 'visible-depts'],
-    queryFn: getVisibleDepts,
     staleTime: 5 * 60_000,
   })
 }

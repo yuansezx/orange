@@ -2,11 +2,11 @@ import { Alert, DatePicker, Form, Input, Radio, Typography } from 'antd'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 
+import { DeptTreeMultiSelect } from '../../components/DeptTreeMultiSelect'
+import { useVisibleDepts } from '../../dept/hooks/useVisibleDepts'
 import { API_KEY_DATA_SCOPE_LABELS } from '../constants'
-import { useVisibleDepts } from '../hooks/useApiKeys'
 import type { ApiKey, ApiKeyFormValues } from '../types'
 import { ScopeCandidateTree } from './ScopeCandidateTree'
-import { VisibleDeptMultiSelect } from './VisibleDeptMultiSelect'
 
 interface Props {
   /** 供抽屉底部的原生 submit 按钮 `form=` 关联。 */
@@ -121,7 +121,7 @@ export function ApiKeyForm({ formId, mode, initial, onSubmit }: Props) {
               },
             ]}
           >
-            <VisibleDeptMultiSelect disabled={!canCustom} />
+            <DeptTreeMultiSelect disabled={!canCustom} />
           </Form.Item>
         </>
       )}

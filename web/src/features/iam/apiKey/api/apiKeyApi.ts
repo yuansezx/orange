@@ -8,7 +8,6 @@ import type {
   GetAdminApiKeysQuery,
   ScopeCandidate,
   UpdateApiKeyReq,
-  VisibleDeptNode,
 } from '../types'
 
 const SELF = '/api/iam/users/me/api-keys'
@@ -20,11 +19,6 @@ export function listMyApiKeys(): Promise<ApiKey[]> {
 
 export function getScopeCandidates(): Promise<ScopeCandidate[]> {
   return get<ScopeCandidate[]>(`${SELF}/scope-candidates`)
-}
-
-/** 自助可见部门（精简树）：按当前用户数据范围过滤，不要求 dept:read。 */
-export function getVisibleDepts(): Promise<VisibleDeptNode[]> {
-  return get<VisibleDeptNode[]>('/api/iam/users/me/visible-depts')
 }
 
 export function createApiKey(body: CreateApiKeyReq): Promise<ApiKeyCreated> {

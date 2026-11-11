@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 
 from app.iam.application.common.dto import DeptRefOut
 from app.iam.application.current_user.dto import MySessionOut
-from app.iam.application.dept.dto import MyDeptNode
 from app.iam.application.user.dto import (
     CreateUserIn,
     GetUsersIn,
@@ -102,10 +101,6 @@ class MyProfileResp(BaseModel):
 
 class MySessionResp(MySessionOut):
     """自助在线设备响应。"""
-
-
-class VisibleDeptNodeResp(MyDeptNode):
-    """自助可见部门树（精简，供数据范围选择）。"""
 
 
 class RevokeMySessionsReq(BaseModel):

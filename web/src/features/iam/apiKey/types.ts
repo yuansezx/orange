@@ -54,14 +54,6 @@ export interface ScopeCandidate {
   permissions: ScopeCandidatePermission[]
 }
 
-/** 对齐后端 `VisibleDeptNodeResp`（精简树）。 */
-export interface VisibleDeptNode {
-  id: string
-  name: string
-  parent_id: string | null
-  children: VisibleDeptNode[]
-}
-
 export interface CreateApiKeyReq {
   name: string
   scopes: string[]

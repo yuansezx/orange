@@ -21,6 +21,7 @@ export function useDeptMutations() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['dept-tree'] })
+    queryClient.invalidateQueries({ queryKey: ['dept-visible'] })
     queryClient.invalidateQueries({ queryKey: ['dept-detail'] })
     queryClient.invalidateQueries({ queryKey: ['depts'] })
   }

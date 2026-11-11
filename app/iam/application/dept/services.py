@@ -96,8 +96,8 @@ class DeptApplicationService:
     async def get_dept_tree(self, current_user: CurrentUser) -> list[DeptTreeNode]:
         return _build_tree(await self._visible_depts(current_user))
 
-    async def get_my_visible_depts(self, current_user: CurrentUser) -> list[MyDeptNode]:
-        """自助场景：当前用户数据范围内的精简部门树（登录即可，不要求 `iam:dept:read`）。"""
+    async def get_visible_depts(self, current_user: CurrentUser) -> list[MyDeptNode]:
+        """当前用户数据范围内的精简部门树（登录即可，不要求 `iam:dept:read`）。"""
         return _build_minimal_tree(await self._visible_depts(current_user))
 
     @requires_permission('iam:dept:read')

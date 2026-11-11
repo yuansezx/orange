@@ -14,7 +14,6 @@ from app.core.interface.http.dependencies import get_request_meta
 from app.core.utils.schemas import PageResult
 from app.iam.application.current_user.dto import ChangePasswordIn
 from app.iam.application.current_user.services import CurrentUserApplicationService
-from app.iam.application.dept.services import DeptApplicationService
 from app.iam.application.user.dto import MyProfileOut, UpdateUserIn
 from app.iam.application.user.exceptions import AvatarNotFoundException
 from app.iam.application.user.services import AVATAR_MAX_BYTES, UserApplicationService
@@ -23,7 +22,6 @@ from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.interface.dependences import (
     get_current_user_app_service,
-    get_dept_app_service,
     get_user_app_service,
     get_user_role_app_service,
 )
@@ -45,7 +43,6 @@ from app.iam.interface.http.user.schemas import (
     UpdateUserReq,
     UserDetailResp,
     UserListItemResp,
-    VisibleDeptNodeResp,
     UserResp,
 )
 
@@ -103,16 +100,6 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)) -> Curre
     resp = CurrentUserResp.model_validate(current_user, from_attributes=True)
     resp.avatar_url = _avatar_url(current_user.user_id, current_user.avatar_key)
     return resp
-
-
-@user_router.get('/me/visible-depts', response_model=list[VisibleDeptNodeResp],
-                 summary='当前用户可见部门树（精简，供自助选择）')
-async def get_my_visible_depts(
-    current_user: CurrentUser = Depends(get_current_user),
-    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
-) -> list[VisibleDeptNodeResp]:
-    nodes = await dept_app_service.get_my_visible_depts(current_user)
-    return [VisibleDeptNodeResp.model_validate(node.model_dump()) for node in nodes]
 
 
 @user_router.put('/me/password', status_code=status.HTTP_204_NO_CONTENT,

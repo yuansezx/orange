@@ -9,13 +9,19 @@ import type {
   DeptTreeNode,
   GetDeptsQuery,
   UpdateDeptReq,
+  VisibleDeptNode,
 } from '../types'
 
 const BASE = '/api/iam/depts'
 
-/** 部门树（嵌套）——列表页主数据。 */
+/** 部门树（嵌套，管理页主数据；需要 `iam:dept:read`）。 */
 export function getDeptTree(): Promise<DeptTreeNode[]> {
   return get<DeptTreeNode[]>(`${BASE}/tree`)
+}
+
+/** 当前用户可见部门（精简树，登录即可）——供各类部门选择器。 */
+export function getVisibleDepts(): Promise<VisibleDeptNode[]> {
+  return get<VisibleDeptNode[]>(`${BASE}/visible`)
 }
 
 /** 扁平列表（含审计）——回收站视图。 */
