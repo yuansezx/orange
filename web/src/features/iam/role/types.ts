@@ -1,3 +1,5 @@
+import type { PageQuery } from '@shared/api'
+
 import type { AuditFields, DataScope, DeptRef, SortOrder, Status } from '../types'
 import type { UserType } from '../user/types'
 
@@ -45,8 +47,10 @@ export interface UpdateRoleReq {
   dept_ids: string[]
 }
 
-/** 角色列表查询参数——对齐后端 `GET /roles`。 */
-export interface GetRolesQuery {
+/** 角色列表查询参数——对齐后端 `GetRolesReq`（分页 + 关键词 + 排序）。 */
+export interface GetRolesQuery extends PageQuery {
+  keyword?: string
+  status?: Status
   deleted?: boolean
   sort_by?: RoleSortField
   order?: SortOrder

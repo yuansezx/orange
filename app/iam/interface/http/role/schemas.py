@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.iam.application.role.dto import (
     CreateRoleIn,
+    GetRolesIn,
     RoleDetailOut,
     RoleListItemOut,
     RoleOut,
@@ -19,6 +20,10 @@ from app.iam.application.user_role_assignment.dto import (
 )
 from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, UserId
+
+
+class GetRolesReq(GetRolesIn):
+    """角色列表查询参数——线格式同 DTO（分页 + 关键词 + 排序）。"""
 
 
 class CreateRoleReq(CreateRoleIn):

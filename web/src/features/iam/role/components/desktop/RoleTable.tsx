@@ -22,6 +22,10 @@ interface Props {
   recycleMode?: boolean
   onRestore: (role: RoleListItem) => void
   onHardDelete: (role: RoleListItem) => void
+  total: number
+  page: number
+  pageSize: number
+  onPageChange: (page: number, pageSize: number) => void
   statusPendingId?: string
   onStatusChange: (role: RoleListItem, status: Status) => void
   sortBy: RoleSortField
@@ -43,6 +47,10 @@ export function RoleTable({
   recycleMode,
   onRestore,
   onHardDelete,
+  total,
+  page,
+  pageSize,
+  onPageChange,
   statusPendingId,
   onStatusChange,
   sortBy,
@@ -187,7 +195,14 @@ export function RoleTable({
       loading={loading}
       columns={columns}
       dataSource={roles}
-      pagination={false}
+      pagination={{
+        current: page,
+        pageSize,
+        total,
+        showSizeChanger: true,
+        showTotal: (count) => `共 ${count} 条`,
+        onChange: onPageChange,
+      }}
       onRow={(record) => ({ onClick: () => onView(record), style: { cursor: 'pointer' } })}
       onChange={(_, __, sorter, extra) => {
         if (extra.action !== 'sort') return

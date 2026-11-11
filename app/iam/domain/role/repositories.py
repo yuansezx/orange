@@ -1,11 +1,26 @@
 from abc import abstractmethod
 
+from pydantic import BaseModel
+
 from app.core.domain.repositories import BaseRepository
+from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.entities import Role
 from app.iam.domain.role.enums import RoleSortFieldEnum
 from app.iam.domain.shared.enums import SortOrderEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
+
+
+class SearchRole(BaseModel):
+    """角色检索条件（分页列表用）。
+
+    `deleted=True` = 只看回收站；缺省只看未删。`status` 只筛业务状态。
+    """
+    keyword: str | None = None                          # code / name 模糊
+    status: StatusEnum | None = None
+    deleted: bool = False
+    sort_by: RoleSortFieldEnum = RoleSortFieldEnum.CREATED_AT
+    order: SortOrderEnum = SortOrderEnum.DESC
 
 
 class RoleRepository(BaseRepository[RoleId, Role]):
@@ -24,15 +39,8 @@ class RoleRepository(BaseRepository[RoleId, Role]):
                          include_deleted: bool = False) -> list[Role]: ...
 
     @abstractmethod
-    async def get_all(
-        self,
-        status: StatusEnum | None = None,
-        deleted: bool = False,
-        *,
-        sort_by: RoleSortFieldEnum = RoleSortFieldEnum.CODE,
-        order: SortOrderEnum = SortOrderEnum.ASC,
-    ) -> list[Role]:
-        """`deleted=False` 只看未删、`True` 只看回收站；`status` 只筛业务状态。"""
+    async def search(self, search_by: SearchRole, page_size: int, page: int) -> PageResult[Role]:
+        """分页检索（列表页与选择器共用）。"""
         ...
 
     @abstractmethod

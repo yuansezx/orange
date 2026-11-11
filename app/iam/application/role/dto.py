@@ -3,8 +3,19 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.iam.application.common.dto import AuditOut, DeptRefOut
-from app.iam.domain.shared.enums import DataScopeEnum, StatusEnum
+from app.iam.domain.role.enums import RoleSortFieldEnum
+from app.iam.domain.shared.enums import DataScopeEnum, SortOrderEnum, StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
+
+
+class GetRolesIn(BaseModel):
+    page_size: int
+    page: int
+    keyword: str | None = None                          # code / name 模糊
+    status: StatusEnum | None = None
+    deleted: bool = False                               # True = 只看回收站
+    sort_by: RoleSortFieldEnum = RoleSortFieldEnum.CREATED_AT
+    order: SortOrderEnum = SortOrderEnum.DESC
 
 
 class CreateRoleIn(BaseModel):

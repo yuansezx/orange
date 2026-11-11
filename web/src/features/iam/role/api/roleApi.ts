@@ -19,8 +19,9 @@ import type {
 
 const BASE = '/api/iam/roles'
 
-export function getRoles(query: GetRolesQuery = {}): Promise<RoleListItem[]> {
-  return get<RoleListItem[]>(BASE, query)
+export async function getRoles(query: GetRolesQuery): Promise<PageResult<RoleListItem>> {
+  const page = await get<PageResult<RoleListItem>>(BASE, query)
+  return { ...page, data: page.data ?? [] }
 }
 
 export function getRole(id: string): Promise<Role> {

@@ -4,6 +4,7 @@ from app.core.application.dto import RequestMeta
 from app.core.domain.event_bus import EventBus
 from app.core.domain.units_of_work import InTransactionType
 from app.core.domain.value_objects import EventId
+from app.core.utils.schemas import PageResult
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import PermissionDeniedException
 from app.iam.application.common.ports import AuditLogWriterPort
@@ -13,6 +14,7 @@ from app.iam.application.dept.exceptions import DeptNotFoundException
 from app.iam.application.resource.exceptions import PermissionNotFoundException
 from app.iam.application.role.dto import (
     CreateRoleIn,
+    GetRolesIn,
     RoleDetailOut,
     RoleListItemOut,
     RoleOut,
@@ -22,12 +24,11 @@ from app.iam.application.role.exceptions import RoleCodeConflictException, RoleN
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.role.entities import Role
-from app.iam.domain.role.enums import RoleSortFieldEnum
 from app.iam.domain.role.events import RoleChanged
 from app.iam.domain.role.exceptions import RoleNotDeletedException
-from app.iam.domain.role.repositories import RoleRepository
+from app.iam.domain.role.repositories import RoleRepository, SearchRole
 from app.iam.domain.role.services import RoleAccessService
-from app.iam.domain.shared.enums import SortOrderEnum, StatusEnum
+from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 
@@ -285,22 +286,17 @@ class RoleApplicationService:
         return _to_out(role)
 
     @requires_permission('iam:role:read')
-    async def get_all_roles(
-        self,
-        current_user: CurrentUser,
-        status: StatusEnum | None = None,
-        deleted: bool = False,
-        *,
-        sort_by: RoleSortFieldEnum = RoleSortFieldEnum.CODE,
-        order: SortOrderEnum = SortOrderEnum.ASC,
-    ) -> list[RoleListItemOut]:
-        roles = await self.role_repo.get_all(status, deleted, sort_by=sort_by, order=order)
+    async def get_roles(self, data: GetRolesIn,
+                        current_user: CurrentUser) -> PageResult[RoleListItemOut]:
+        page = await self.role_repo.search(
+            SearchRole(**data.model_dump()), data.page_size, data.page)
+        roles = page.data or []
         audits = await self.audit_service.build_many(roles)
         items: list[RoleListItemOut] = []
         for role, audit in zip(roles, audits):
             fields = {**_to_out(role).model_dump(), **audit.model_dump()}
             items.append(RoleListItemOut(**fields))
-        return items
+        return PageResult(page=page.page, page_size=page.page_size, total=page.total, data=items)
 
     @requires_permission('iam:role:read')
     async def get_role_detail(self, role_id: RoleId, current_user: CurrentUser) -> RoleDetailOut:
