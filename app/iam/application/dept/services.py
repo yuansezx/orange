@@ -15,6 +15,7 @@ from app.iam.application.dept.dto import (
     DeptOut,
     DeptTreeNode,
     GetDeptsIn,
+    MyDeptNode,
     UpdateDeptIn,
 )
 from app.iam.application.dept.exceptions import (
@@ -53,6 +54,16 @@ def _build_tree(depts: list[Dept]) -> list[DeptTreeNode]:
     return roots
 
 
+def _build_minimal_tree(depts: list[Dept]) -> list[MyDeptNode]:
+    """精简版部门树（自助选择用）：结构同上，只保留 id/name/parent_id。"""
+    nodes = {d.id: MyDeptNode(id=d.id, name=d.name, parent_id=d.parent_id) for d in depts}
+    roots: list[MyDeptNode] = []
+    for d in depts:
+        parent = nodes.get(d.parent_id)
+        (parent.children if parent else roots).append(nodes[d.id])
+    return roots
+
+
 class DeptApplicationService:
     """部门用例：CRUD + 树。
 
@@ -84,6 +95,10 @@ class DeptApplicationService:
     @requires_permission('iam:dept:read')
     async def get_dept_tree(self, current_user: CurrentUser) -> list[DeptTreeNode]:
         return _build_tree(await self._visible_depts(current_user))
+
+    async def get_my_visible_depts(self, current_user: CurrentUser) -> list[MyDeptNode]:
+        """自助场景：当前用户数据范围内的精简部门树（登录即可，不要求 `iam:dept:read`）。"""
+        return _build_minimal_tree(await self._visible_depts(current_user))
 
     @requires_permission('iam:dept:read')
     async def get_depts(self, filters: GetDeptsIn,
