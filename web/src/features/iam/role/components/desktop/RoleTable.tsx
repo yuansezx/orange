@@ -7,8 +7,8 @@ import { IconEdit, IconRestore, IconTrash, IconTrashX, IconUsers } from '@shared
 
 import { StatusSwitch } from '../../../components/StatusSwitch'
 import { DATA_SCOPE_LABELS } from '../../../constants'
-import type { Status } from '../../../types'
-import type { RoleListItem } from '../../types'
+import type { SortOrder, Status } from '../../../types'
+import type { RoleListItem, RoleSortField } from '../../types'
 
 interface Props {
   roles: RoleListItem[]
@@ -24,6 +24,10 @@ interface Props {
   onHardDelete: (role: RoleListItem) => void
   statusPendingId?: string
   onStatusChange: (role: RoleListItem, status: Status) => void
+  sortBy: RoleSortField
+  order: SortOrder
+  /** 清空排序时传 undefined，回到后端默认（code asc）。 */
+  onSortChange: (sortBy: RoleSortField | undefined, order: SortOrder | undefined) => void
 }
 
 /** 【分叉档 · 桌面】角色表格：**点行看详情**，操作列按钮已 stopPropagation；取数与弹层在 RolePage。 */
@@ -41,6 +45,9 @@ export function RoleTable({
   onHardDelete,
   statusPendingId,
   onStatusChange,
+  sortBy,
+  order,
+  onSortChange,
 }: Props) {
   if (error) {
     return <Alert type="error" message={error.message} showIcon />
@@ -51,6 +58,9 @@ export function RoleTable({
     event.stopPropagation()
     handler()
   }
+
+  const sortOrderOf = (field: RoleSortField): 'ascend' | 'descend' | null =>
+    sortBy === field ? (order === 'asc' ? 'ascend' : 'descend') : null
 
   const recycleColumns: NonNullable<TableProps<RoleListItem>['columns']> = recycleMode
     ? [
@@ -71,8 +81,14 @@ export function RoleTable({
     : []
 
   const columns: TableProps<RoleListItem>['columns'] = [
-    { title: '角色标识', dataIndex: 'code', width: 200 },
-    { title: '名称', dataIndex: 'name', width: 200 },
+    {
+      title: '角色标识',
+      dataIndex: 'code',
+      width: 200,
+      sorter: true,
+      sortOrder: sortOrderOf('code'),
+    },
+    { title: '名称', dataIndex: 'name', width: 200, sorter: true, sortOrder: sortOrderOf('name') },
     {
       title: '数据范围',
       dataIndex: 'data_scope',
@@ -103,6 +119,8 @@ export function RoleTable({
       title: '创建时间',
       dataIndex: 'created_at',
       width: 170,
+      sorter: true,
+      sortOrder: sortOrderOf('created_at'),
       render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm:ss'),
     },
     ...recycleColumns,
@@ -171,6 +189,18 @@ export function RoleTable({
       dataSource={roles}
       pagination={false}
       onRow={(record) => ({ onClick: () => onView(record), style: { cursor: 'pointer' } })}
+      onChange={(_, __, sorter, extra) => {
+        if (extra.action !== 'sort') return
+        const current = Array.isArray(sorter) ? sorter[0] : sorter
+        if (!current?.order) {
+          onSortChange(undefined, undefined)
+          return
+        }
+        onSortChange(
+          current.field as RoleSortField,
+          current.order === 'ascend' ? 'asc' : 'desc',
+        )
+      }}
     />
   )
 }

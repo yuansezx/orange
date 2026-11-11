@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { usePermission } from '@features/auth'
 import { Platform } from '@shared/platform'
 
+import type { SortOrder } from '../types'
 import { RoleDetailDrawer } from './components/RoleDetailDrawer'
 import { RoleFormDrawer } from './components/RoleFormDrawer'
 import { RoleMembersDrawer } from './components/RoleMembersDrawer'
@@ -12,7 +13,7 @@ import { RoleTable } from './components/desktop/RoleTable'
 import { RoleCardList } from './components/mobile/RoleCardList'
 import { useRoleMutations } from './hooks/useRoleMutations'
 import { useRoles } from './hooks/useRoles'
-import type { Role, RoleFormValues, RoleListItem } from './types'
+import type { Role, RoleFormValues, RoleListItem, RoleSortField } from './types'
 
 interface DialogState {
   open: boolean
@@ -27,7 +28,13 @@ interface DialogState {
  */
 export default function RolePage() {
   const [recycleMode, setRecycleMode] = useState(false)
-  const { data: roles = [], isLoading, error } = useRoles(recycleMode)
+  const [sortBy, setSortBy] = useState<RoleSortField>('code')
+  const [order, setOrder] = useState<SortOrder>('asc')
+  const { data: roles = [], isLoading, error } = useRoles({
+    deleted: recycleMode,
+    sort_by: sortBy,
+    order,
+  })
   const { create, update, remove, setStatus, restore, hardDelete } = useRoleMutations()
   const { modal } = App.useApp()
   const { can } = usePermission()
@@ -137,6 +144,12 @@ export default function RolePage() {
             onHardDelete={confirmHardDelete}
             statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
             onStatusChange={(role, status) => setStatus.mutate({ id: role.id, status })}
+            sortBy={sortBy}
+            order={order}
+            onSortChange={(nextSortBy, nextOrder) => {
+              setSortBy(nextSortBy ?? 'code')
+              setOrder(nextOrder ?? 'asc')
+            }}
           />
         }
         mobile={

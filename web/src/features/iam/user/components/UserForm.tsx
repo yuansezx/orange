@@ -23,7 +23,7 @@ interface Props {
  */
 export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Props) {
   const [form] = Form.useForm<UserFormValues>()
-  const { data: roles = [] } = useRoles(false, mode === 'create' && canAssignRoles)
+  const { data: roles = [] } = useRoles({ enabled: mode === 'create' && canAssignRoles })
   const roleOptions = roles.map((role) => ({
     value: role.id,
     label: `${role.name}（${role.code}）`,

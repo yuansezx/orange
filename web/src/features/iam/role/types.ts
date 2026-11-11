@@ -1,5 +1,8 @@
-import type { AuditFields, DataScope, DeptRef, Status } from '../types'
+import type { AuditFields, DataScope, DeptRef, SortOrder, Status } from '../types'
 import type { UserType } from '../user/types'
+
+/** 对齐后端 `RoleSortFieldEnum`。 */
+export type RoleSortField = 'code' | 'name' | 'created_at' | 'updated_at'
 
 /** 角色读模型——对齐后端 `RoleResp`（含权限集 / 数据范围部门集）。 */
 export interface Role {
@@ -40,6 +43,13 @@ export interface UpdateRoleReq {
   status: Status
   permission_ids: string[]
   dept_ids: string[]
+}
+
+/** 角色列表查询参数——对齐后端 `GET /roles`。 */
+export interface GetRolesQuery {
+  deleted?: boolean
+  sort_by?: RoleSortField
+  order?: SortOrder
 }
 
 /** 角色成员管理（增量）——对齐后端 `PATCH /roles/{id}/users`。 */

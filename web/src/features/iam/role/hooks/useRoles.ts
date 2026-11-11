@@ -1,12 +1,23 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { getRoles } from '../api/roleApi'
+import type { GetRolesQuery } from '../types'
 
-/** 角色列表用例（无分页，全量返回；`deleted` = 回收站，`enabled` = 按需取数）。 */
-export function useRoles(deleted = false, enabled = true) {
+interface UseRolesOptions extends GetRolesQuery {
+  /** 按需取数（如仅在创建用户时才拉角色）。 */
+  enabled?: boolean
+}
+
+/** 角色列表用例（无分页，全量返回；`deleted` = 回收站）。 */
+export function useRoles({
+  deleted = false,
+  sort_by = 'code',
+  order = 'asc',
+  enabled = true,
+}: UseRolesOptions = {}) {
   return useQuery({
-    queryKey: ['roles', { deleted }],
-    queryFn: () => getRoles(deleted),
+    queryKey: ['roles', { deleted, sort_by, order }],
+    queryFn: () => getRoles({ deleted: deleted || undefined, sort_by, order }),
     enabled,
   })
 }

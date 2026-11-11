@@ -15,7 +15,15 @@ import { UserTable } from './components/desktop/UserTable'
 import { UserCardList } from './components/mobile/UserCardList'
 import { useUserMutations } from './hooks/useUserMutations'
 import { useUsers } from './hooks/useUsers'
-import type { GetUsersQuery, UserFormValues, UserListItem, UserStatus, UserType } from './types'
+import type { SortOrder } from '../types'
+import type {
+  GetUsersQuery,
+  UserFormValues,
+  UserListItem,
+  UserSortField,
+  UserStatus,
+  UserType,
+} from './types'
 
 interface DialogState {
   open: boolean
@@ -60,6 +68,8 @@ export default function UserPage() {
   const needChangePassword =
     needChangePasswordParam === null ? undefined : needChangePasswordParam === 'true'
   const recycleMode = params.get('deleted') === 'true'
+  const sortBy = (params.get('sort_by') as UserSortField | null) ?? 'created_at'
+  const order = (params.get('order') as SortOrder | null) ?? 'desc'
 
   const query: GetUsersQuery = {
     page,
@@ -70,6 +80,8 @@ export default function UserPage() {
     dept_id: deptId,
     need_change_password: needChangePassword,
     deleted: recycleMode || undefined,
+    sort_by: sortBy,
+    order,
   }
   const { data, isLoading, error } = useUsers(query)
   const users = data?.data ?? []
@@ -208,6 +220,14 @@ export default function UserPage() {
             onStatusChange={(user, status) => setStatus.mutate({ id: user.id, status })}
             onPageChange={(nextPage, nextSize) =>
               updateQuery({ page: String(nextPage), page_size: String(nextSize) })
+            }
+            sortBy={sortBy}
+            order={order}
+            onSortChange={(nextSortBy, nextOrder) =>
+              updateQuery({
+                sort_by: nextSortBy ? nextSortBy : undefined,
+                order: nextOrder ? nextOrder : undefined,
+              })
             }
           />
         }
