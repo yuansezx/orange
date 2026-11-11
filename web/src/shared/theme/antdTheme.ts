@@ -41,6 +41,24 @@ export function buildAntdTheme(palette: WorkspacePalette): ThemeConfig {
         itemSelectedBg: palette.navSelectedBg,
         itemSelectedColor: palette.navSelectedText,
       },
+      // 下拉/树选中项：浅色方案保持 antd 派生（浅底深字，hover 变亮仍可读）；
+      // 反色方案会派生成深底深字，由调色板显式给成对色。
+      ...(palette.selectionBg && palette.selectionText
+        ? {
+            Select: {
+              optionSelectedBg: palette.selectionBg,
+              optionSelectedColor: palette.selectionText,
+            },
+            Cascader: {
+              optionSelectedBg: palette.selectionBg,
+              optionSelectedColor: palette.selectionText,
+            },
+            Tree: {
+              nodeSelectedBg: palette.selectionBg,
+              nodeSelectedColor: palette.selectionText,
+            },
+          }
+        : {}),
       Segmented: {
         trackBg: palette.mutedBg,
       },
