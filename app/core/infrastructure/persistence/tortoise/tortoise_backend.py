@@ -2,6 +2,7 @@ from functools import partial
 from importlib import import_module
 
 from aerich import Command
+from aerich.migrate import Migrate
 from loguru import logger
 from tortoise import Tortoise
 from tortoise.transactions import in_transaction
@@ -101,6 +102,10 @@ async def run_migrations() -> None:
     """
     full_config = build_tortoise_config()
     for app_label in full_config['apps']:
+        # aerich 的 DDL 操作累加器是**类级状态**，不会随 Command 重置；同一进程
+        # 逐模块迁移时，上一个模块的 DDL 会被写进下一个模块的迁移（跨表 ALTER/CREATE）。
+        Migrate.upgrade_operators.clear()
+        Migrate.downgrade_operators.clear()
         config = {
             **full_config,
             'apps': {app_label: full_config['apps'][app_label]},
