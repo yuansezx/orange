@@ -9,7 +9,7 @@ from app.core.utils.user_agent import parse_user_agent
 from app.iam.application.common.decorators import requires_permission
 from app.iam.application.common.exceptions import AuthenticationException, InvalidTokenException
 from app.iam.application.common.ports import AuditLogWriterPort
-from app.iam.application.common.queries import EffectivePermissionQuery
+from app.iam.application.common.services import CurrentUserSnapshotService
 from app.iam.application.user.exceptions import OldPasswordMismatchException
 from app.iam.application.current_user.dto import (
     ChangePasswordIn,
@@ -24,10 +24,9 @@ from app.iam.application.current_user.ports import (
     SessionMeta,
     SessionVerificationException,
 )
-from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.current_user.entities import AuthContext, CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
-from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.services import DataScopeService
+from app.iam.domain.shared.enums import AuthMethodEnum, StatusEnum
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.repositories import UserRepository
@@ -43,15 +42,13 @@ class CurrentUserApplicationService:
     def __init__(self, *,
                  user_repo: UserRepository,
                  current_user_repo: CurrentUserRepository,
-                 effective_permission_query: EffectivePermissionQuery,
-                 data_scope_service: DataScopeService,
+                 current_user_snapshot: CurrentUserSnapshotService,
                  session_manager: SessionManagerPort,
                  audit_log_writer: AuditLogWriterPort,
                  in_transaction: InTransactionType) -> None:
         self.user_repo = user_repo
         self.current_user_repo = current_user_repo
-        self.effective_permission_query = effective_permission_query
-        self.data_scope_service = data_scope_service
+        self.current_user_snapshot = current_user_snapshot
         self.session_manager = session_manager
         self.audit_log_writer = audit_log_writer
         self.in_transaction = in_transaction
@@ -67,9 +64,12 @@ class CurrentUserApplicationService:
             await self._audit_login_failure(data.username, user, 'disabled', request_meta)
             raise AuthenticationException('账户不可用')
 
-        current_user = await self._build_current_user(user)
+        current_user = await self.current_user_snapshot.build(user)
         # 成功审计失败即登录失败（fail-closed）：认证事件不留痕是安全风险
-        await self._audit_login_success(current_user, request_meta)
+        # 登录事件按密码认证记录来源；auth 是单次上下文，不落快照
+        await self._audit_login_success(
+            current_user.model_copy(update={'auth': AuthContext(method=AuthMethodEnum.PASSWORD)}),
+            request_meta)
 
         ttl = IAM_SETTINGS.jwt_config.expire_minutes * 60
         now = datetime.now(UTC)
@@ -78,6 +78,8 @@ class CurrentUserApplicationService:
             expires_at=now + timedelta(seconds=ttl),
             login_ip=request_meta.ip if request_meta else None,
             login_user_agent=request_meta.user_agent if request_meta else None,
+            # 当前登录入口只支持密码；OAuth 登录接入后在此传 OAUTH
+            login_method=AuthMethodEnum.PASSWORD,
         )
         token = await self.session_manager.create(user.id, ttl, meta=meta)
         await self.current_user_repo.set(current_user)
@@ -92,17 +94,9 @@ class CurrentUserApplicationService:
             session = await self.session_manager.authenticate(token)
         except SessionVerificationException:
             raise InvalidTokenException('无效令牌')
-        user_id = session.user_id
-        current_user = await self.current_user_repo.get(user_id)
-        if current_user is not None:
-            return current_user
-        # 快照缺失（过期/被清）→ 重解析并回填，不要求重登
-        user = await self.user_repo.get(user_id)  # 仓储默认不返回已删
-        if user is None or user.status is not StatusEnum.ACTIVE:
-            raise InvalidTokenException('用户不可用')
-        current_user = await self._build_current_user(user)
-        await self.current_user_repo.set(current_user)
-        return current_user
+        current_user = await self.current_user_snapshot.get_by_id(session.user_id)
+        return current_user.model_copy(
+            update={'auth': AuthContext(method=AuthMethodEnum.SESSION)})
 
     async def logout(self, token: str) -> None:
         try:
@@ -226,21 +220,6 @@ class CurrentUserApplicationService:
         return deleted
 
     # ---------------- 内部 ----------------
-    async def _build_current_user(self, user: User) -> CurrentUser:
-        effective = await self.effective_permission_query.resolve(user.id)
-        data_scope_spec = await self.data_scope_service.resolve(user)
-        return CurrentUser(
-            user_id=user.id,
-            username=user.username,
-            nickname=user.nickname,
-            user_type=user.user_type,
-            roles=sorted(effective.roles, key=lambda r: r.code),
-            dept_id=user.dept_id,
-            avatar_key=user.avatar_key,
-            permission_codes=sorted(effective.permission_codes),
-            data_scope_spec=data_scope_spec,
-        )
-
     async def _audit_login_success(self, current_user: CurrentUser,
                                    request_meta: RequestMeta | None) -> None:
         async with self.in_transaction():
@@ -270,6 +249,8 @@ class CurrentUserApplicationService:
                     target_type='user',
                     target_id=str(user.id) if user else None,
                     target_name=username,
+                    # 登录失败没有 current_user，来源固定为密码尝试
+                    auth_method=AuthMethodEnum.PASSWORD,
                     detail={'username': username, 'reason': reason},
                     success=False,
                     error_code='IAM_AUTHENTICATION_FAILED',
@@ -328,6 +309,7 @@ def _to_session_out(info: SessionInfo,
         expires_at=info.expires_at,
         login_ip=info.login_ip,
         login_user_agent=info.login_user_agent,
+        login_method=info.login_method,
         browser=ua.browser,
         browser_version=ua.browser_version,
         os=ua.os,

@@ -4,6 +4,7 @@
 再扫该模块的属性找模型（见 tortoise_backend._build_apps / tortoise apps.py 的 _discover_models）。
 新增实体时，记得在这里补一行导出。
 """
+from .api_key import ApiKeyModel
 from .dept import DeptModel
 from .event_outbox import IamEventOutboxModel
 from .permission import PermissionModel
@@ -15,6 +16,7 @@ from .user import UserModel
 from .user_role_assignment import UserRoleAssignmentModel
 
 __all__ = [
+    'ApiKeyModel',
     'DeptModel',
     'IamEventOutboxModel',
     'PermissionModel',

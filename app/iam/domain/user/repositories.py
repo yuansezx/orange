@@ -6,10 +6,10 @@ from pydantic import BaseModel
 from app.core.domain.repositories import BaseRepository
 from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import SortOrderEnum, StatusEnum
 from app.iam.domain.shared.value_objects import Phone, Email, UserId, DeptId, DataScopeSpec
 from app.iam.domain.user.entities import User
-from app.iam.domain.user.enums import UserTypeEnum
+from app.iam.domain.user.enums import UserSortFieldEnum, UserTypeEnum
 
 
 class SearchUser(BaseModel):
@@ -28,6 +28,8 @@ class SearchUser(BaseModel):
     password_updated_at_start: datetime | None = None
     password_updated_at_end: datetime | None = None
     user_ids: list[UserId] | None = None               # 限定用户 id（如角色成员）；None = 不过滤
+    sort_by: UserSortFieldEnum = UserSortFieldEnum.CREATED_AT
+    order: SortOrderEnum = SortOrderEnum.DESC
 
 
 class UserRepository(BaseRepository[UserId, User]):

@@ -1,12 +1,25 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.iam.domain.shared.value_objects import DataScopeSpec, DeptId, RoleSummary, UserId
+from app.iam.domain.shared.enums import AuthMethodEnum
+from app.iam.domain.shared.value_objects import ApiKeyId, DataScopeSpec, DeptId, RoleSummary, UserId
 from app.iam.domain.user.enums import UserTypeEnum
 
 
 def _group_codes(group: str | tuple[str, ...]) -> tuple[str, ...]:
     """归一「与组」：裸码 = 单码组，元组 = 多码组。"""
     return (group,) if isinstance(group, str) else group
+
+
+class AuthContext(BaseModel):
+    """单次认证的上下文（来源 / 凭证）。
+
+    不是用户属性，**不随用户快照缓存**；由认证入口按本次请求附加。
+    """
+    model_config = ConfigDict(frozen=True)
+
+    method: AuthMethodEnum
+    api_key_id: ApiKeyId | None = None
+    api_key_name: str | None = None
 
 
 class CurrentUser(BaseModel):
@@ -20,6 +33,8 @@ class CurrentUser(BaseModel):
     dept_id: DeptId | None = None
     avatar_key: str | None = None
     permission_codes: list[str] | None = None
+    # 单次认证上下文：每请求不同，序列化时排除（不进用户快照）
+    auth: AuthContext | None = Field(default=None, exclude=True)
 
     def has_permission(self, *groups: str | tuple[str, ...]) -> bool:
         """功能权限判定（DNF）：**逗号分隔的参数之间「或」；元组内的权限码之间「与」**。

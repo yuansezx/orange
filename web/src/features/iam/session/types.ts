@@ -1,3 +1,6 @@
+/** 建立会话时使用的凭据来源（会话由登录创建，只有密码 / OAuth）。 */
+export type LoginMethod = 'password' | 'oauth'
+
 /** 在线会话——对齐后端 `SessionResp`。 */
 export interface SessionItem {
   user_id: string
@@ -8,6 +11,7 @@ export interface SessionItem {
   expires_at: string
   login_ip: string | null
   login_user_agent: string | null
+  login_method: LoginMethod
   browser: string | null
   browser_version: string | null
   os: string | null

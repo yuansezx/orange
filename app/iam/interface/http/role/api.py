@@ -14,7 +14,6 @@ from app.iam.application.role.dto import UpdateRoleIn
 from app.iam.application.role.services import RoleApplicationService
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
-from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import RoleId
 from app.iam.interface.dependences import get_role_app_service, get_user_role_app_service
 from app.iam.interface.http.dependencies import get_current_user
@@ -22,6 +21,7 @@ from app.iam.interface.http.role.schemas import (
     CreateRoleReq,
     GetRoleCandidatesReq,
     GetRoleMembersReq,
+    GetRolesReq,
     PatchRoleUsersReq,
     RoleCandidateUserResp,
     RoleDetailResp,
@@ -51,15 +51,19 @@ async def create_role(
     )
 
 
-@role_router.get('', response_model=list[RoleListItemResp], summary='角色列表（含审计）')
+@role_router.get('', response_model=PageResult[RoleListItemResp], summary='角色列表（含审计，分页）')
 async def list_roles(
-    status: StatusEnum | None = Query(None, description='按业务状态过滤（ACTIVE/DISABLED）'),
-    deleted: bool = Query(False, description='只看回收站（缺省只看未删）'),
+    filters: Annotated[GetRolesReq, Query()],
     current_user: CurrentUser = Depends(get_current_user),
     role_app_service: RoleApplicationService = Depends(get_role_app_service),
-) -> list[RoleListItemResp]:
-    roles = await role_app_service.get_all_roles(current_user, status, deleted)
-    return [RoleListItemResp(**r.model_dump()) for r in roles]
+) -> PageResult[RoleListItemResp]:
+    page = await role_app_service.get_roles(filters, current_user)
+    return PageResult[RoleListItemResp](
+        page=page.page,
+        page_size=page.page_size,
+        total=page.total,
+        data=[RoleListItemResp(**item.model_dump()) for item in (page.data or [])],
+    )
 
 
 @role_router.get('/{role_id}', response_model=RoleResp, summary='角色详情')

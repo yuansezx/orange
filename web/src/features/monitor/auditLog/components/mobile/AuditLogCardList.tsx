@@ -1,7 +1,7 @@
 import { Button, ErrorBlock, List, Tag } from 'antd-mobile'
 import dayjs from 'dayjs'
 
-import { RESULT_LABELS } from '../../constants'
+import { AUTH_METHOD_LABELS, RESULT_LABELS } from '../../constants'
 import type { AuditLogItem } from '../../types'
 
 interface Props {
@@ -36,7 +36,9 @@ export function AuditLogCardList({
         {logs.map((log) => (
           <List.Item
             key={log.id}
-            description={`${dayjs(log.occurred_at).format('YYYY-MM-DD HH:mm:ss')} · ${log.key}`}
+            description={`${dayjs(log.occurred_at).format('YYYY-MM-DD HH:mm:ss')} · ${log.key}${
+              log.auth_method ? ` · ${AUTH_METHOD_LABELS[log.auth_method]}` : ''
+            }`}
             onClick={() => onView(log)}
           >
             <div style={{ fontWeight: 600 }}>{log.summary}</div>

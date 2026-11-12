@@ -3,9 +3,9 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.iam.application.common.dto import AuditOut, DeptRefOut
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.shared.enums import SortOrderEnum, StatusEnum
 from app.iam.domain.shared.value_objects import Email, Phone, RoleId, DeptId, UserId
-from app.iam.domain.user.enums import UserTypeEnum
+from app.iam.domain.user.enums import UserSortFieldEnum, UserTypeEnum
 
 
 class GetUsersIn(BaseModel):
@@ -21,6 +21,8 @@ class GetUsersIn(BaseModel):
     created_at_end: datetime | None = None
     password_updated_at_start: datetime | None = None
     password_updated_at_end: datetime | None = None
+    sort_by: UserSortFieldEnum = UserSortFieldEnum.CREATED_AT
+    order: SortOrderEnum = SortOrderEnum.DESC
 
 class CreateUserIn(BaseModel):
     username: str

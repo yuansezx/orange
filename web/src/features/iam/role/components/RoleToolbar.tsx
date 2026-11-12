@@ -10,7 +10,7 @@ interface Props {
   onCreate: () => void
 }
 
-/** 【共用层】角色工具栏：名称/标识过滤（客户端）+ 视图切换 + 新建。 */
+/** 【共用层】角色工具栏：名称/标识搜索（服务端）+ 视图切换 + 新建。 */
 export function RoleToolbar({
   keyword,
   recycleMode,
@@ -21,12 +21,15 @@ export function RoleToolbar({
   return (
     <Space style={{ display: 'flex', marginBottom: 16, flexWrap: 'wrap' }} size={12}>
       <RecycleModeSwitch value={recycleMode} onChange={onRecycleModeChange} />
-      <Input
+      <Input.Search
         allowClear
-        value={keyword}
+        defaultValue={keyword}
         placeholder="搜索 名称 / 标识"
         style={{ width: 240, maxWidth: '100%' }}
-        onChange={(event) => onKeywordChange(event.target.value)}
+        onSearch={(value) => onKeywordChange(value)}
+        onChange={(event) => {
+          if (!event.target.value) onKeywordChange('')
+        }}
       />
       {!recycleMode && (
         <Button type="primary" onClick={onCreate}>

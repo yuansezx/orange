@@ -29,7 +29,7 @@ core:
           host: 127.0.0.1
           port: 5432
           user: orange
-          password: orange
+          password: orange-postgres
           database: orange
   # 缓存配置（可选；不配则 core 不启动缓存）
   cache:
@@ -37,7 +37,7 @@ core:
     options:
       host: 127.0.0.1
       port: 6379
-      password: redis
+      password: orange-redis
       db: 0
   # 对象存储配置（可选；不配则 core 不启动对象存储）
   object_storage:
@@ -49,7 +49,7 @@ core:
         provider: rustfs
         endpoint_url: http://127.0.0.1:9000
         access_key: orange
-        secret_key: change-me
+        secret_key: orange-rustfs
         region: us-east-1
         path_style: true
   # 事件 relay（可选；缺省用代码默认值）
@@ -63,6 +63,7 @@ core:
 
 iam:
   jwt_config:
+    # 留空则启动时生成临时密钥：重启后所有会话失效；生产必须显式配置
     secret_key:
     algorithm: HS256
     # 访问令牌有效期（分钟）；决定「多久需要重新登录」

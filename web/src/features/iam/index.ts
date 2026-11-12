@@ -4,6 +4,7 @@ import { ADMIN_WORKSPACE, type FeatureModule } from '@shared/navigation'
 import {
   IconBox,
   IconDevices,
+  IconKey,
   IconShieldLock,
   IconSitemap,
   IconUserCircle,
@@ -15,9 +16,11 @@ const SessionPage = lazy(() => import('./session/SessionPage'))
 const RolePage = lazy(() => import('./role/RolePage'))
 const DeptPage = lazy(() => import('./dept/DeptPage'))
 const ResourcePage = lazy(() => import('./resource/ResourcePage'))
+const ApiKeyPage = lazy(() => import('./apiKey/AdminApiKeysPage'))
 const ProfileSettingsPage = lazy(() => import('./settings/ProfilePage'))
 const SecuritySettingsPage = lazy(() => import('./settings/SecurityPage'))
 const SessionsSettingsPage = lazy(() => import('./settings/SessionsPage'))
+const MyApiKeysPage = lazy(() => import('./apiKey/MyApiKeysPage'))
 
 /**
  * iam 模块门面：声明本模块递给应用壳的**菜单分组**（对齐后端 iam 模块）。
@@ -59,6 +62,13 @@ export const feature: FeatureModule = {
           path: 'sessions',
           icon: createElement(IconDevices, { size: 16 }),
           element: createElement(SessionsSettingsPage),
+        },
+        {
+          key: 'iam-account-api-keys',
+          label: 'API 密钥',
+          path: 'api-keys',
+          icon: createElement(IconKey, { size: 16 }),
+          element: createElement(MyApiKeysPage),
         },
       ],
     },
@@ -108,6 +118,14 @@ export const feature: FeatureModule = {
           permission: 'iam:resource:read',
           icon: createElement(IconBox, { size: 16 }),
           element: createElement(ResourcePage),
+        },
+        {
+          key: 'iam-api-key',
+          label: 'API 密钥',
+          path: 'api-keys',
+          permission: 'iam:api_key:read',
+          icon: createElement(IconKey, { size: 16 }),
+          element: createElement(ApiKeyPage),
         },
       ],
     },

@@ -84,6 +84,14 @@ IAM_RESOURCE_DECLARATIONS: list[RegisterResourceIn] = [
         permissions=_crud_permissions('权限', hard_delete=True),
     ),
     RegisterResourceIn(
+        module=IAM_MODULE, code='api_key', name='API Key',
+        permissions=[
+            RegisterPermissionIn(action='read', name='查看 API Key'),
+            RegisterPermissionIn(action='update', name='管控 API Key（启停）'),
+            RegisterPermissionIn(action='delete', name='吊销 API Key'),
+        ],
+    ),
+    RegisterResourceIn(
         module=IAM_MODULE, code='current_user', name='当前用户 / 在线会话',
         permissions=[
             RegisterPermissionIn(action='read_sessions', name='查看在线会话'),

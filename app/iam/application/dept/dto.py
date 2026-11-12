@@ -53,6 +53,14 @@ class DeptTreeNode(DeptOut):
     children: list['DeptTreeNode'] = Field(default_factory=list)
 
 
+class MyDeptNode(BaseModel):
+    """自助场景的精简部门树节点——只含选择所需字段，不含审计/负责人/详情。"""
+    id: DeptId
+    name: str
+    parent_id: DeptId | None = None
+    children: list['MyDeptNode'] = Field(default_factory=list)
+
+
 class DeptListItemOut(DeptOut, AuditOut):
     """部门列表项（扁平列表 / 回收站）——数据字段 + 审计（平铺）。树仍用 `DeptTreeNode`。"""
 

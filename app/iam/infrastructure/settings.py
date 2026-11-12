@@ -1,15 +1,25 @@
 import secrets
 
-from pydantic import BaseModel
+from loguru import logger
+from pydantic import BaseModel, field_validator
 from pydantic_settings import SettingsConfigDict
 
 from app.core.infrastructure.settings import AppBaseSettings
 
 
 class JWTConfig(BaseModel):
-    secret_key: str
-    algorithm: str
+    # 允许留空：启动时生成临时密钥，重启即失效（所有会话需重新登录）
+    secret_key: str | None = None
+    algorithm: str = 'HS256'
     expire_minutes: int = 30
+
+    @field_validator('secret_key')
+    @classmethod
+    def _generate_secret_if_missing(cls, value: str | None) -> str:
+        if value:
+            return value
+        logger.warning('iam.jwt_config.secret_key 未配置，已生成临时密钥；重启后所有会话失效')
+        return secrets.token_hex(32)
 
 
 class CurrentUserConfig(BaseModel):
@@ -39,8 +49,8 @@ class IAMSettings(AppBaseSettings):
     def __init__(self):
         super().__init__()
         if not self.jwt_config:
-            # 默认随机secret_key
-            self.jwt_config = JWTConfig(secret_key=secrets.token_hex(32), algorithm='HS256')
+            # 未配置 jwt_config：用默认算法，secret_key 由 JWTConfig 生成临时值
+            self.jwt_config = JWTConfig()
         # 快照 TTL 未显式配置时对齐令牌期：快照无需比会话更长寿（超期即静默重解析）
         if self.current_user_config.snapshot_ttl_seconds is None:
             self.current_user_config.snapshot_ttl_seconds = self.jwt_config.expire_minutes * 60

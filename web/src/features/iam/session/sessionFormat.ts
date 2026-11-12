@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 
 import type {
+  LoginMethod,
   RevokeSessionsTarget,
   SessionGroupRow,
   SessionItem,
@@ -63,6 +64,15 @@ export function toRevokeTargets(sessions: SessionItem[]): RevokeSessionsTarget[]
 
 export function userLabel(group: SessionGroupRow): string {
   return group.username || group.user_id
+}
+
+export const LOGIN_METHOD_LABELS: Record<LoginMethod, string> = {
+  password: '密码登录',
+  oauth: 'OAuth 登录',
+}
+
+export function loginMethodText(session: Pick<SessionItem, 'login_method'>): string {
+  return LOGIN_METHOD_LABELS[session.login_method] ?? session.login_method
 }
 
 export function browserText(session: SessionItem): string {

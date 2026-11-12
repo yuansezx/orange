@@ -7,6 +7,20 @@ class StatusEnum(str, Enum):
     DISABLED = "disabled"
 
 
+class AuthMethodEnum(str, Enum):
+    """单次认证的来源 / 凭据类型（审计与安全策略用；**不是用户属性**）。"""
+    PASSWORD = "password"  # 登录事件
+    SESSION = "session"    # 第一方 Bearer 会话
+    API_KEY = "api_key"    # 用户 API Key（PAT）
+    OAUTH = "oauth"        # 第三方委派（预留）
+
+
+class SortOrderEnum(str, Enum):
+    """列表排序方向（单字段排序用）。"""
+    ASC = "asc"
+    DESC = "desc"
+
+
 class DataScopeEnum(str, Enum):
     """数据范围（数据权限）——某用户能看/操作哪些数据。"""
     ALL = "all"                        # 不限（超管）

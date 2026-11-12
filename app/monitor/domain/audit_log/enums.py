@@ -8,3 +8,15 @@ class AuditResultEnum(str, Enum):
     """
     SUCCESS = 'success'
     FAILURE = 'failure'
+
+
+class AuthMethodEnum(str, Enum):
+    """单次认证来源（审计用）。
+
+    登录事件记 password / oauth；业务动作记 session / api_key。
+    会话最初如何登录（password/oauth）属于会话元数据，不在每条动作审计里重复。
+    """
+    PASSWORD = 'password'
+    SESSION = 'session'
+    API_KEY = 'api_key'
+    OAUTH = 'oauth'

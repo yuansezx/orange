@@ -1,9 +1,81 @@
-import { Form, Input, Select } from 'antd'
+import { Button, Form, Input, Modal, Select, Space, Tag } from 'antd'
+import { useState } from 'react'
 
 import { DeptTreeSelect } from '../../components/DeptTreeSelect'
 import { STATUS_OPTIONS } from '../../constants'
-import { useRoles } from '../../role/hooks/useRoles'
+import { RolePicker } from '../../role/components/RolePicker'
+import type { RoleListItem } from '../../role/types'
 import type { UserFormValues, UserListItem } from '../types'
+
+/** 角色字段：按钮打开分页选择弹窗，避免一次拉取全量角色。 */
+function RolePickerField({
+  value,
+  onChange,
+}: {
+  value?: string[]
+  onChange?: (value: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<string[]>([])
+  const [labels, setLabels] = useState<Record<string, string>>({})
+  const selected = value ?? []
+
+  const rememberLabels = (roles: RoleListItem[]) => {
+    if (!roles.length) return
+    setLabels((prev) => {
+      const next = { ...prev }
+      for (const role of roles) next[role.id] = `${role.name}（${role.code}）`
+      return next
+    })
+  }
+
+  return (
+    <>
+      <Space wrap>
+        {selected.map((id) => (
+          <Tag
+            key={id}
+            closable
+            onClose={(event) => {
+              event.preventDefault()
+              onChange?.(selected.filter((roleId) => roleId !== id))
+            }}
+          >
+            {labels[id] ?? id}
+          </Tag>
+        ))}
+        <Button
+          onClick={() => {
+            setDraft(selected)
+            setOpen(true)
+          }}
+        >
+          选择角色
+        </Button>
+      </Space>
+      <Modal
+        open={open}
+        title="分配角色"
+        width={760}
+        okText="确定"
+        cancelText="取消"
+        onOk={() => {
+          onChange?.(draft)
+          setOpen(false)
+        }}
+        onCancel={() => setOpen(false)}
+      >
+        <RolePicker
+          value={draft}
+          onChange={(ids, roles) => {
+            setDraft(ids)
+            rememberLabels(roles)
+          }}
+        />
+      </Modal>
+    </>
+  )
+}
 
 interface Props {
   /** 供抽屉底部的原生 submit 按钮 `form=` 关联。 */
@@ -11,7 +83,7 @@ interface Props {
   mode: 'create' | 'edit'
   /** 编辑时用列表行初始化（列表已含表单字段；角色走独立管理入口）。 */
   initial?: UserListItem
-  /** 创建时是否展示角色字段（`iam:user_role:assign`）；编辑不改角色。 */
+  /** 创建时是否展示角色字段（需 `iam:user_role:assign` + `iam:role:read`）；编辑不改角色。 */
   canAssignRoles: boolean
   onSubmit: (values: UserFormValues) => void
 }
@@ -23,11 +95,6 @@ interface Props {
  */
 export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Props) {
   const [form] = Form.useForm<UserFormValues>()
-  const { data: roles = [] } = useRoles(false, mode === 'create' && canAssignRoles)
-  const roleOptions = roles.map((role) => ({
-    value: role.id,
-    label: `${role.name}（${role.code}）`,
-  }))
 
   return (
     <Form
@@ -108,13 +175,7 @@ export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Pr
       </Form.Item>
       {mode === 'create' && canAssignRoles && (
         <Form.Item name="role_ids" label="角色">
-          <Select
-            mode="multiple"
-            options={roleOptions}
-            placeholder="选择角色"
-            optionFilterProp="label"
-            showSearch
-          />
+          <RolePickerField />
         </Form.Item>
       )}
       <Form.Item name="description" label="描述">

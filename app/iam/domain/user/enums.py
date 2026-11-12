@@ -6,3 +6,11 @@ class UserTypeEnum(str, Enum):
     SELF_REGISTERED = "self_registered" # 自己注册
     SYSTEM = "system" # 系统用户
     SUPER_ADMIN = "super_admin"  # “逃生舱”，仅初始化时创建首个用户使用，不可滥用
+
+
+class UserSortFieldEnum(str, Enum):
+    """用户列表允许排序的字段（白名单）。"""
+    USERNAME = "username"
+    NICKNAME = "nickname"
+    CREATED_AT = "created_at"
+    UPDATED_AT = "updated_at"

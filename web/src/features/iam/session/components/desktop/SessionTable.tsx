@@ -5,7 +5,7 @@ import type { Key } from 'react'
 
 import { IconLogout, IconUserX } from '@shared/ui'
 
-import { browserText, formatTime, osText, userLabel } from '../../sessionFormat'
+import { browserText, formatTime, loginMethodText, osText, userLabel } from '../../sessionFormat'
 import type { SessionListViewProps, SessionTableRow } from '../../types'
 
 interface Props extends SessionListViewProps {
@@ -62,6 +62,13 @@ export function SessionTable({
       key: 'ip',
       width: 150,
       render: (_, record) => (record.kind === 'session' ? record.login_ip || '-' : '-'),
+    },
+    {
+      title: '登录方式',
+      key: 'login_method',
+      width: 110,
+      render: (_, record) =>
+        record.kind === 'session' ? loginMethodText(record) : '-',
     },
     {
       title: '登录时间',

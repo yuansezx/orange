@@ -2,7 +2,7 @@ import { Alert, Table, Tag } from 'antd'
 import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 
-import { RESULT_LABELS } from '../../constants'
+import { AUTH_METHOD_COLORS, AUTH_METHOD_LABELS, RESULT_LABELS } from '../../constants'
 import type { AuditLogItem } from '../../types'
 
 interface Props {
@@ -54,11 +54,25 @@ export function AuditLogTable({
       render: (_, record) => record.target_name || record.target_id || '-',
     },
     {
+      title: '来源',
+      key: 'auth',
+      width: 110,
+      render: (_, record) =>
+        record.auth_method ? (
+          <Tag color={AUTH_METHOD_COLORS[record.auth_method]}>
+            {AUTH_METHOD_LABELS[record.auth_method]}
+          </Tag>
+        ) : (
+          '-'
+        ),
+    },
+    {
       title: '结果',
       dataIndex: 'result',
       width: 90,
       render: (value: AuditLogItem['result']) => (
-        <Tag color={value === 'success' ? 'success' : 'error'}>
+        // solid 成功用预设绿（#52c41a）；语义 success 已被调成 filled 档的柔和色
+        <Tag variant="solid" color={value === 'success' ? 'green' : 'error'}>
           {RESULT_LABELS[value]}
         </Tag>
       ),

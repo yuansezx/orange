@@ -3,16 +3,28 @@
 聚合跨三表：iam_role（本体）+ iam_role_permission / iam_role_dept（关系集合）。
 get/get_all 装配完整聚合；create/update/hard_delete 整体落库；关系集合差集替换。
 """
+from tortoise.expressions import Q
+
+from app.core.utils.schemas import PageResult
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.role.entities import Role
-from app.iam.domain.role.repositories import RoleRepository
-from app.iam.domain.shared.enums import StatusEnum
+from app.iam.domain.role.enums import RoleSortFieldEnum
+from app.iam.domain.role.repositories import RoleRepository, SearchRole
+from app.iam.domain.shared.enums import SortOrderEnum
 from app.iam.domain.shared.value_objects import DeptId, PermissionId, RoleId, UserId
 from app.iam.infrastructure.persistence.tortoise.postgres.models import (
     RoleDeptModel,
     RoleModel,
     RolePermissionModel,
 )
+
+
+_ROLE_SORT_COLUMNS = {
+    RoleSortFieldEnum.CODE: 'code',
+    RoleSortFieldEnum.NAME: 'name',
+    RoleSortFieldEnum.CREATED_AT: 'created_at',
+    RoleSortFieldEnum.UPDATED_AT: 'updated_at',
+}
 
 
 def to_domain(m: RoleModel) -> Role:
@@ -103,16 +115,26 @@ class RoleRepositoryTortoiseImpl(RoleRepository):
         perms, depts = await self._load_relations([m.id for m in models])
         return [_assemble(m, perms, depts) for m in models]
 
-    async def get_all(self, status: StatusEnum | None = None, deleted: bool = False) -> list[Role]:
-        qs = (RoleModel.filter(deleted_at__isnull=False) if deleted
+    async def search(self, search_by: SearchRole, page_size: int, page: int) -> PageResult[Role]:
+        qs = (RoleModel.filter(deleted_at__isnull=False) if search_by.deleted
               else RoleModel.filter(deleted_at__isnull=True))
-        if status is not None:
-            qs = qs.filter(status=status)
-        models = await qs.order_by('code')
+        if search_by.status is not None:
+            qs = qs.filter(status=search_by.status)
+        if search_by.keyword:
+            qs = qs.filter(
+                Q(code__icontains=search_by.keyword) | Q(name__icontains=search_by.keyword))
+
+        total = await qs.count()
+        prefix = '-' if search_by.order is SortOrderEnum.DESC else ''
+        column = _ROLE_SORT_COLUMNS[search_by.sort_by]
+        models = await qs.order_by(
+            f'{prefix}{column}', f'{prefix}id',
+        ).offset((page - 1) * page_size).limit(page_size)
         if not models:
-            return []
+            return PageResult(page=page, page_size=page_size, total=total, data=[])
         perms, depts = await self._load_relations([m.id for m in models])
-        return [_assemble(m, perms, depts) for m in models]
+        return PageResult(page=page, page_size=page_size, total=total,
+                          data=[_assemble(m, perms, depts) for m in models])
 
     # ---------------- 写（整体保存） ----------------
     async def create(self, entity: Role) -> Role:

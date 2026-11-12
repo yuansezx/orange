@@ -12,6 +12,7 @@ from app.iam.application.dept.dto import (
     DeptOut,
     DeptTreeNode,
     GetDeptsIn,
+    MyDeptNode,
 )
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import DeptId, Email, Phone, UserId
@@ -46,6 +47,10 @@ class DeptListItemResp(DeptListItemOut):
 
 class DeptDetailResp(DeptDetailOut):
     """部门详情响应——数据字段 + 审计（平铺）。"""
+
+
+class VisibleDeptNodeResp(MyDeptNode):
+    """当前用户可见部门树（精简，供选择器）。"""
 
 
 class DeptTreeNodeResp(DeptTreeNode):

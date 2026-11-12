@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 from app.monitor.domain.audit_log.entities import AuditLog
-from app.monitor.domain.audit_log.enums import AuditResultEnum
+from app.monitor.domain.audit_log.enums import AuditResultEnum, AuthMethodEnum
 from app.monitor.domain.shared.value_objects import OperatorId
 
 
@@ -23,6 +23,7 @@ class AuditLogRepository(ABC):
                       operator_id: OperatorId | None = None,
                       target_type: str | None = None,
                       target_id: str | None = None,
+                      auth_method: AuthMethodEnum | None = None,
                       result: AuditResultEnum | None = None,
                       request_id: str | None = None,
                       occurred_from: datetime | None = None,
@@ -38,6 +39,7 @@ class AuditLogRepository(ABC):
                     operator_id: OperatorId | None = None,
                     target_type: str | None = None,
                     target_id: str | None = None,
+                    auth_method: AuthMethodEnum | None = None,
                     result: AuditResultEnum | None = None,
                     request_id: str | None = None,
                     occurred_from: datetime | None = None,

@@ -15,6 +15,7 @@ const EMPTY_FILTERS: AuditLogFilters = {
   action: '',
   operator: '',
   keyword: '',
+  authMethod: undefined,
   result: undefined,
   range: null,
 }
@@ -34,6 +35,7 @@ export default function AuditLogPage() {
     action: filters.action.trim() || undefined,
     operator_username: filters.operator.trim() || undefined,
     keyword: filters.keyword.trim() || undefined,
+    auth_method: filters.authMethod,
     result: filters.result,
     occurred_from: filters.range?.[0]?.toISOString(),
     occurred_to: filters.range?.[1]?.toISOString(),

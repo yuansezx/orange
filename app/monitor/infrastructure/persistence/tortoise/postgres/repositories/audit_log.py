@@ -5,7 +5,7 @@ from tortoise.queryset import QuerySet
 
 from app.core.exceptions import PersistenceException
 from app.monitor.domain.audit_log.entities import AuditLog
-from app.monitor.domain.audit_log.enums import AuditResultEnum
+from app.monitor.domain.audit_log.enums import AuditResultEnum, AuthMethodEnum
 from app.monitor.domain.audit_log.repositories import AuditLogRepository
 from app.monitor.domain.shared.value_objects import AuditLogId, OperatorId
 from app.monitor.infrastructure.persistence.tortoise.postgres.models import AuditLogModel
@@ -25,6 +25,8 @@ def _to_domain(m: AuditLogModel) -> AuditLog:
         operator_id=OperatorId(m.operator_id) if m.operator_id else None,
         operator_username=m.operator_username,
         operator_nickname=m.operator_nickname,
+        auth_method=m.auth_method,
+        api_key_id=m.api_key_id,
         result=m.result,
         error_code=m.error_code,
         error_message=m.error_message,
@@ -43,6 +45,7 @@ def _apply_filters(qs: QuerySet[AuditLogModel], *,
                    operator_username: str | None,
                    target_type: str | None,
                    target_id: str | None,
+                   auth_method: AuthMethodEnum | None,
                    result: AuditResultEnum | None,
                    request_id: str | None,
                    keyword: str | None,
@@ -62,6 +65,8 @@ def _apply_filters(qs: QuerySet[AuditLogModel], *,
         qs = qs.filter(target_type=target_type)
     if target_id is not None:
         qs = qs.filter(target_id=target_id)
+    if auth_method is not None:
+        qs = qs.filter(auth_method=auth_method)
     if result is not None:
         qs = qs.filter(result=result)
     if request_id is not None:
@@ -98,6 +103,8 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
                 operator_id=audit_log.operator_id.value if audit_log.operator_id else None,
                 operator_username=audit_log.operator_username,
                 operator_nickname=audit_log.operator_nickname,
+                auth_method=audit_log.auth_method,
+                api_key_id=audit_log.api_key_id,
                 result=audit_log.result,
                 error_code=audit_log.error_code,
                 error_message=audit_log.error_message,
@@ -118,6 +125,7 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
                       operator_username: str | None = None,
                       target_type: str | None = None,
                       target_id: str | None = None,
+                      auth_method: AuthMethodEnum | None = None,
                       result: AuditResultEnum | None = None,
                       request_id: str | None = None,
                       keyword: str | None = None,
@@ -130,7 +138,8 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
             module=module, resource=resource, action=action,
             operator_id=operator_id, operator_username=operator_username,
             target_type=target_type, target_id=target_id,
-            result=result, request_id=request_id, keyword=keyword,
+            auth_method=auth_method, result=result,
+            request_id=request_id, keyword=keyword,
             occurred_from=occurred_from, occurred_to=occurred_to,
         )
         # occurred_at 相同用 UUIDv7 兜底，保证分页稳定且与入队顺序一致
@@ -145,6 +154,7 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
                     operator_username: str | None = None,
                     target_type: str | None = None,
                     target_id: str | None = None,
+                    auth_method: AuthMethodEnum | None = None,
                     result: AuditResultEnum | None = None,
                     request_id: str | None = None,
                     keyword: str | None = None,
@@ -155,7 +165,8 @@ class AuditLogRepositoryTortoiseImpl(AuditLogRepository):
             module=module, resource=resource, action=action,
             operator_id=operator_id, operator_username=operator_username,
             target_type=target_type, target_id=target_id,
-            result=result, request_id=request_id, keyword=keyword,
+            auth_method=auth_method, result=result,
+            request_id=request_id, keyword=keyword,
             occurred_from=occurred_from, occurred_to=occurred_to,
         )
         return await qs.count()

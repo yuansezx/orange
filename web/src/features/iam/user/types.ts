@@ -1,12 +1,15 @@
 import type { PageQuery } from '@shared/api'
 
-import type { AuditFields, DeptRef } from '../types'
+import type { AuditFields, DeptRef, SortOrder } from '../types'
 
 /** 对齐后端 UserTypeEnum。 */
 export type UserType = 'admin_created' | 'self_registered' | 'system' | 'super_admin'
 
 /** 对齐后端 StatusEnum。 */
 export type UserStatus = 'active' | 'disabled'
+
+/** 对齐后端 `UserSortFieldEnum`。 */
+export type UserSortField = 'username' | 'nickname' | 'created_at' | 'updated_at'
 
 /** 用户列表读模型——字段对齐后端 `UserListItemResp`（数据 + 审计）。 */
 export interface UserListItem extends AuditFields {
@@ -42,6 +45,8 @@ export interface GetUsersQuery extends PageQuery {
   deleted?: boolean
   dept_id?: string
   need_change_password?: boolean
+  sort_by?: UserSortField
+  order?: SortOrder
 }
 
 /** 列表视图两端的公共入参——数据在 UserPage 取好后下发，视图只负责渲染。 */
@@ -127,6 +132,10 @@ export interface UserTableProps extends UserListViewProps {
   statusPendingId?: string
   onStatusChange: (user: UserListItem, status: UserStatus) => void
   onPageChange: (page: number, pageSize: number) => void
+  sortBy: UserSortField
+  order: SortOrder
+  /** 清空排序时传 undefined，回到后端默认（created_at desc）。 */
+  onSortChange: (sortBy: UserSortField | undefined, order: SortOrder | undefined) => void
 }
 
 /** 工具栏：筛选值 + 变更回调（回调 patch 的键即 URL query 参数名）。 */

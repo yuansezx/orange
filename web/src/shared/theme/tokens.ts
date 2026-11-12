@@ -33,7 +33,39 @@ import { appConfig } from '@shared/config'
  *  · 即"**多类 token 合到一个主题旋钮**"，而非"每类一个 config"——除非真要跨维度任意组合（罕见）。
  *    （此结论非定论；将来需求变可改，但要知道当初是这么想的。）
  */
-export const colorSchemes = {
+export interface ColorScheme {
+  brand: string
+  brandAction: string
+  brandActionText: string
+  brandSoft: string
+  bgLayout: string
+  bgContainer: string
+  bgMuted: string
+  bgSystemSidebar: string
+  bgWorkspaceNav: string
+  border: string
+  borderSecondary: string
+  text: string
+  textSecondary: string
+  textTertiary: string
+  navSelectedBg: string
+  navSelectedText: string
+  /**
+   * 可选：下拉/树的选中项配色。缺省沿用 antd 由主色派生的样式——浅色方案
+   * 是浅底深字、hover 只是变亮，正好合适；反色方案会派生成深底深字，需显式给值。
+   */
+  selectionBg?: string
+  selectionText?: string
+}
+
+/** 保留键名推导，同时把每套方案收窄到统一类型（可选字段才能被消费方读到）。 */
+function defineSchemes<T extends Record<string, ColorScheme>>(
+  schemes: T,
+): Record<keyof T, ColorScheme> {
+  return schemes
+}
+
+export const colorSchemes = defineSchemes({
   /** 橙（当前）：暖米白画布 + 暖炭灰文字，消费级暖调 */
   orange: {
     brand: '#f5822b',
@@ -94,8 +126,11 @@ export const colorSchemes = {
     textTertiary: '#8c8c8c',
     navSelectedBg: '#111111',
     navSelectedText: '#ffffff',
+    /** 反色方案：显式成对色，否则 antd 派生为深底深字 */
+    selectionBg: '#111111',
+    selectionText: '#ffffff',
   },
-} as const
+})
 
 export type ColorSchemeName = keyof typeof colorSchemes
 
@@ -105,6 +140,17 @@ function resolveColorScheme(name: string): (typeof colorSchemes)[ColorSchemeName
 
 /** 当前生效的配色（由 `config.json` 的 `colorScheme` 选定）。 */
 export const colorTokens = resolveColorScheme(appConfig.colorScheme)
+
+/**
+ * 语义色：不进 workspace 调色板，跨 workspace 保持一致。
+ * 只用于 filled（浅底深字）档：成功色换成低饱和深绿，避免 antd 默认
+ * 亮绿字 + 淡绿底的荧光感；solid 档仍用库预设色。
+ */
+export const semanticColors = {
+  success: '#2f6f3a',
+  successBg: '#eff5ea',
+  successBorder: '#cfe0c7',
+}
 
 /**
  * workspace 级配色：workspace 内部用到的颜色都从这里取（左栏、画布、容器、边框、文字、交互色）。
@@ -132,6 +178,9 @@ export interface WorkspacePalette {
   /** 交互色（主按钮/链接/焦点）及其实底文字 */
   action: string
   actionText: string
+  /** 下拉/树选中项（可选）：缺省用 antd 派生；反色方案需显式成对色 */
+  selectionBg?: string
+  selectionText?: string
 }
 
 export const defaultWorkspacePalette: WorkspacePalette = {
@@ -149,6 +198,8 @@ export const defaultWorkspacePalette: WorkspacePalette = {
   textTertiary: colorTokens.textTertiary,
   action: colorTokens.brandAction,
   actionText: colorTokens.brandActionText,
+  selectionBg: colorTokens.selectionBg,
+  selectionText: colorTokens.selectionText,
 }
 
 /** 合并 workspace 覆盖项；无覆盖时直接返回默认（保持引用稳定）。 */

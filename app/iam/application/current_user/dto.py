@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.iam.domain.shared.enums import AuthMethodEnum
 from app.iam.domain.shared.value_objects import UserId
 
 
@@ -31,6 +32,8 @@ class SessionOut(BaseModel):
     expires_at: datetime
     login_ip: str | None = None
     login_user_agent: str | None = None
+    # 建立会话时的凭据来源（password / oauth）
+    login_method: AuthMethodEnum
     browser: str | None = None
     browser_version: str | None = None
     os: str | None = None

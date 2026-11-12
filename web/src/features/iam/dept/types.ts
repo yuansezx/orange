@@ -25,6 +25,14 @@ export interface DeptTreeNode extends Dept {
   children: DeptTreeNode[]
 }
 
+/** 当前用户可见部门（精简树）——对齐后端 `VisibleDeptNodeResp`。 */
+export interface VisibleDeptNode {
+  id: string
+  name: string
+  parent_id: string | null
+  children: VisibleDeptNode[]
+}
+
 /** 部门扁平列表项（回收站）——对齐后端 `DeptListItemResp`（数据 + 审计）。 */
 export interface DeptListItem extends Dept, AuditFields {}
 

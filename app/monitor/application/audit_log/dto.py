@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.monitor.domain.audit_log.enums import AuditResultEnum
+from app.monitor.domain.audit_log.enums import AuditResultEnum, AuthMethodEnum
 from app.monitor.domain.shared.value_objects import AuditLogId, OperatorId
 
 
@@ -28,6 +28,10 @@ class AuditLogIn(BaseModel):
     operator_username: str | None = Field(default=None, max_length=64)
     operator_nickname: str | None = Field(default=None, max_length=128)
 
+    # 单次认证来源：登录事件 password/oauth；业务动作 session/api_key
+    auth_method: AuthMethodEnum | None = None
+    api_key_id: str | None = Field(default=None, max_length=128)
+
     result: AuditResultEnum
     error_code: str | None = Field(default=None, max_length=128)
     error_message: str | None = Field(default=None, max_length=1024)
@@ -51,6 +55,7 @@ class GetAuditLogsIn(BaseModel):
     operator_username: str | None = None
     target_type: str | None = None
     target_id: str | None = None
+    auth_method: AuthMethodEnum | None = None
     result: AuditResultEnum | None = None
     request_id: str | None = None
     keyword: str | None = None
@@ -75,6 +80,9 @@ class AuditLogOut(BaseModel):
     operator_id: OperatorId | None = None
     operator_username: str | None = None
     operator_nickname: str | None = None
+
+    auth_method: AuthMethodEnum | None = None
+    api_key_id: str | None = None
 
     result: AuditResultEnum
     error_code: str | None = None

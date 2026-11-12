@@ -1,7 +1,7 @@
 import { Button, Checkbox, ErrorBlock, List } from 'antd-mobile'
 import { Fragment } from 'react'
 
-import { browserText, formatTime, osText, userLabel } from '../../sessionFormat'
+import { browserText, formatTime, loginMethodText, osText, userLabel } from '../../sessionFormat'
 import type { SessionListViewProps } from '../../types'
 
 /**
@@ -65,7 +65,8 @@ export function SessionCardList({
                 <div>
                   <div>{osText(session)}</div>
                   <div>
-                    {session.login_ip || '未知 IP'} · 登录 {formatTime(session.login_at)}
+                    {loginMethodText(session)} · {session.login_ip || '未知 IP'} · 登录{' '}
+                    {formatTime(session.login_at)}
                   </div>
                   <div>过期 {formatTime(session.expires_at)}</div>
                 </div>

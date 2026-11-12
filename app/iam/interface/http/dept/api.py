@@ -24,6 +24,7 @@ from app.iam.interface.http.dept.schemas import (
     DeptTreeNodeResp,
     GetDeptsReq,
     UpdateDeptReq,
+    VisibleDeptNodeResp,
 )
 from app.iam.interface.http.schemas import UpdateStatusReq
 
@@ -58,6 +59,16 @@ async def get_dept_tree(
 ) -> list[DeptTreeNodeResp]:
     nodes = await dept_app_service.get_dept_tree(current_user)
     return [DeptTreeNodeResp(**n.model_dump()) for n in nodes]
+
+
+@dept_router.get('/visible', response_model=list[VisibleDeptNodeResp],
+                 summary='当前用户可见部门（精简，供选择器）')
+async def get_visible_depts(
+    current_user: CurrentUser = Depends(get_current_user),
+    dept_app_service: DeptApplicationService = Depends(get_dept_app_service),
+) -> list[VisibleDeptNodeResp]:
+    nodes = await dept_app_service.get_visible_depts(current_user)
+    return [VisibleDeptNodeResp.model_validate(n.model_dump()) for n in nodes]
 
 
 @dept_router.get('/{dept_id}', response_model=DeptResp, summary='部门详情')

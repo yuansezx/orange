@@ -1,7 +1,8 @@
 import { TreeSelect } from 'antd'
+import { useEffect, useMemo } from 'react'
 
-import { useDeptTree } from '../dept/hooks/useDeptTree'
-import { buildDeptTreeData } from './deptTree'
+import { useVisibleDepts } from '../dept/hooks/useVisibleDepts'
+import { buildDeptTreeData, collectDeptIds } from './deptTree'
 
 interface Props {
   value?: string[]
@@ -11,8 +12,8 @@ interface Props {
 }
 
 /**
- * 部门多选（树勾选）——用于角色的「自定义数据范围」。
- * 自带部门树取数（与其它部门选择器共用 `['dept-tree']`）。
+ * 部门多选（树勾选）——角色「自定义数据范围」与 API Key CUSTOM 范围共用。
+ * 取「当前用户可见部门」精简树（登录即可，不要求 `iam:dept:read`）。
  * `SHOW_CHILD`：勾父节点 → 值取其实叶子部门 id（「就是这些部门」的最字面语义）。
  */
 export function DeptTreeMultiSelect({
@@ -21,13 +22,29 @@ export function DeptTreeMultiSelect({
   placeholder = '选择部门',
   disabled,
 }: Props) {
-  const { data, isLoading } = useDeptTree()
+  const selected = useMemo(() => value ?? [], [value])
+  const { data, isLoading, isSuccess } = useVisibleDepts()
+  const known = useMemo(() => collectDeptIds(data ?? []), [data])
+
+  // 可见范围收窄后，历史值里已不可见的部门会被后端拒绝；加载成功后剔除（只会收窄）。
+  useEffect(() => {
+    if (!isSuccess) return
+    const filtered = selected.filter((id) => known.has(id))
+    if (filtered.length !== selected.length) onChange?.(filtered)
+  }, [isSuccess, known, selected, onChange])
+
+  const treeData = useMemo(() => {
+    const placeholders = selected
+      .filter((id) => !known.has(id))
+      .map((id) => ({ value: id, title: `部门 ${id.slice(0, 8)}` }))
+    return [...buildDeptTreeData(data ?? []), ...placeholders]
+  }, [data, selected, known])
 
   return (
     <TreeSelect
       value={value}
       onChange={(next) => onChange?.((next as string[] | undefined) ?? [])}
-      treeData={buildDeptTreeData(data ?? [])}
+      treeData={treeData}
       treeCheckable
       multiple
       allowClear

@@ -1,15 +1,19 @@
 """应用层鉴权装饰器。
 
-只覆盖**功能权限**（是否具备 `module:resource:action`）；**数据权限**（能否操作某具体资源）
-随调用而异、需查库，仍由应用服务显式调用 access service 判定。
+覆盖**功能权限**（是否具备 `module:resource:action`）与**认证来源**（是否交互式会话）；
+**数据权限**（能否操作某具体资源）随调用而异、需查库，仍由应用服务显式调用 access service 判定。
 
 约定：被装饰方法必须带名为 `current_user` 的 `CurrentUser` 参数（按名绑定）。
 """
 import functools
 import inspect
 
-from app.iam.application.common.exceptions import PermissionDeniedException
+from app.iam.application.common.exceptions import (
+    PermissionDeniedException,
+    SessionRequiredException,
+)
 from app.iam.domain.current_user.entities import CurrentUser
+from app.iam.domain.shared.enums import AuthMethodEnum
 
 
 def requires_permission(*groups: str | tuple[str, ...]):
@@ -44,3 +48,26 @@ def requires_permission(*groups: str | tuple[str, ...]):
         return wrapper
 
     return decorator
+
+
+def requires_session(func):
+    """认证来源门禁：只允许交互式会话（`auth_method=session`）。
+
+    用于敏感账户操作（API Key / 会话管理），防止泄露的 API Key 给自己续命或管理其他凭据。
+    被装饰方法须带名为 `current_user` 的参数（缺参数定义期报错）。
+    """
+    sig = inspect.signature(func)
+    if 'current_user' not in sig.parameters:
+        raise TypeError(
+            f'{func.__qualname__} 用 @requires_session 装饰，但缺少 current_user 参数')
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        current_user = sig.bind(*args, **kwargs).arguments.get('current_user')
+        if (not isinstance(current_user, CurrentUser)
+                or current_user.auth is None
+                or current_user.auth.method is not AuthMethodEnum.SESSION):
+            raise SessionRequiredException('该操作仅限交互式会话')
+        return await func(*args, **kwargs)
+
+    return wrapper

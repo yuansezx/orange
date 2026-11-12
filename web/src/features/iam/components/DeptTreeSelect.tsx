@@ -1,7 +1,7 @@
 import { TreeSelect } from 'antd'
 
-import { useDeptTree } from '../dept/hooks/useDeptTree'
-import { buildDeptTreeData } from './deptTree'
+import { useVisibleDepts } from '../dept/hooks/useVisibleDepts'
+import { buildDeptTreeData, collectDeptIds } from './deptTree'
 
 interface Props {
   value?: string
@@ -15,8 +15,9 @@ interface Props {
 
 /**
  * 部门选择器（树）。
- * 自带部门树取数（与 dept 页共用 `['dept-tree']` 查询，TanStack 自动去重）。
- * 出入为部门 id，可直接挂 antd `Form.Item`。供部门表单 / 后续角色、用户页复用。
+ * 取「当前用户可见部门」精简树（登录即可，不要求 `iam:dept:read`），
+ * 与用户/角色/API Key 表单共用 `['dept-visible']` 缓存。
+ * 出入为部门 id，可直接挂 antd `Form.Item`。
  */
 export function DeptTreeSelect({
   value,
@@ -26,8 +27,13 @@ export function DeptTreeSelect({
   allowClear = true,
   disabled,
 }: Props) {
-  const { data, isLoading } = useDeptTree()
-  const treeData = buildDeptTreeData(data ?? [], new Set(excludeIds ?? []))
+  const { data, isLoading } = useVisibleDepts()
+  const nodes = data ?? []
+  const treeData = buildDeptTreeData(nodes, new Set(excludeIds ?? []))
+  // 历史值已不在可见范围内时给占位节点，避免选择器显示裸 UUID
+  if (value && !collectDeptIds(nodes).has(value)) {
+    treeData.push({ value, title: `部门 ${value.slice(0, 8)}` })
+  }
 
   return (
     <TreeSelect

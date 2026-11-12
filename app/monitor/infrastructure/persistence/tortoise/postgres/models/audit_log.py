@@ -1,7 +1,7 @@
 from future_uuid import uuid7
 from tortoise import fields, models
 
-from app.monitor.domain.audit_log.enums import AuditResultEnum
+from app.monitor.domain.audit_log.enums import AuditResultEnum, AuthMethodEnum
 
 
 class AuditLogModel(models.Model):
@@ -31,6 +31,10 @@ class AuditLogModel(models.Model):
     operator_username = fields.CharField(max_length=64, null=True)
     operator_nickname = fields.CharField(max_length=128, null=True)
 
+    # 单次认证来源：登录事件 password/oauth；业务动作 session/api_key
+    auth_method = fields.CharEnumField(AuthMethodEnum, max_length=32, null=True)
+    api_key_id = fields.CharField(max_length=128, null=True)
+
     result = fields.CharEnumField(AuditResultEnum, max_length=50)
     error_code = fields.CharField(max_length=128, null=True)
     error_message = fields.TextField(null=True)
@@ -48,5 +52,6 @@ class AuditLogModel(models.Model):
             ('module', 'resource', 'action'),
             ('operator_id', 'occurred_at'),
             ('target_type', 'target_id'),
+            ('auth_method', 'occurred_at'),
             ('request_id',),
         )

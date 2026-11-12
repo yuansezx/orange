@@ -1,9 +1,11 @@
 import { App } from 'antd'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import { usePermission } from '@features/auth'
 import { Platform } from '@shared/platform'
 
+import type { SortOrder } from '../types'
 import { RoleDetailDrawer } from './components/RoleDetailDrawer'
 import { RoleFormDrawer } from './components/RoleFormDrawer'
 import { RoleMembersDrawer } from './components/RoleMembersDrawer'
@@ -12,7 +14,7 @@ import { RoleTable } from './components/desktop/RoleTable'
 import { RoleCardList } from './components/mobile/RoleCardList'
 import { useRoleMutations } from './hooks/useRoleMutations'
 import { useRoles } from './hooks/useRoles'
-import type { Role, RoleFormValues, RoleListItem } from './types'
+import type { GetRolesQuery, Role, RoleFormValues, RoleListItem, RoleSortField } from './types'
 
 interface DialogState {
   open: boolean
@@ -26,25 +28,44 @@ interface DialogState {
  * 写接口「全合」：POST / PUT 都提交整份角色（PUT 语义：传什么就设成什么）。
  */
 export default function RolePage() {
-  const [recycleMode, setRecycleMode] = useState(false)
-  const { data: roles = [], isLoading, error } = useRoles(recycleMode)
+  const [params, setParams] = useSearchParams()
   const { create, update, remove, setStatus, restore, hardDelete } = useRoleMutations()
   const { modal } = App.useApp()
   const { can } = usePermission()
   const canReadMembers = can('iam:user_role:read') && can('iam:user:read')
   const canManageMembers = can('iam:user_role:assign') && can('iam:user:read')
   const canViewMembers = canReadMembers
-  const [keyword, setKeyword] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false, mode: 'create' })
   const [membersTarget, setMembersTarget] = useState<RoleListItem | null>(null)
 
-  const filtered = useMemo(() => {
-    const query = keyword.trim().toLowerCase()
-    if (!query) return roles
-    return roles.filter(
-      (role) => role.name.toLowerCase().includes(query) || role.code.toLowerCase().includes(query),
-    )
-  }, [roles, keyword])
+  const page = Number(params.get('page') ?? '1') || 1
+  const pageSize = Number(params.get('page_size') ?? '10') || 10
+  const keyword = params.get('keyword') ?? ''
+  const recycleMode = params.get('deleted') === 'true'
+  const sortBy = (params.get('sort_by') as RoleSortField | null) ?? 'created_at'
+  const order = (params.get('order') as SortOrder | null) ?? 'desc'
+
+  const query: GetRolesQuery = {
+    page,
+    page_size: pageSize,
+    keyword: keyword || undefined,
+    deleted: recycleMode || undefined,
+    sort_by: sortBy,
+    order,
+  }
+  const { data, isLoading, error } = useRoles(query)
+  const roles = data?.data ?? []
+
+  /** 改筛选/分页：patch 的键即 URL query 参数名；不带 page 的改动回到第 1 页。 */
+  const updateQuery = (patch: Record<string, string | undefined>) => {
+    const next = new URLSearchParams(params)
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value)
+      else next.delete(key)
+    }
+    if (!('page' in patch)) next.set('page', '1')
+    setParams(next, { replace: true })
+  }
 
   const openCreate = () => setDialog({ open: true, mode: 'create' })
   const openView = (role: Role) => setDialog({ open: true, mode: 'view', role })
@@ -117,16 +138,19 @@ export default function RolePage() {
       <RoleToolbar
         keyword={keyword}
         recycleMode={recycleMode}
-        onKeywordChange={setKeyword}
-        onRecycleModeChange={setRecycleMode}
+        onKeywordChange={(value) => updateQuery({ keyword: value.trim() || undefined })}
+        onRecycleModeChange={(next) => updateQuery({ deleted: next ? 'true' : undefined })}
         onCreate={openCreate}
       />
       <Platform
         desktop={
           <RoleTable
-            roles={filtered}
+            roles={roles}
             loading={isLoading}
             error={error}
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
             recycleMode={recycleMode}
             canViewMembers={!recycleMode && canViewMembers}
             onViewMembers={setMembersTarget}
@@ -137,11 +161,22 @@ export default function RolePage() {
             onHardDelete={confirmHardDelete}
             statusPendingId={setStatus.isPending ? setStatus.variables?.id : undefined}
             onStatusChange={(role, status) => setStatus.mutate({ id: role.id, status })}
+            sortBy={sortBy}
+            order={order}
+            onSortChange={(nextSortBy, nextOrder) =>
+              updateQuery({
+                sort_by: nextSortBy ?? undefined,
+                order: nextOrder ?? undefined,
+              })
+            }
+            onPageChange={(nextPage, nextSize) =>
+              updateQuery({ page: String(nextPage), page_size: String(nextSize) })
+            }
           />
         }
         mobile={
           <RoleCardList
-            roles={filtered}
+            roles={roles}
             loading={isLoading}
             error={error}
             recycleMode={recycleMode}

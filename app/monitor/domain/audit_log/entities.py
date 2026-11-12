@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.monitor.domain.audit_log.enums import AuditResultEnum
+from app.monitor.domain.audit_log.enums import AuditResultEnum, AuthMethodEnum
 from app.monitor.domain.audit_log.exceptions import InvalidAuditLogException
 from app.monitor.domain.shared.value_objects import AuditLogId, OperatorId
 
@@ -42,6 +42,9 @@ class AuditLog(BaseModel):
     operator_id: OperatorId | None = None
     operator_username: str | None = Field(default=None, max_length=64)
     operator_nickname: str | None = Field(default=None, max_length=128)
+
+    auth_method: AuthMethodEnum | None = None
+    api_key_id: str | None = Field(default=None, max_length=128)
 
     result: AuditResultEnum
     error_code: str | None = Field(default=None, max_length=128)

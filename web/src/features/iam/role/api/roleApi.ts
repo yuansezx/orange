@@ -7,6 +7,7 @@ import type {
   CreateRoleReq,
   GetRoleCandidatesQuery,
   GetRoleMembersQuery,
+  GetRolesQuery,
   PatchRoleUsersReq,
   Role,
   RoleCandidateUser,
@@ -18,8 +19,9 @@ import type {
 
 const BASE = '/api/iam/roles'
 
-export function getRoles(deleted = false): Promise<RoleListItem[]> {
-  return get<RoleListItem[]>(BASE, deleted ? { deleted: true } : undefined)
+export async function getRoles(query: GetRolesQuery): Promise<PageResult<RoleListItem>> {
+  const page = await get<PageResult<RoleListItem>>(BASE, query)
+  return { ...page, data: page.data ?? [] }
 }
 
 export function getRole(id: string): Promise<Role> {

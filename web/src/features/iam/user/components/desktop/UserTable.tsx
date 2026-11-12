@@ -7,7 +7,7 @@ import { IconEdit, IconKey, IconRestore, IconShieldLock, IconTrash, IconTrashX }
 
 import { StatusSwitch } from '../../../components/StatusSwitch'
 import { USER_TYPE_LABELS } from '../../constants'
-import type { UserListItem, UserTableProps, UserType } from '../../types'
+import type { UserListItem, UserSortField, UserTableProps, UserType } from '../../types'
 
 /**
  * 【分叉档 · 桌面】—— 宽表格在窄屏不可用，故与移动端拆开。
@@ -34,6 +34,9 @@ export function UserTable({
   statusPendingId,
   onStatusChange,
   onPageChange,
+  sortBy,
+  order,
+  onSortChange,
 }: UserTableProps) {
   if (error) {
     return <Alert type="error" message={error.message} showIcon />
@@ -43,6 +46,9 @@ export function UserTable({
     event.stopPropagation()
     handler()
   }
+
+  const sortOrderOf = (field: UserSortField): 'ascend' | 'descend' | null =>
+    sortBy === field ? (order === 'asc' ? 'ascend' : 'descend') : null
 
   const recycleColumns: NonNullable<TableProps<UserListItem>['columns']> = recycleMode
     ? [
@@ -61,8 +67,8 @@ export function UserTable({
     : []
 
   const columns: TableProps<UserListItem>['columns'] = [
-    { title: '用户名', dataIndex: 'username' },
-    { title: '昵称', dataIndex: 'nickname' },
+    { title: '用户名', dataIndex: 'username', sorter: true, sortOrder: sortOrderOf('username') },
+    { title: '昵称', dataIndex: 'nickname', sorter: true, sortOrder: sortOrderOf('nickname') },
     { title: '邮箱', dataIndex: 'email' },
     { title: '手机号', dataIndex: 'phone' },
     {
@@ -96,6 +102,8 @@ export function UserTable({
     {
       title: '创建时间',
       dataIndex: 'created_at',
+      sorter: true,
+      sortOrder: sortOrderOf('created_at'),
       render: (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-'),
     },
     ...recycleColumns,
@@ -181,6 +189,18 @@ export function UserTable({
       columns={columns}
       dataSource={users}
       onRow={(record) => ({ onClick: () => onView(record), style: { cursor: 'pointer' } })}
+      onChange={(_, __, sorter, extra) => {
+        if (extra.action !== 'sort') return
+        const current = Array.isArray(sorter) ? sorter[0] : sorter
+        if (!current?.order) {
+          onSortChange(undefined, undefined)
+          return
+        }
+        onSortChange(
+          current.field as UserSortField,
+          current.order === 'ascend' ? 'asc' : 'desc',
+        )
+      }}
       pagination={{
         current: page,
         pageSize,

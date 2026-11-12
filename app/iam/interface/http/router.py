@@ -4,6 +4,7 @@ app 工厂按 `core.modules` 动态 include 本模块；路由本体在各自的
 """
 from fastapi import APIRouter
 
+from app.iam.interface.http.api_key.api import admin_api_key_router, self_api_key_router
 from app.iam.interface.http.auth.api import auth_router
 from app.iam.interface.http.dept.api import dept_router
 from app.iam.interface.http.session.api import session_router
@@ -19,3 +20,5 @@ router.include_router(role_router)
 router.include_router(resource_router)
 router.include_router(permission_router)
 router.include_router(session_router)
+router.include_router(self_api_key_router)
+router.include_router(admin_api_key_router)
