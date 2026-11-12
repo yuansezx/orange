@@ -2,6 +2,8 @@ import { Alert, Button, Space, Table, Tag, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import dayjs from 'dayjs'
 
+import { IconEdit, IconTrashX } from '@shared/ui'
+
 import { StatusSwitch } from '../../../components/StatusSwitch'
 import { STATUS_COLORS, STATUS_LABELS } from '../../../constants'
 import type { Status } from '../../../types'
@@ -130,20 +132,29 @@ export function ApiKeyTable({
     {
       title: '操作',
       key: 'actions',
-      width: 130,
+      width: 100,
       render: (_, key) => {
         if (recycleMode) return '—'
         const actions = (
-          <Space size={4}>
+          <Space size={8}>
             {onEdit && (
-              <Button type="link" size="small" onClick={() => onEdit(key)}>
-                编辑
-              </Button>
+              <Tooltip title="编辑">
+                <Button
+                  type="text"
+                  icon={<IconEdit size={16} />}
+                  onClick={() => onEdit(key)}
+                />
+              </Tooltip>
             )}
             {canDelete && (
-              <Button type="link" size="small" danger onClick={() => onRevoke(key)}>
-                吊销
-              </Button>
+              <Tooltip title="吊销">
+                <Button
+                  type="text"
+                  danger
+                  icon={<IconTrashX size={16} />}
+                  onClick={() => onRevoke(key)}
+                />
+              </Tooltip>
             )}
           </Space>
         )
