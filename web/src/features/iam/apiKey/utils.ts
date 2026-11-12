@@ -37,5 +37,9 @@ export function toUpdateApiKeyReq(values: ApiKeyFormValues): UpdateApiKeyReq {
 export const formatTime = (value: string | null) =>
   value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—'
 
+/** 最近使用只展示日期：刷新精度由缓存 TTL（1h）决定，不展示具体时分。 */
+export const formatDate = (value: string | null) =>
+  value ? dayjs(value).format('YYYY-MM-DD') : '—'
+
 export const isExpired = (key: Pick<ApiKey, 'expires_at'>) =>
   key.expires_at !== null && dayjs(key.expires_at).isBefore(dayjs())

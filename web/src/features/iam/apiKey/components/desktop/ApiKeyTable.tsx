@@ -9,7 +9,7 @@ import { STATUS_COLORS, STATUS_LABELS } from '../../../constants'
 import type { Status } from '../../../types'
 import { API_KEY_DATA_SCOPE_LABELS } from '../../constants'
 import type { ApiKeyRow } from '../../types'
-import { formatTime, isExpired } from '../../utils'
+import { formatDate, isExpired } from '../../utils'
 
 interface Props {
   keys: ApiKeyRow[]
@@ -126,8 +126,8 @@ export function ApiKeyTable({
     {
       title: '最近使用',
       dataIndex: 'last_used_at',
-      width: 160,
-      render: (value: string | null) => formatTime(value),
+      width: 120,
+      render: (value: string | null) => formatDate(value),
     },
     {
       title: '操作',

@@ -1,10 +1,7 @@
 from datetime import datetime, timedelta, UTC
 
-from loguru import logger
-
 from app.core.application.dto import RequestMeta
 from app.core.domain.units_of_work import InTransactionType
-from app.core.exceptions import PersistenceException
 from app.iam.application.api_key.dto import (
     ApiKeyAdminOut,
     ApiKeyCreatedOut,
@@ -40,8 +37,6 @@ from app.iam.domain.shared.value_objects import ApiKeyId, DeptId, UserId
 from app.iam.domain.user.enums import UserTypeEnum
 from app.iam.domain.user.repositories import UserRepository
 
-# last_used 的节流窗口：同一把 key 最多每 5 分钟写一次
-LAST_USED_THROTTLE_SECONDS = 300
 DEFAULT_EXPIRY_DAYS = 90
 
 _AUDIT_VERBS = {'create': '创建', 'update': '更新', 'status': '变更状态', 'delete': '吊销'}
@@ -85,7 +80,6 @@ class ApiKeyAuthenticationService:
         if base.user_type is UserTypeEnum.SUPER_ADMIN:
             raise InvalidTokenException('无效令牌')
 
-        await self._touch_last_used(key, now)
         return base.model_copy(update={
             'permission_codes': ApiKeyAccessService.effective_permission_codes(base, key),
             'data_scope_spec': ApiKeyAccessService.effective_data_scope(base, key),
@@ -95,17 +89,6 @@ class ApiKeyAuthenticationService:
                 api_key_name=key.name,
             ),
         })
-
-    async def _touch_last_used(self, key: ApiKey, now: datetime) -> None:
-        """节流写最近使用时间；bookkeeping 失败不影响认证结果。"""
-        if (key.last_used_at is not None
-                and now - key.last_used_at < timedelta(seconds=LAST_USED_THROTTLE_SECONDS)):
-            return
-        try:
-            await self.api_key_repo.update_last_used(key.id, now)
-        except PersistenceException:
-            logger.exception('更新 API Key 最近使用时间失败：api_key_id={}', key.id)
-
 
 class ApiKeyApplicationService:
     """API Key 自助管理 + 管理员管控。

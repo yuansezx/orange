@@ -5,7 +5,7 @@ import { STATUS_LABELS } from '../../../constants'
 import type { Status } from '../../../types'
 import { API_KEY_DATA_SCOPE_LABELS } from '../../constants'
 import type { ApiKey, ApiKeyRow } from '../../types'
-import { formatTime, isExpired } from '../../utils'
+import { formatDate, formatTime, isExpired } from '../../utils'
 
 interface Props {
   keys: ApiKeyRow[]
@@ -62,7 +62,7 @@ export function ApiKeyCardList({
                 </div>
                 <div>
                   过期 {key.expires_at ? formatTime(key.expires_at) : '永久'}
-                  {isExpired(key) ? '（已过期）' : ''} · 最近使用 {formatTime(key.last_used_at)}
+                  {isExpired(key) ? '（已过期）' : ''} · 最近使用 {formatDate(key.last_used_at)}
                 </div>
               </div>
             }
