@@ -19,8 +19,7 @@ class ApiKeyRepository(BaseRepository[ApiKeyId, ApiKey]):
                                 include_deleted: bool = False) -> ApiKey | None:
         """按整串 token 的摘要查（认证路径）；默认不返回已吊销的 key。
 
-        实现可在从持久化源装载（缓存未命中）且 key 可认证时记录一次
-        `last_used_at`；使用痕迹按缓存窗口刷新，认证链路本身不再单独写。
+        返回完整实体（含有效的 `last_used_at`）。
         """
         ...
 

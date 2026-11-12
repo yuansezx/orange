@@ -1,6 +1,7 @@
 """ApiKey 的 tortoise 仓储实现（含 领域 ↔ 表 映射）。"""
 from datetime import datetime
 
+from app.core.exceptions import PersistenceException
 from app.iam.domain.api_key.entities import ApiKey
 from app.iam.domain.api_key.repositories import ApiKeyRepository
 from app.iam.domain.shared.enums import StatusEnum
@@ -101,7 +102,11 @@ class ApiKeyRepositoryTortoiseImpl(ApiKeyRepository):
         return [to_domain(m) for m in models]
 
     async def update_last_used(self, api_key_id: ApiKeyId, used_at: datetime) -> None:
-        await ApiKeyModel.filter(id=api_key_id.value).update(last_used_at=used_at)
+        # 认证路径的 bookkeeping，调用方按 best-effort 处理；库异常转中立异常
+        try:
+            await ApiKeyModel.filter(id=api_key_id.value).update(last_used_at=used_at)
+        except Exception as exc:
+            raise PersistenceException('更新 API Key 使用时间失败') from exc
 
     async def hard_delete_by_user(self, user_id: UserId) -> int:
         return await ApiKeyModel.filter(user_id=user_id.value).delete()
