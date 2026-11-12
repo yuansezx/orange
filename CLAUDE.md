@@ -114,6 +114,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 ## 架构规范
 
 - **层依赖方向**：`interface → application → domain`；`infrastructure → domain`。`core` 不依赖任何业务模块。
+- **配置分层**：配置在边缘加载、值流入内层；**`domain` / `application` 不 import settings**，组合根（`interface/dependences.py`）是唯一读取配置单例并完成装配的地方。落点：基础设施配置（连接串 / 密钥 / 桶名）留 infrastructure；应用策略（TTL / 上传上限 / 分页上限）由组合根注入标量，或放 `application/common/config.py` 的 frozen 配置模型；领域可配置规则（如密码长度）在 domain 定义 frozen 策略 / 值对象，由组合根映射后注入。真正的领域不变式仍硬编码在实体，不把配置当万能开关。
 - **配置**：分节 YAML（`core` / `iam`）+ `.env`；优先级 **`init > env > dotenv > yaml > secret`**（env 高于文件，容器里可用环境变量覆盖）。
   - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、**`modules`**（启用模块清单）、`persistence`
   - `persistence`：`backend`（ORM）+ `auto_migrate` + `use_tz`/`timezone` + `options`（**连接映射** `{连接名: {dialect, credentials}}`；每个连接**自带引擎** `dialect`，`engine` 由方言层补、不写进配置）

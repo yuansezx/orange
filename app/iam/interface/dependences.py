@@ -271,6 +271,7 @@ def get_current_user_app_service() -> CurrentUserApplicationService:
         session_manager=get_session_manager(),
         audit_log_writer=get_audit_log_writer(),
         in_transaction=get_in_transaction(),
+        session_ttl_seconds=IAM_SETTINGS.jwt_config.expire_minutes * 60,
     )
 
 
