@@ -5,7 +5,7 @@ import { useMe } from './useMe'
  * 码缺省 / 空串 = 永远可见。菜单按此过滤（数据权限不在此列）。
  */
 export function usePermission() {
-  const { data: me } = useMe()
+  const { data: me, isLoading } = useMe()
 
   const can = (code?: string): boolean => {
     if (!code) return true
@@ -14,5 +14,5 @@ export function usePermission() {
     return (me.permission_codes ?? []).includes(code)
   }
 
-  return { can, me }
+  return { can, me, isLoading }
 }
