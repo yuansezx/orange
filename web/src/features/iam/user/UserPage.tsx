@@ -133,7 +133,7 @@ export default function UserPage() {
           phone,
           status: values.status,
           description,
-          ...(canAssignRoles ? { role_ids: values.role_ids ?? [] } : {}),
+          ...(canManageRoles ? { role_ids: values.role_ids ?? [] } : {}),
           dept_id: deptId,
         },
         {
@@ -259,7 +259,7 @@ export default function UserPage() {
         open={dialog.open}
         mode={dialog.mode}
         user={dialog.user}
-        canAssignRoles={canAssignRoles}
+        canAssignRoles={canManageRoles}
         pending={pending}
         onSubmit={submit}
         onClose={close}

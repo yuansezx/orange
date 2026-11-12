@@ -27,6 +27,9 @@ export function RoleToolbar({
         placeholder="搜索 名称 / 标识"
         style={{ width: 240, maxWidth: '100%' }}
         onSearch={(value) => onKeywordChange(value)}
+        onChange={(event) => {
+          if (!event.target.value) onKeywordChange('')
+        }}
       />
       {!recycleMode && (
         <Button type="primary" onClick={onCreate}>

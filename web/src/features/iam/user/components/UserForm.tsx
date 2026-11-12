@@ -83,7 +83,7 @@ interface Props {
   mode: 'create' | 'edit'
   /** 编辑时用列表行初始化（列表已含表单字段；角色走独立管理入口）。 */
   initial?: UserListItem
-  /** 创建时是否展示角色字段（`iam:user_role:assign`）；编辑不改角色。 */
+  /** 创建时是否展示角色字段（需 `iam:user_role:assign` + `iam:role:read`）；编辑不改角色。 */
   canAssignRoles: boolean
   onSubmit: (values: UserFormValues) => void
 }

@@ -29,6 +29,9 @@ export function UserToolbar({
         placeholder="搜索 用户名 / 昵称 / 邮箱 / 手机号"
         style={{ width: 280, maxWidth: '100%' }}
         onSearch={(value) => onChange({ keyword: value.trim() || undefined })}
+        onChange={(event) => {
+          if (!event.target.value) onChange({ keyword: undefined })
+        }}
       />
       <div style={{ width: 180 }}>
         <DeptTreeSelect

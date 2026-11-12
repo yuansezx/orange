@@ -68,6 +68,12 @@ export function RolePicker({ value, onChange, pageSize = 8 }: Props) {
           setKeyword(next.trim())
           setPage(1)
         }}
+        onChange={(event) => {
+          if (!event.target.value) {
+            setKeyword('')
+            setPage(1)
+          }
+        }}
       />
       <Table<RoleListItem>
         rowKey="id"
