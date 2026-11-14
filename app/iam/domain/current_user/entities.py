@@ -1,7 +1,13 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.iam.domain.shared.enums import AuthMethodEnum
-from app.iam.domain.shared.value_objects import ApiKeyId, DataScopeSpec, DeptId, RoleSummary, UserId
+from app.iam.domain.shared.value_objects import (
+    ApiKeyId,
+    DataScopeSpec,
+    DeptSummary,
+    RoleSummary,
+    UserId,
+)
 from app.iam.domain.user.enums import UserTypeEnum
 
 
@@ -30,7 +36,9 @@ class CurrentUser(BaseModel):
     # 解析好的数据范围（快照构建时算好、随快照缓存；读侧直接用）
     data_scope_spec: DataScopeSpec
     roles: list[RoleSummary] | None = None
-    dept_id: DeptId | None = None
+    # 所属部门快照：id + 名称 + 祖先链（供展示与 dept_and_child 可见性判定）。
+    # 必填（可为 None）：旧快照缺该字段时解析失败，按缓存未命中重建。
+    dept: DeptSummary | None
     avatar_key: str | None = None
     permission_codes: list[str] | None = None
     # 单次认证上下文：每请求不同，序列化时排除（不进用户快照）

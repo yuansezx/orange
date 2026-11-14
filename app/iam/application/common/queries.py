@@ -17,9 +17,10 @@ class EffectivePermissionQuery(ABC):
 
 
 class UsersAffectedByDeptChangeQuery(ABC):
-    """部门结构变更 → 数据范围会变、需失效快照的用户（CQRS 读侧）。
+    """部门变更 → 需失效快照的用户（CQRS 读侧）。
 
-    = 自身部门落在受影响集内 且 持有 ACTIVE 的 `data_scope=DEPT_AND_CHILD` 角色 的用户。
+    快照含 `data_scope_spec` 与 `dept.ancestors/name`，两者都可能因部门变更而变；
+    直接返回受影响部门内的**全部用户**（宁可多清，清缓存幂等）。
     """
 
     @abstractmethod

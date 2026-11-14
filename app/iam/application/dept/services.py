@@ -202,13 +202,20 @@ class DeptApplicationService:
                 if parent is not None and not await self.dept_access_service.can_access(parent.id, current_user):
                     raise PermissionDeniedException('无权移动到该部门下')
                 dept.move_under(parent, operator)  # 改 parent_id + ancestors，含环路校验
-                for child in await self.dept_repo.get_descendants(dept.id):
+                descendants = await self.dept_repo.get_descendants(dept.id)
+                for child in descendants:
                     child.ancestors = shift_descendant_ancestors(child.ancestors, dept.id, dept.ancestors)
                     child.updated_by = operator
                     child.updated_at = datetime.now(UTC)
                     await self.dept_repo.update(child)
-                # 受影响 = 旧/新父祖先链的对称差（这些部门的 DEPT_AND_CHILD 展开会变）
+                # 受影响 = 旧/新父祖先链的对称差（DEPT_AND_CHILD 展开会变）
+                # + 被移动部门及其子树（自身祖先链变了，快照里的 dept.ancestors 需重建）
                 affected = parent_chain(old_parent) ^ parent_chain(parent)
+                affected |= {dept.id, *(child.id for child in descendants)}
+
+            if new_name != dept.name:
+                # 部门名进了 CurrentUser 快照的 dept 摘要，重命名要清该部门用户快照
+                affected.add(dept.id)
 
             if {'name', 'leader_id', 'email', 'phone', 'description'} & provided:
                 dept.change_profile(

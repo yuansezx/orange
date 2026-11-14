@@ -2,7 +2,7 @@
 from pydantic import BaseModel
 
 from app.iam.domain.current_user.entities import AuthContext
-from app.iam.domain.shared.value_objects import DataScopeSpec, DeptId, RoleSummary, UserId
+from app.iam.domain.shared.value_objects import DataScopeSpec, DeptSummary, RoleSummary, UserId
 from app.iam.domain.user.enums import UserTypeEnum
 
 
@@ -14,7 +14,7 @@ class CurrentUserResp(BaseModel):
     user_type: UserTypeEnum
     data_scope_spec: DataScopeSpec
     roles: list[RoleSummary] | None = None
-    dept_id: DeptId | None = None
+    dept: DeptSummary | None = None
     permission_codes: list[str] | None = None
     # 单次认证来源；消费方审计/策略用
     auth: AuthContext | None = None

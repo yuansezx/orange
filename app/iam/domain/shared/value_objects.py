@@ -75,6 +75,15 @@ class RoleSummary(BaseModel):
     name: str
 
 
+class DeptSummary(BaseModel):
+    """部门快照（当前用户所属部门）；`ancestors` 为根 → 父，不含自己。"""
+    model_config = ConfigDict(frozen=True)
+
+    id: DeptId
+    name: str
+    ancestors: tuple[DeptId, ...] = ()
+
+
 class DataScopeSpec(BaseModel):
     """数据范围**规约**（selection）——解析结果，供仓储/查询**翻译**成过滤条件（不推导政策）。"""
     model_config = ConfigDict(frozen=True)

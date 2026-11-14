@@ -260,6 +260,7 @@ def get_current_user_snapshot_service() -> CurrentUserSnapshotService:
         current_user_repo=get_current_user_repo(),
         effective_permission_query=get_effective_permission_query(),
         data_scope_service=get_data_scope_service(),
+        dept_repo=get_dept_repo(),
     )
 
 
