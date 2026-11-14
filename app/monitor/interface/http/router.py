@@ -3,7 +3,9 @@ from fastapi import APIRouter
 
 from app.monitor.interface.http.audit_log.api import audit_log_router
 from app.monitor.interface.http.health.api import health_router
+from app.monitor.interface.http.system.api import system_router
 
 router = APIRouter()
 router.include_router(health_router)
 router.include_router(audit_log_router)
+router.include_router(system_router)

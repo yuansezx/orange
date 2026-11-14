@@ -1,9 +1,10 @@
 import { createElement, lazy } from 'react'
 
 import type { FeatureModule } from '@shared/navigation'
-import { IconFileText } from '@shared/ui'
+import { IconFileText, IconInfoCircle } from '@shared/ui'
 
 const AuditLogPage = lazy(() => import('./auditLog/AuditLogPage'))
+const SystemInfoPage = lazy(() => import('./system/SystemInfoPage'))
 
 /** monitor 模块门面：向后台管理贡献监控分组 + 审计日志入口。 */
 export const feature: FeatureModule = {
@@ -24,6 +25,14 @@ export const feature: FeatureModule = {
           permission: 'monitor:audit_log:read',
           icon: createElement(IconFileText, { size: 16 }),
           element: createElement(AuditLogPage),
+        },
+        {
+          key: 'monitor-system',
+          label: '版本信息',
+          path: 'system',
+          permission: 'monitor:system:read',
+          icon: createElement(IconInfoCircle, { size: 16 }),
+          element: createElement(SystemInfoPage),
         },
       ],
     },

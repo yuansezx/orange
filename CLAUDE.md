@@ -191,7 +191,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 
 ## 版本与发布
 
-**版本源**：后端 `[project].version`（`pyproject.toml`，`uv.lock` 同步）与前端 `web/package.json` **独立**，不要求两边数字对齐；非平台模块仓同理，由模块仓自持版本。
+**版本源**：后端 `[project].version`（`pyproject.toml`，`uv.lock` 同步）与前端 `web/package.json` **独立**，不要求两边数字对齐；非平台模块仓同理，由模块仓自持版本。非平台模块的后端版本在 `app/<module>/pyproject.toml`、前端版本在 `web/src/features/<module>/package.json`——monitor 的「版本信息」页按这两个位置读取展示。
 
 **语义**：
 - **app（后端）按 API 契约用 SemVer**：新增端口/字段 → minor；修复 → patch；删除/改语义/改鉴权 → major。`0.x` 阶段 API 不承诺稳定，破坏性变更可用 minor 承载，但要在发布说明里写明。
