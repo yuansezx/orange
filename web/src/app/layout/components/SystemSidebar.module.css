@@ -1,0 +1,4 @@
+/* 不支持 corner-shape 的浏览器会忽略该声明，保留普通圆角。 */
+.workspaceItem {
+  corner-shape: squircle;
+}
