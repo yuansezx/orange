@@ -4,7 +4,6 @@
 接口层只 `Depends(get_current_user)` 提取身份。
 """
 from typing import Annotated
-from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
@@ -20,6 +19,7 @@ from app.iam.application.user.services import AVATAR_MAX_BYTES, UserApplicationS
 from app.iam.application.user_role_assignment.services import UserRoleApplicationService
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.shared.value_objects import UserId
+from app.iam.interface.common.avatar_url import build_avatar_url
 from app.iam.interface.dependences import (
     get_current_user_app_service,
     get_user_app_service,
@@ -49,19 +49,11 @@ from app.iam.interface.http.user.schemas import (
 user_router = APIRouter(prefix='/users', tags=['用户'])
 
 
-def _avatar_url(user_id: UserId, avatar_key: str | None) -> str | None:
-    """相对 URL（带 key 末段作版本号）；由前端经同一 origin 访问。"""
-    if not avatar_key:
-        return None
-    version = quote(avatar_key.rsplit('/', 1)[-1], safe='')
-    return f'/api/iam/users/{user_id}/avatar?v={version}'
-
-
 def _profile_resp(profile: MyProfileOut) -> MyProfileResp:
     """应用 DTO → 对外响应：去掉内部 avatar_key，补 avatar_url。"""
     return MyProfileResp(
         **profile.model_dump(exclude={'avatar_key'}),
-        avatar_url=_avatar_url(profile.user_id, profile.avatar_key),
+        avatar_url=build_avatar_url(profile.user_id, profile.avatar_key),
     )
 
 
@@ -98,7 +90,7 @@ async def list_users(
 @user_router.get('/me', response_model=CurrentUserResp, summary='当前用户')
 async def get_me(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUserResp:
     resp = CurrentUserResp.model_validate(current_user, from_attributes=True)
-    resp.avatar_url = _avatar_url(current_user.user_id, current_user.avatar_key)
+    resp.avatar_url = build_avatar_url(current_user.user_id, current_user.avatar_key)
     return resp
 
 
