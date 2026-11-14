@@ -8,6 +8,8 @@ interface Props {
   onChange?: (value?: string) => void
   /** 需禁用的节点 id（编辑时传自身及子孙，防环；后端亦校验）。 */
   excludeIds?: string[]
+  /** 禁用停用部门（挂成员场景）；按停用部门筛选等历史场景不要开。 */
+  disableInactive?: boolean
   placeholder?: string
   allowClear?: boolean
   disabled?: boolean
@@ -23,13 +25,14 @@ export function DeptTreeSelect({
   value,
   onChange,
   excludeIds,
+  disableInactive,
   placeholder = '选择部门',
   allowClear = true,
   disabled,
 }: Props) {
   const { data, isLoading } = useVisibleDepts()
   const nodes = data ?? []
-  const treeData = buildDeptTreeData(nodes, new Set(excludeIds ?? []))
+  const treeData = buildDeptTreeData(nodes, new Set(excludeIds ?? []), disableInactive)
   // 历史值已不在可见范围内时给占位节点，避免选择器显示裸 UUID
   if (value && !collectDeptIds(nodes).has(value)) {
     treeData.push({ value, title: `部门 ${value.slice(0, 8)}` })

@@ -171,7 +171,7 @@ export function UserForm({ formId, mode, initial, canAssignRoles, onSubmit }: Pr
         <Select options={STATUS_OPTIONS} />
       </Form.Item>
       <Form.Item name="dept_id" label="部门">
-        <DeptTreeSelect />
+        <DeptTreeSelect disableInactive />
       </Form.Item>
       {mode === 'create' && canAssignRoles && (
         <Form.Item name="role_ids" label="角色">

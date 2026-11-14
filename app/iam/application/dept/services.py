@@ -56,7 +56,8 @@ def _build_tree(depts: list[Dept]) -> list[DeptTreeNode]:
 
 def _build_minimal_tree(depts: list[Dept]) -> list[MyDeptNode]:
     """精简版部门树（自助选择用）：结构同上，只保留 id/name/parent_id。"""
-    nodes = {d.id: MyDeptNode(id=d.id, name=d.name, parent_id=d.parent_id) for d in depts}
+    nodes = {d.id: MyDeptNode(id=d.id, name=d.name, parent_id=d.parent_id, status=d.status)
+             for d in depts}
     roots: list[MyDeptNode] = []
     for d in depts:
         parent = nodes.get(d.parent_id)
