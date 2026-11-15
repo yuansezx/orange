@@ -52,12 +52,13 @@ class CurrentUser(BaseModel):
           `has_permission(('a', 'b'), 'c')`     ⇔ (a ∧ b) ∨ c
           `has_permission('a')`                 ⇔ a
 
-        空参不是有效要求：`requires_permission` 在定义期拒绝空参，本谓词对空参返回 False。
+        空参是「无要求」，恒真；闸门 `requires_permission` 在定义期拒绝空参，
+        因此正常调用不会以空参作为一条要求。
         谓词问「是否满足要求」，闸门表达「这是一条要求」。
 
         超管为逃生舱（不依赖角色分配）、沿用 `can_access` 的旁路约定，恒 True。
         """
-        if self.user_type is UserTypeEnum.SUPER_ADMIN:
+        if self.user_type is UserTypeEnum.SUPER_ADMIN or not groups:
             return True
         granted = set(self.permission_codes or ())
         return any(
