@@ -1,18 +1,24 @@
 """API Key 仓储的 Redis cache-aside 装饰器。
 
-缓存只服务认证路径（`get_by_token_hash`）；写路径负责淘汰，短 TTL 兜底。
+缓存只服务认证路径（`get_by_token_hash`）；写路径负责淘汰，TTL 兜底。
+每次 cache miss（装载）且 key 可认证时写一次 `last_used_at`，并把新值回填进
+缓存实体；使用时间的刷新频率因此与 TTL 一致，缓存始终保存完整实体。
+**架构妥协**：`last_used_at` 更新本属应用层用例副作用，这里因只有缓存层知道
+装载时机而暂由本层承担（轻量业务逻辑泄露），待有更好实现或需求变化时迁出。
 不缓存按 key 派生的 CurrentUser——那是用户快照，按 user_id 单独缓存。
 """
-from datetime import datetime
+from datetime import datetime, UTC
 
+from loguru import logger
 from redis.asyncio import Redis
 
+from app.core.exceptions import PersistenceException
 from app.iam.domain.api_key.entities import ApiKey
 from app.iam.domain.api_key.repositories import ApiKeyRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.value_objects import ApiKeyId, UserId
 
-API_KEY_CACHE_TTL_SECONDS = 300
+API_KEY_CACHE_TTL_SECONDS = 3600
 
 
 class ApiKeyRepositoryWithRedisCacheImpl(ApiKeyRepository):
@@ -39,6 +45,16 @@ class ApiKeyRepositoryWithRedisCacheImpl(ApiKeyRepository):
 
         key = await self.inner.get_by_token_hash(token_hash)
         if key is not None:
+            now = datetime.now(UTC)
+            if key.can_authenticate(now):
+                # 架构妥协：last_used_at 更新属应用层用例副作用，暂由缓存层承担
+                # （轻量业务逻辑泄露）；待独立节流端口等更好实现或需求变化时迁出。
+                try:
+                    await self.inner.update_last_used(key.id, now)
+                except PersistenceException:
+                    logger.exception('更新 API Key 最近使用时间失败：api_key_id={}', key.id)
+                else:
+                    key.mark_used(now)
             await self.redis_conn.set(
                 cache_key, key.model_dump_json(), ex=API_KEY_CACHE_TTL_SECONDS)
         return key

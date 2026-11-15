@@ -18,6 +18,7 @@ export {
   IconDownload,
   IconEdit,
   IconFileText,
+  IconInfoCircle,
   IconKey,
   IconLayoutDashboard,
   IconLogout,

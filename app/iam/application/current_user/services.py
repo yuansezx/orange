@@ -30,7 +30,6 @@ from app.iam.domain.shared.enums import AuthMethodEnum, StatusEnum
 from app.iam.domain.shared.value_objects import UserId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.repositories import UserRepository
-from app.iam.infrastructure.settings import IAM_SETTINGS
 
 
 class CurrentUserApplicationService:
@@ -45,13 +44,15 @@ class CurrentUserApplicationService:
                  current_user_snapshot: CurrentUserSnapshotService,
                  session_manager: SessionManagerPort,
                  audit_log_writer: AuditLogWriterPort,
-                 in_transaction: InTransactionType) -> None:
+                 in_transaction: InTransactionType,
+                 session_ttl_seconds: int) -> None:
         self.user_repo = user_repo
         self.current_user_repo = current_user_repo
         self.current_user_snapshot = current_user_snapshot
         self.session_manager = session_manager
         self.audit_log_writer = audit_log_writer
         self.in_transaction = in_transaction
+        self.session_ttl_seconds = session_ttl_seconds
 
     async def login(self, data: LoginIn, request_meta: RequestMeta | None = None) -> LoginOut:
         user = await self.user_repo.get_by_username(data.username)
@@ -71,7 +72,7 @@ class CurrentUserApplicationService:
             current_user.model_copy(update={'auth': AuthContext(method=AuthMethodEnum.PASSWORD)}),
             request_meta)
 
-        ttl = IAM_SETTINGS.jwt_config.expire_minutes * 60
+        ttl = self.session_ttl_seconds
         now = datetime.now(UTC)
         meta = SessionMeta(
             login_at=now,

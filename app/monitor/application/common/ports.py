@@ -9,3 +9,14 @@ class AuthenticationPort(ABC):
 
     @abstractmethod
     async def authenticate(self, token: str) -> CurrentUser: ...
+
+
+class SystemInfoPort(ABC):
+    """平台与模块的版本信息（只读）。"""
+
+    @abstractmethod
+    def get_platform_version(self) -> str: ...
+
+    @abstractmethod
+    def get_module_versions(self) -> dict[str, str]:
+        """返回**自带版本声明**的模块（非平台模块）；平台内置模块不出现。"""

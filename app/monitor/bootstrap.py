@@ -16,6 +16,12 @@ MONITOR_RESOURCE_DECLARATIONS: list[RegisterResourceReq] = [
         name='审计日志',
         permissions=[RegisterPermissionReq(action='read', name='查看审计日志')],
     ),
+    RegisterResourceReq(
+        module=MONITOR_MODULE,
+        code='system',
+        name='系统信息',
+        permissions=[RegisterPermissionReq(action='read', name='查看系统信息')],
+    ),
 ]
 
 

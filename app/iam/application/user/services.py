@@ -11,7 +11,7 @@ from app.iam.domain.api_key.repositories import ApiKeyRepository
 from app.iam.domain.current_user.entities import CurrentUser
 from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.shared.enums import StatusEnum
-from app.iam.domain.shared.value_objects import RoleId, UserId
+from app.iam.domain.shared.value_objects import DeptId, RoleId, UserId
 from app.iam.domain.user.enums import UserTypeEnum
 from app.core.utils.generator import generate_password
 from app.iam.application.common.decorators import requires_permission
@@ -24,6 +24,10 @@ from app.iam.application.user.exceptions import (
     PasswordResetNotAllowedException,
     UserExistsException,
     UserNotExistException,
+)
+from app.iam.application.dept.exceptions import (
+    DeptNotFoundException,
+    DeptUnavailableException,
 )
 from app.iam.application.user.ports import AvatarStoragePort, StoredAvatar
 from app.iam.application.user.dto import (
@@ -309,6 +313,7 @@ class UserApplicationService:
         if data.dept_id:
             if not await self.dept_access_service.can_access(data.dept_id, current_user):
                 raise PermissionDeniedException('无权访问该部门')
+            await self._ensure_dept_joinable(data.dept_id)
 
         temporary_password = None
         password = data.password
@@ -361,10 +366,12 @@ class UserApplicationService:
                           request_meta: RequestMeta | None = None) -> User:
         user = await self._load_accessible(data.id, current_user)
 
-        # 如果涉及部门，检验权限
+        # 如果涉及部门，检验权限；部门未变化时不校验停用（既有成员可继续保留）
         if data.dept_id:
             if not await self.dept_access_service.can_access(data.dept_id, current_user):
                 raise PermissionDeniedException('无权访问该部门')
+            if data.dept_id != user.dept_id:
+                await self._ensure_dept_joinable(data.dept_id)
 
         # 调用实体方法更改
         before = self._user_snapshot(user)
@@ -571,6 +578,14 @@ class UserApplicationService:
         if not await self.user_access_service.can_access(user.id, current_user):
             raise PermissionDeniedException('无权访问该用户')
         return user
+
+    async def _ensure_dept_joinable(self, dept_id: DeptId) -> None:
+        """停用部门只出不进：既有成员保留，拒绝新加入的用户。"""
+        dept = await self.dept_repo.get(dept_id)
+        if dept is None:
+            raise DeptNotFoundException(f'部门不存在：{dept_id}')
+        if dept.status is not StatusEnum.ACTIVE:
+            raise DeptUnavailableException(f'部门「{dept.name}」已停用，不能加入新成员')
 
     async def _change_status(self, user: User, status: StatusEnum,
                              current_user: CurrentUser) -> None:

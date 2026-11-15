@@ -1,7 +1,13 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.iam.domain.shared.enums import AuthMethodEnum
-from app.iam.domain.shared.value_objects import ApiKeyId, DataScopeSpec, DeptId, RoleSummary, UserId
+from app.iam.domain.shared.value_objects import (
+    ApiKeyId,
+    DataScopeSpec,
+    DeptSummary,
+    RoleSummary,
+    UserId,
+)
 from app.iam.domain.user.enums import UserTypeEnum
 
 
@@ -30,7 +36,9 @@ class CurrentUser(BaseModel):
     # 解析好的数据范围（快照构建时算好、随快照缓存；读侧直接用）
     data_scope_spec: DataScopeSpec
     roles: list[RoleSummary] | None = None
-    dept_id: DeptId | None = None
+    # 所属部门快照：id + 名称 + 祖先链（供展示与 dept_and_child 可见性判定）。
+    # 必填（可为 None）：旧快照缺该字段时解析失败，按缓存未命中重建。
+    dept: DeptSummary | None
     avatar_key: str | None = None
     permission_codes: list[str] | None = None
     # 单次认证上下文：每请求不同，序列化时排除（不进用户快照）
@@ -44,12 +52,13 @@ class CurrentUser(BaseModel):
           `has_permission(('a', 'b'), 'c')`     ⇔ (a ∧ b) ∨ c
           `has_permission('a')`                 ⇔ a
 
-        空参不是有效要求：`requires_permission` 在定义期拒绝空参，本谓词对空参返回 False。
+        空参是「无要求」，恒真；闸门 `requires_permission` 在定义期拒绝空参，
+        因此正常调用不会以空参作为一条要求。
         谓词问「是否满足要求」，闸门表达「这是一条要求」。
 
         超管为逃生舱（不依赖角色分配）、沿用 `can_access` 的旁路约定，恒 True。
         """
-        if self.user_type is UserTypeEnum.SUPER_ADMIN:
+        if self.user_type is UserTypeEnum.SUPER_ADMIN or not groups:
             return True
         granted = set(self.permission_codes or ())
         return any(

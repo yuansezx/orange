@@ -15,7 +15,7 @@ from app.iam.domain.current_user.repositories import CurrentUserRepository
 from app.iam.domain.dept.repositories import DeptRepository
 from app.iam.domain.shared.enums import StatusEnum
 from app.iam.domain.shared.services import DataScopeService
-from app.iam.domain.shared.value_objects import DeptId, UserId
+from app.iam.domain.shared.value_objects import DeptId, DeptSummary, UserId
 from app.iam.domain.user.entities import User
 from app.iam.domain.user.repositories import UserRepository
 
@@ -103,11 +103,13 @@ class CurrentUserSnapshotService:
     def __init__(self, *, user_repo: UserRepository,
                  current_user_repo: CurrentUserRepository,
                  effective_permission_query: EffectivePermissionQuery,
-                 data_scope_service: DataScopeService) -> None:
+                 data_scope_service: DataScopeService,
+                 dept_repo: DeptRepository) -> None:
         self.user_repo = user_repo
         self.current_user_repo = current_user_repo
         self.effective_permission_query = effective_permission_query
         self.data_scope_service = data_scope_service
+        self.dept_repo = dept_repo
 
     async def get_by_id(self, user_id: UserId) -> CurrentUser:
         current_user = await self.current_user_repo.get(user_id)
@@ -124,13 +126,22 @@ class CurrentUserSnapshotService:
     async def build(self, user: User) -> CurrentUser:
         effective = await self.effective_permission_query.resolve(user.id)
         data_scope_spec = await self.data_scope_service.resolve(user)
+        dept: DeptSummary | None = None
+        if user.dept_id is not None:
+            dept_entity = await self.dept_repo.get(user.dept_id)
+            if dept_entity is not None:
+                dept = DeptSummary(
+                    id=dept_entity.id,
+                    name=dept_entity.name,
+                    ancestors=tuple(dept_entity.ancestors),
+                )
         return CurrentUser(
             user_id=user.id,
             username=user.username,
             nickname=user.nickname,
             user_type=user.user_type,
             roles=sorted(effective.roles, key=lambda r: r.code),
-            dept_id=user.dept_id,
+            dept=dept,
             avatar_key=user.avatar_key,
             permission_codes=sorted(effective.permission_codes),
             data_scope_spec=data_scope_spec,

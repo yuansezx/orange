@@ -24,8 +24,11 @@ class CurrentUser(BaseModel):
     permission_codes: frozenset[str] = frozenset()
 
     def has_permission(self, *groups: str | tuple[str, ...]) -> bool:
-        """DNF：参数之间「或」，元组内「与」；超管恒真（空参行为与 iam 当前实现一致）。"""
-        if self.user_type is UserTypeEnum.SUPER_ADMIN:
+        """DNF：参数之间「或」，元组内「与」；超管恒真；无要求（空参）恒真。
+
+        `requires_permission` 在定义期拒绝空参，正常调用不会以空参作为一条要求。
+        """
+        if self.user_type is UserTypeEnum.SUPER_ADMIN or not groups:
             return True
         granted = set(self.permission_codes)
         return any(

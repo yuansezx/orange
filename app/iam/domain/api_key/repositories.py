@@ -17,7 +17,10 @@ class ApiKeyRepository(BaseRepository[ApiKeyId, ApiKey]):
     @abstractmethod
     async def get_by_token_hash(self, token_hash: str, *,
                                 include_deleted: bool = False) -> ApiKey | None:
-        """按整串 token 的摘要查（认证路径）；默认不返回已吊销的 key。"""
+        """按整串 token 的摘要查（认证路径）；默认不返回已吊销的 key。
+
+        返回完整实体（含有效的 `last_used_at`）。
+        """
         ...
 
     @abstractmethod
@@ -29,7 +32,7 @@ class ApiKeyRepository(BaseRepository[ApiKeyId, ApiKey]):
 
     @abstractmethod
     async def update_last_used(self, api_key_id: ApiKeyId, used_at: datetime) -> None:
-        """只更新最近使用时间（节流写）；不盖 updated_at / updated_by。"""
+        """只更新最近使用时间；不盖 updated_at / updated_by。认证装载时调用。"""
         ...
 
     @abstractmethod

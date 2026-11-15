@@ -22,7 +22,9 @@ import { SessionExpiryWatcher } from './SessionExpiryWatcher'
 
 /** 无首页：直接落到第一个有权限的 workspace 页面。 */
 function RootRedirect() {
-  const { can } = usePermission()
+  const { can, isLoading } = usePermission()
+  // 等 /me 返回再决定落地页：否则无权限码的页面（如工具目录）会抢在超管之前被选中
+  if (isLoading) return <PageLoading />
   const allowed = filterWorkspacesByPermission(workspaces, can)
   const first = allowed[0]
 
@@ -34,7 +36,8 @@ function RootRedirect() {
 
 /** workspace 根路径（如 `/admin`）落到该 workspace 的第一个有权限页面。 */
 function WorkspaceHomeRedirect({ workspace }: { workspace: WorkspaceNav }) {
-  const { can } = usePermission()
+  const { can, isLoading } = usePermission()
+  if (isLoading) return <PageLoading />
   const filtered = filterWorkspacesByPermission([workspace], can)[0]
 
   if (!filtered) {
@@ -45,7 +48,8 @@ function WorkspaceHomeRedirect({ workspace }: { workspace: WorkspaceNav }) {
 
 /** `/account` 落到第一个有权限的设置页。 */
 function AccountHomeRedirect() {
-  const { can } = usePermission()
+  const { can, isLoading } = usePermission()
+  if (isLoading) return <PageLoading />
   const groups = filterAccountSettings(accountSettings, can)
   const target = accountSettingsHomePath(groups)
 

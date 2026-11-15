@@ -1,10 +1,12 @@
 """CurrentUser 缓存（Redis）实现。
 
 键 `iam:current_user:{uid}` = CurrentUser JSON，带独立短 TTL。
+结构变更后旧 JSON 解析失败按缓存未命中处理，由上层重建。
 权限/角色变更只需清此快照，会话（令牌白名单）不受影响。
 """
 from __future__ import annotations  # 方法名 set 会遮蔽内建 set，注解须延迟求值
 
+from pydantic import ValidationError
 from redis.asyncio import Redis
 
 from app.core.utils.type_utils import to_set
@@ -30,7 +32,13 @@ class CurrentUserRepositoryRedisImpl(CurrentUserRepository):
 
     async def get(self, user_id: UserId) -> CurrentUser | None:
         raw = await self.redis_conn.get(self._key(user_id))
-        return CurrentUser.model_validate_json(raw) if raw else None
+        if not raw:
+            return None
+        try:
+            return CurrentUser.model_validate_json(raw)
+        except ValidationError:
+            # 旧快照结构不兼容（如缺 dept 字段）：当作未命中，由上层重建。
+            return None
 
     async def evict(self, user_ids: UserId | list[UserId] | set[UserId]) -> None:
         ids = to_set(user_ids)

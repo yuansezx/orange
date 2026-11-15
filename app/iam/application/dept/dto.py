@@ -58,6 +58,7 @@ class MyDeptNode(BaseModel):
     id: DeptId
     name: str
     parent_id: DeptId | None = None
+    status: StatusEnum
     children: list['MyDeptNode'] = Field(default_factory=list)
 
 

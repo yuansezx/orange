@@ -23,3 +23,9 @@ class DeptHasUsersException(IAMBusinessBaseException):
     """部门下存在用户，不允许删除。"""
     code = 'IAM_DEPT_HAS_USERS'
     kind = ErrorKindEnum.CONFLICT
+
+
+class DeptUnavailableException(IAMBusinessBaseException):
+    """部门已停用——既有成员保留，但不能再加入新成员。"""
+    code = 'IAM_DEPT_UNAVAILABLE'
+    kind = ErrorKindEnum.VALIDATION

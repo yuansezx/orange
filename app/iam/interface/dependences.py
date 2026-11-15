@@ -260,6 +260,7 @@ def get_current_user_snapshot_service() -> CurrentUserSnapshotService:
         current_user_repo=get_current_user_repo(),
         effective_permission_query=get_effective_permission_query(),
         data_scope_service=get_data_scope_service(),
+        dept_repo=get_dept_repo(),
     )
 
 
@@ -271,6 +272,7 @@ def get_current_user_app_service() -> CurrentUserApplicationService:
         session_manager=get_session_manager(),
         audit_log_writer=get_audit_log_writer(),
         in_transaction=get_in_transaction(),
+        session_ttl_seconds=IAM_SETTINGS.jwt_config.expire_minutes * 60,
     )
 
 

@@ -14,6 +14,7 @@ import {
 
 import type { SystemSidebarState } from '@shared/navigation'
 
+import styles from './SystemSidebar.module.css'
 import type { WorkspaceNav } from '../../routes'
 
 interface Props {
@@ -143,11 +144,13 @@ export function SystemSidebar({
             <Button
               type="text"
               aria-label={workspace.label}
+              className={styles.workspaceItem}
               onClick={() => onSelectWorkspace(workspace)}
               style={{
                 ...(expanded
                   ? { width: '100%', height: 40, justifyContent: 'flex-start', paddingInline: 12 }
                   : iconItemStyle),
+                borderRadius: 12,
                 color: active ? colorTokens.navSelectedText : token.colorTextSecondary,
                 background: active ? colorTokens.navSelectedBg : undefined,
               }}

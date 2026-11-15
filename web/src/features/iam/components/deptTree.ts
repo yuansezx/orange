@@ -1,21 +1,29 @@
 import type { TreeSelectProps } from 'antd'
 
+import type { Status } from '../types'
+
 /** 选择器只依赖的最小部门树形状（管理端 / 自助精简树都满足）。 */
 export interface DeptTreeLikeNode {
   id: string
   name: string
+  status?: Status
   children?: DeptTreeLikeNode[]
 }
 
 type TreeNode = NonNullable<TreeSelectProps['treeData']>[number]
 
-/** 部门树 → antd 选择器 `treeData`；`exclude` 中的节点禁用（编辑时防环）。 */
-export function buildDeptTreeData(nodes: DeptTreeLikeNode[], exclude?: Set<string>): TreeNode[] {
+/**
+ * 部门树 → antd 选择器 `treeData`；
+ * `exclude` 中的节点禁用（编辑时防环）；`disableInactive` 时停用部门也禁用（成员只出不进）。
+ */
+export function buildDeptTreeData(nodes: DeptTreeLikeNode[], exclude?: Set<string>,
+                                  disableInactive = false): TreeNode[] {
   return nodes.map((node) => ({
     value: node.id,
     title: node.name,
-    disabled: exclude?.has(node.id) ?? false,
-    children: buildDeptTreeData(node.children ?? [], exclude),
+    disabled: (exclude?.has(node.id) ?? false)
+      || (disableInactive && node.status === 'disabled'),
+    children: buildDeptTreeData(node.children ?? [], exclude, disableInactive),
   }))
 }
 
