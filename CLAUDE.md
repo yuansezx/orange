@@ -210,7 +210,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **web**：`FeatureModule` / `WorkspaceRef` / `MenuLink` 与路由发现规则；`@shared/*` 导出；workspace 壳行为。
 - 对模块契约的破坏性变更按对应侧（app / web）的破坏性版本处理；`0.x` 期间用 minor 承载并在发布说明写明。
 
-**模块兼容范围**：模块仓声明自己支持的平台版本范围（如 `orange >= 0.2, < 0.3`）。平台当前不是可安装的发布包，**不要**写进 `[project].dependencies` 或 `peerDependencies`（包管理器会去仓库解析）；现阶段写在模块 `CLAUDE.md` 即可。需要机读时用模块 `pyproject.toml` 的 `[tool.orange]` 或 `package.json` 自定义字段，明确它是**约定性元数据**，由后续 CI/启动检查校验。模块与平台目录链接、一起构建，实际兼容性由构建/联调兜底。
+**模块兼容范围**：**模块不在自己的 CLAUDE.md 或文档中手写平台版本范围**；这是平台层要统一提供的规约——机读元数据（如模块 `pyproject.toml` 的 `[tool.orange]` 或 `package.json` 自定义字段）+ 启动/CI 校验，并在版本信息页展示，后续在平台层实现。平台当前不是可安装的发布包，**不要**把版本范围写进 `[project].dependencies` 或 `peerDependencies`（包管理器会去仓库解析）。现阶段模块与平台目录链接、一起构建，实际兼容性由构建/联调兜底。
 
 ## 运行
 
