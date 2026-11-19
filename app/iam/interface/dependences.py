@@ -9,8 +9,8 @@ per-request 缓存兜住）。所以被装配的实现应是**无状态**的。
 方言实现经 `persistence.module_infra(模块, 子模块)` 取：方言由模块的连接决定，
 组合根**不硬编码方言**（返回的是模块，属性即实现类）。
 
-缓存实现按 provider 选（当前 provider 即 `core.cache.backend`），与对象存储的
-provider 注册表同款；未知 provider 直接报错。
+缓存实现按 provider 选（provider 取连接声明的 `provider`，缺省等于连接的 `backend`），
+与对象存储的 provider 注册表同款；未知 provider 直接报错。
 """
 from typing import Any
 
@@ -51,8 +51,8 @@ from app.iam.domain.user.services import UserAccessService
 from app.iam.domain.user_role_assignment.repositories import UserRoleRepository
 from app.iam.domain.user_role_assignment.services import UserRoleAssignmentService
 from app.iam.infrastructure.adapters.audit_log_writer_adapter import AuditLogWriterAdapter
-from app.iam.infrastructure.adapters.avatar_storage.base import AvatarStorageS3Adapter
-from app.iam.infrastructure.adapters.avatar_storage.rustfs import (
+from app.iam.infrastructure.adapters.avatar_storage_adapter import (
+    AvatarStorageS3Adapter,
     AvatarStorageS3RustFSAdapter,
 )
 from app.iam.infrastructure.adapters.session_manager_adapter import SessionManagerJWTRedisAdapter
@@ -209,7 +209,7 @@ def get_user_role_app_service() -> UserRoleApplicationService:
     )
 
 
-# provider → 实现；cache 目前没有独立的 provider 层，provider 即 core.cache.backend
+# provider → 实现；cache 连接暂未单独声明 provider，缺省等于连接的 backend
 _CURRENT_USER_REPO_IMPLS: dict[str, type[CurrentUserRepository]] = {
     'redis': CurrentUserRepositoryRedisImpl,
 }
@@ -300,9 +300,13 @@ def get_authentication_service() -> AuthenticationApplicationService:
     )
 
 
-# provider → 专用 adapter；未注册的 S3 兼容 provider 回退通用实现
+# adapter 选择：provider（同 backend 内的厂商差异）→ 专用实现；backend → 通用兜底。
+# 都未命中即 fail-fast：连错 backend 在启动装配时就报错，而不是运行时 AttributeError。
 _AVATAR_STORAGE_ADAPTERS: dict[str, type[AvatarStoragePort]] = {
     'rustfs': AvatarStorageS3RustFSAdapter,
+}
+_AVATAR_STORAGE_BACKEND_FALLBACKS: dict[str, type[AvatarStoragePort]] = {
+    's3': AvatarStorageS3Adapter,
 }
 
 
@@ -311,6 +315,11 @@ def get_avatar_storage() -> AvatarStoragePort | None:
     cfg = IAM_SETTINGS.avatar_storage
     if cfg is None:
         return None
-    provider = object_storage.get_object_storage_provider(cfg.connection)
-    adapter_cls = _AVATAR_STORAGE_ADAPTERS.get(provider, AvatarStorageS3Adapter)
-    return adapter_cls(object_storage.get_object_storage_client(cfg.connection))
+    connection = cfg.connection
+    provider = object_storage.get_object_storage_provider(connection)
+    adapter_cls = _AVATAR_STORAGE_ADAPTERS.get(provider) or \
+        _AVATAR_STORAGE_BACKEND_FALLBACKS.get(
+            object_storage.get_object_storage_backend(connection))
+    if adapter_cls is None:
+        raise RuntimeError(f'未注册的头像存储实现：provider={provider}')
+    return adapter_cls(object_storage.get_object_storage_client(connection))

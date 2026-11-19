@@ -1,5 +1,6 @@
-"""S3 兼容头像存储适配器基类。
+"""S3 兼容头像存储适配器（通用实现 + RustFS 厂商子类）。
 
+需求简单时单文件收口，实现变多再按 backend 拆目录。
 桶名由模块代码拥有（一个桶只放一种资源）；连接由 core 注入。
 provider 的差异（error code / header / checksum 等）由子类覆盖。
 """
@@ -22,6 +23,8 @@ def _error_code(exc: ClientError) -> str:
 
 
 class AvatarStorageS3Adapter(AvatarStoragePort):
+    """通用 S3 兼容实现（rustfs / minio / aws s3 等）。"""
+
     bucket = AVATAR_BUCKET
 
     def __init__(self, client: Any):
@@ -69,3 +72,7 @@ class AvatarStorageS3Adapter(AvatarStoragePort):
 
     async def delete(self, key: str) -> None:
         await self._client.delete_object(Bucket=self.bucket, Key=key)
+
+
+class AvatarStorageS3RustFSAdapter(AvatarStorageS3Adapter):
+    """RustFS 差异点收口处（目前无；error code / checksum 等兼容处理放这里）。"""

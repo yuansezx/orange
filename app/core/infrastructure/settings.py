@@ -46,28 +46,30 @@ class AppBaseSettings(BaseSettings):
 class PersistenceConfig(BaseModel):
     """持久化配置（core 段内的嵌套 schema）。
 
-    backend：选择 ORM 后端（对应 persistence/{backend}/{backend}_backend.py）；
+    orm：**全局** ORM 框架（对应 persistence/{orm}/{orm}_backend.py）。模型注册表、
+         迁移账本、事务上下文都是一份，一个进程只能有一个 ORM——故为全局项，不随连接变；
     auto_migrate：启动时是否自动执行迁移；关闭则跳过，改为手动触发（migrate.py）；
     use_tz / timezone：tortoise 时区配置；
-    options：连接映射 {连接名: {dialect, credentials}}。每个连接**自带引擎** dialect
-             （对应 persistence/{backend}/{dialect}/），故不同连接可用不同引擎。
+    connections：命名连接映射 {连接名: {backend, credentials}}。每个连接**自带引擎**
+                 backend（对应 persistence/{orm}/{backend}/），故不同连接可用不同引擎。
     """
-    backend: str
+    orm: str
     auto_migrate: bool = True
     use_tz: bool = True
     timezone: str = 'Asia/Shanghai'
-    options: dict = {}
+    connections: dict = {}
 
 
 class CacheConfig(BaseModel):
     """缓存配置（core 段内的嵌套 schema）。
 
-    backend：选择缓存后端（对应 cache/{backend}/{backend}_backend.py）；
-    options：后端专属配置，core 原样透传、不解释（如 redis 的 host/port/password/db）。
+    connections：**命名连接映射** {连接名: {backend, ...}}。每个连接自带 backend
+                 （对应 cache/{backend}/{backend}_backend.py），参数原样透传给该实现；
+                 可选 provider 供业务侧选 adapter（缺省等于 backend）。
+    core 启动时按 backend 分组、每组一次性初始化并持有各连接的 client。
     未配置则 core 不启动缓存。
     """
-    backend: str = 'redis'
-    options: dict = {}
+    connections: dict = {}
 
 
 class EventsConfig(BaseModel):
@@ -87,13 +89,13 @@ class EventsConfig(BaseModel):
 class ObjectStorageConfig(BaseModel):
     """对象存储配置（core 段内的嵌套 schema）。
 
-    backend：选择客户端后端（对应 object_storage/{backend}/{backend}_backend.py）；
-    options：**命名连接映射** {连接名: {provider, endpoint_url, access_key, ...}}，
-             core 原样透传、不解释；provider 供业务侧选择具体 adapter。
+    connections：**命名连接映射** {连接名: {backend, provider, endpoint_url, ...}}。
+                 每个连接自带 backend（对应 object_storage/{backend}/{backend}_backend.py），
+                 参数原样透传；provider 供业务侧选择具体 adapter（缺省等于 backend）。
+    core 启动时按 backend 分组、每组一次性初始化并持有各连接的 client。
     未配置则 core 不启动对象存储。
     """
-    backend: str = 's3'
-    options: dict = {}
+    connections: dict = {}
 
 
 class CoreSettings(AppBaseSettings):

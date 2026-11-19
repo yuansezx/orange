@@ -19,26 +19,27 @@ def module_connection(module: str) -> str:
     return getattr(import_module(f'app.{module}'), 'DB_CONNECTION', 'default')
 
 
-def _load_dialect(dialect: str):
-    """按连接声明的 dialect 加载 DB 方言层（把连接配置拼成 tortoise 认的连接）。"""
+def _load_dialect(backend: str):
+    """按连接声明的 backend（引擎/方言）加载方言层（把连接配置拼成 tortoise 认的连接）。"""
     return import_module(
-        f'app.core.infrastructure.persistence.tortoise.{dialect}.{dialect}_backend')
+        f'app.core.infrastructure.persistence.tortoise.{backend}.{backend}_backend')
 
 
-def module_dialect(module: str) -> str:
-    """某模块所用连接名（`DB_CONNECTION`）对应的 dialect（连接的引擎）。"""
-    return CORE_SETTINGS.persistence.options[module_connection(module)]['dialect']
+def module_backend(module: str) -> str:
+    """某模块所用连接名（`DB_CONNECTION`）对应的 backend（连接的引擎/方言）。"""
+    return CORE_SETTINGS.persistence.connections[module_connection(module)]['backend']
 
 
 def infra_module(module: str, sub: str):
     """按约定导入某模块的**方言基础设施**子模块（models / repositories / queries）。
 
-    路径：`app.{模块}.infrastructure.persistence.{backend}.{dialect}.{sub}`——
-    方言由模块的连接（`DB_CONNECTION`）决定。组合根用它取方言实现而不硬编码方言。
+    路径：`app.{模块}.infrastructure.persistence.{orm}.{backend}.{sub}`——
+    orm 为全局持久化框架，backend 由模块的连接（`DB_CONNECTION`）决定。
+    组合根用它取方言实现而不硬编码方言。
     """
-    backend = CORE_SETTINGS.persistence.backend
+    orm = CORE_SETTINGS.persistence.orm
     return import_module(
-        f'app.{module}.infrastructure.persistence.{backend}.{module_dialect(module)}.{sub}')
+        f'app.{module}.infrastructure.persistence.{orm}.{module_backend(module)}.{sub}')
 
 
 def event_outbox_store(model):
@@ -47,21 +48,21 @@ def event_outbox_store(model):
 
 
 def _build_apps() -> dict:
-    """按约定 app.{模块}.infrastructure.persistence.{后端}.{方言}.models 汇总各模块的模型。
+    """按约定 app.{模块}.infrastructure.persistence.{orm}.{backend}.models 汇总各模块的模型。
 
     每个模块用哪个连接，由模块自己的 `DB_CONNECTION` 声明（缺省 'default'）；
-    连接名→物理库由 config 的 `persistence.options` 绑定；`{方言}` 由该连接的 `dialect` 决定。
+    连接名→物理库由 config 的 `persistence.connections` 绑定；`{backend}` 由该连接声明。
 
     aerich.models（迁移追踪表）在每个模块里都列一份：tortoise 内部按 _meta.app 去重，
     只会归给第一个认领它的 label，因此重复列是安全的。
     """
-    backend = CORE_SETTINGS.persistence.backend
+    orm = CORE_SETTINGS.persistence.orm
     apps = {}
     for m in CORE_SETTINGS.modules:
         connection = module_connection(m)
         apps[m] = {
             'models': [
-                f'app.{m}.infrastructure.persistence.{backend}.{module_dialect(m)}.models',
+                f'app.{m}.infrastructure.persistence.{orm}.{module_backend(m)}.models',
                 'aerich.models',
             ],
             'default_connection': connection,
@@ -73,8 +74,8 @@ def build_tortoise_config() -> dict:
     """把 core 配置装配成 tortoise 认的完整配置（运行时与 aerich 共用同一份）。"""
     persistence = CORE_SETTINGS.persistence
     connections = {
-        name: _load_dialect(spec['dialect']).build_connection(spec)
-        for name, spec in persistence.options.items()
+        name: _load_dialect(spec['backend']).build_connection(spec)
+        for name, spec in persistence.connections.items()
     }
     return {
         'connections': connections,

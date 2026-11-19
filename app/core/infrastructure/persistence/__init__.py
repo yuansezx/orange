@@ -1,6 +1,7 @@
 """持久化后端。
 
-core 只通过本包的后端无关门面访问持久化；具体后端由 core.persistence.backend 动态解析。
+core 只通过本包的后端无关门面访问持久化；具体后端由 core.persistence.orm 动态解析
+（ORM 是全局单例：模型注册表/迁移账本/事务上下文都只有一份）。
 只有本包内的实现允许 import 具体 ORM。
 """
 from importlib import import_module
@@ -15,7 +16,7 @@ def _load_backend():
     persistence = CORE_SETTINGS.persistence
     if persistence is None:
         raise RuntimeError('缺少 core.persistence 配置')
-    return import_module(f'app.core.infrastructure.persistence.{persistence.backend}.{persistence.backend}_backend')
+    return import_module(f'app.core.infrastructure.persistence.{persistence.orm}.{persistence.orm}_backend')
 
 
 async def start_persistence() -> None:

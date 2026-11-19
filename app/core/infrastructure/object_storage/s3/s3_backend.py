@@ -1,14 +1,14 @@
 """对象存储后端：S3 兼容服务（RustFS / MinIO / SeaweedFS / AWS S3）。
 
-core 只负责按命名连接建立并持有 client；provider 差异由业务侧 adapter 处理。
+由 core 对象存储门面调用：`init` 接收该 backend 负责的连接子集
+（{连接名: 连接参数}），为每个连接建一个 client 并返回；`close` 统一释放。
+provider 差异（rustfs / aws 等）由业务侧 adapter 处理。
 """
 from contextlib import AsyncExitStack
 from typing import Any
 
 from aiobotocore.session import get_session
 from botocore.config import Config
-
-from app.core.infrastructure.settings import ObjectStorageConfig
 
 _clients: dict[str, Any] = {}
 _stack: AsyncExitStack | None = None
@@ -36,17 +36,15 @@ def _client_kwargs(options: dict) -> dict[str, Any]:
     return kwargs
 
 
-async def init(cfg: ObjectStorageConfig) -> None:
+async def init(connections: dict[str, dict]) -> dict[str, Any]:
     global _clients, _stack
     if _stack is not None:
         raise RuntimeError('对象存储已初始化')
-    if not cfg.options:
-        raise ValueError('core.object_storage.options 为空')
 
     session = get_session()
     stack = AsyncExitStack()
     try:
-        for name, options in cfg.options.items():
+        for name, options in connections.items():
             client = await stack.enter_async_context(
                 session.create_client('s3', **_client_kwargs(options))
             )
@@ -56,6 +54,7 @@ async def init(cfg: ObjectStorageConfig) -> None:
         await stack.aclose()
         raise
     _stack = stack
+    return dict(_clients)
 
 
 async def close() -> None:
@@ -64,9 +63,3 @@ async def close() -> None:
         await _stack.aclose()
     _clients = {}
     _stack = None
-
-
-def get_client(connection: str = 'default') -> Any:
-    if connection not in _clients:
-        raise RuntimeError(f'对象存储连接未配置：{connection}')
-    return _clients[connection]
