@@ -1,0 +1,2 @@
+# .sh 一律使用 LF：容器内由 sh 逐行解析，CRLF 会让 shebang / 语法失败
+*.sh text eol=lf

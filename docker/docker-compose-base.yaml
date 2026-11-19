@@ -1,12 +1,12 @@
+# 基础栈（底座：redis / postgres / rustfs）：不含宿主机端口，靠容器网络互通。
+# 正式服务配置（app 等）与本地开发覆盖层都通过 -f 叠加使用：
+#   docker compose -f docker/docker-compose-base.yaml -f docker/docker-compose.override.yaml up -d
 name: orange
 
 services:
   redis:
     image: redis:8.2.4
-    container_name: orange-redis
     restart: unless-stopped
-    #    ports:
-    #      - "6379:6379"
     command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD:-orange-redis}" ]
     volumes:
       - redis_data:/data
@@ -19,15 +19,18 @@ services:
 
   postgres:
     image: postgres:17.10
-    container_name: orange-postgres
     restart: unless-stopped
-#    ports:
-#      - "5432:5432"
     environment:
+      # 超管口令：仅容器初始化使用
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orange-postgres}
+      # 应用账号：首次初始化（空数据目录）时由 postgres/init.sh 创建
+      # 需与 config 里 persistence.credentials 的 user / password / database 一致
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-orange}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-orange-postgres}
+      POSTGRES_APP_DB: ${POSTGRES_APP_DB:-orange}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready" ]
       interval: 5s
@@ -37,18 +40,14 @@ services:
 
   rustfs:
     image: rustfs/rustfs:1.0.3
-    container_name: orange-rustfs
     restart: unless-stopped
-#    ports:
-#      - "9000:9000"   # S3 API
-#      - "9001:9001"   # Console（可选，可关掉减少暴露面）
-    volumes:
-      - rustfs_data:/data   # 你的命名卷，自定义前缀
     environment:
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-orange}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-orange-rustfs}
       RUSTFS_ADDRESS: ":9000"
       RUSTFS_CONSOLE_ENABLE: "false"
+    volumes:
+      - rustfs_data:/data
     command: /data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health/ready"]
@@ -56,8 +55,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
-
-
 
 networks:
   default:

@@ -1,2 +1,0 @@
-CREATE USER orange WITH PASSWORD 'orange';
-CREATE DATABASE orange OWNER orange;

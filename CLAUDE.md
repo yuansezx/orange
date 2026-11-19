@@ -215,8 +215,8 @@ app/                               # 后端（本文件详述）；仓库根另�
 ## 运行
 
 ```bash
-# 起库（dev：暴露端口、独立口令与卷；base 版封在容器网段）
-docker compose -f docker/docker-compose-base-dev.yaml --env-file docker/.env.dev up -d
+# 起库（dev：base + override 叠加；override 不入库，负责端口与独立项目名；.env 按 compose 文件所在目录读取）
+docker compose -f docker/docker-compose-base.yaml -f docker/docker-compose.override.yaml up -d
 
 uv run run.py                         # 起服务
 uv run python -m scripts.migrate      # 手动迁移（auto_migrate 关闭时用）
