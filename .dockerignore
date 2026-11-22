@@ -1,0 +1,29 @@
+# 构建上下文 = 仓库根；只保留镜像需要的内容。
+.git
+.idea
+.venv
+__pycache__
+**/__pycache__
+*.py[oc]
+logs
+migrations
+tmp
+docs
+.idea
+
+# 本地配置与凭据（运行时挂载，不打进镜像）
+config.yaml
+config_dev.yaml
+config_prod.yaml
+.env
+.env.*
+docker/.env
+docker/config.yaml
+docker/docker-compose.override.yaml
+
+# 前端产物与依赖（镜像内重新安装/构建）
+web/node_modules
+web/dist
+
+# 构建脚本组装出的临时上下文
+docker/build

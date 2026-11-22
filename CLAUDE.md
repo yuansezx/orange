@@ -226,6 +226,9 @@ docker compose -f docker/docker-compose-base.yaml -f docker/docker-compose.overr
 
 uv run run.py                         # 起服务
 uv run python -m scripts.migrate      # 手动迁移（auto_migrate 关闭时用）
+
+# 构建镜像（docker/build_images.py 组装上下文，模块链接自动解引用）
+uv run python docker/build_images.py all   # 或 web / backend；国内网络加 --cn
 ```
 
 **首个超管**：由 `iam/bootstrap.py` 硬编码初始化（`admin` / `admin123`，`need_change_password=True`，幂等——库中已有超管则跳过）。

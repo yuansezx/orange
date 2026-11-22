@@ -1,0 +1,51 @@
+# 后端镜像：python 3.13 + uv workspace（含目录链接模块）。
+# 构建上下文由 docker/build_images.py 在 docker/build 组装：
+# app/ 下的模块目录链接已解引用成真实目录。
+#
+# 国内网络可传构建参数：
+#   --build-arg PIP_INDEX_URL=https://mirrors.ustc.edu.cn/pypi/simple
+#   --build-arg UV_DEFAULT_INDEX=https://mirrors.ustc.edu.cn/pypi/simple
+
+FROM python:3.13-slim AS builder
+
+ARG PIP_INDEX_URL=https://pypi.org/simple
+ARG UV_DEFAULT_INDEX=https://pypi.org/simple
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_DEFAULT_INDEX=${UV_DEFAULT_INDEX}
+
+RUN pip install --no-cache-dir -i "${PIP_INDEX_URL}" uv
+
+WORKDIR /app
+
+# 依赖清单先入层，最大化缓存；锁文件已包含 workspace 成员（app/<module>）
+COPY pyproject.toml uv.lock README.md ./
+COPY app ./app
+RUN uv sync --frozen --no-dev --all-packages
+
+
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:${PATH}"
+
+# python-magic 运行时依赖系统 libmagic
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/app ./app
+# pyproject.toml 供 settings 读 app_version；run.py 是入口
+COPY pyproject.toml run.py ./
+
+# 启动期迁移会写 migrations/，日志写 logs/；部署时用卷持久化
+RUN mkdir -p logs migrations
+
+EXPOSE 8100
+CMD ["python", "run.py"]
