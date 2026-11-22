@@ -224,6 +224,9 @@ app/                               # 后端（本文件详述）；仓库根另�
 # 起库（dev：base + override 叠加；override 不入库，负责端口与独立项目名；.env 按 compose 文件所在目录读取）
 docker compose -f docker/docker-compose-base.yaml -f docker/docker-compose.override.yaml up -d
 
+# 起全栈（NAS/生产：docker-compose.yaml 已 include 基础栈）
+docker compose -f docker/docker-compose.yaml up -d
+
 uv run run.py                         # 起服务
 uv run python -m scripts.migrate      # 手动迁移（auto_migrate 关闭时用）
 

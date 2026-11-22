@@ -1,5 +1,5 @@
 # 基础栈（底座：redis / postgres / rustfs）：不含宿主机端口，靠容器网络互通。
-# 正式服务配置（app 等）与本地开发覆盖层都通过 -f 叠加使用：
+# 开发：与 override 叠加；部署：docker-compose.yaml 通过 include 引入本文件。
 #   docker compose -f docker/docker-compose-base.yaml -f docker/docker-compose.override.yaml up -d
 name: orange
 
