@@ -32,11 +32,13 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      # 初始化阶段的临时 server 只监听 Unix socket；走 TCP 探活，避免 init 期间误判健康。
+      # start_period 覆盖 initdb + init.sh + 重启正式 server 的时间（NAS 上可能较慢）。
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 2s
+      start_period: 60s
 
   rustfs:
     image: rustfs/rustfs:1.0.3
