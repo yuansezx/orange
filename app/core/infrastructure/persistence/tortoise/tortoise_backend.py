@@ -11,8 +11,6 @@ from app.core.domain.units_of_work import InTransactionType, TransactionContext
 from app.core.infrastructure.persistence.tortoise.outbox import TortoiseEventOutboxStore
 from app.core.infrastructure.settings import CORE_SETTINGS
 
-MIGRATIONS_DIR = './migrations'
-
 
 def module_connection(module: str) -> str:
     """模块声明的逻辑连接名（`DB_CONNECTION`，缺省 default）。"""
@@ -111,7 +109,11 @@ async def run_migrations() -> None:
             **full_config,
             'apps': {app_label: full_config['apps'][app_label]},
         }
-        command = Command(tortoise_config=config, app=app_label, location=MIGRATIONS_DIR)
+        command = Command(
+            tortoise_config=config,
+            app=app_label,
+            location=str(CORE_SETTINGS.migrations_dir),
+        )
         try:
             try:
                 await command.init_db(safe=True)

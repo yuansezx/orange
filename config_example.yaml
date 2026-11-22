@@ -8,6 +8,8 @@ core:
   port: 8100
   # 日志存放位置，默认是项目根目录下的logs目录
   logs_dir: ./logs
+  # aerich 迁移脚本目录（容器部署由 docker/config_example.yaml 指到数据卷）
+  migrations_dir: ./migrations
   # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{orm}.{backend}.models 汇总模型）
   # iam 是平台底座，monitor 依赖它，顺序保持在 iam 之后
   modules:

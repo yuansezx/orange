@@ -132,6 +132,8 @@ class CoreSettings(AppBaseSettings):
     #
     # log文件位置
     logs_dir: Path = Path('./logs')
+    # aerich 迁移脚本目录（容器里指向数据卷，如 /orange/data/migrations）
+    migrations_dir: Path = Path('./migrations')
 
     # 启用的业务模块（core 按约定汇总各模块的模型/路由等装配）
     modules: list[str] = []
