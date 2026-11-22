@@ -1,0 +1,60 @@
+# 应用服务叠加层（入库）：app + web。与 base 叠加使用：
+#   docker compose -f docker/docker-compose-base.yaml -f docker/docker-compose.yaml up -d
+#
+# 本文件只负责运行，不含构建流程；镜像由 docker build 手动构建并打标签。
+# 镜像名通过 docker/.env 的 ORANGE_APP_IMAGE / ORANGE_WEB_IMAGE 指定。
+name: orange
+
+services:
+  app:
+    image: "${ORANGE_APP_IMAGE:-orange-app:nightly}"
+    restart: unless-stopped
+    environment:
+      # 请求从 nginx 容器进来，uvicorn 默认只信任 127.0.0.1；放开后按 X-Forwarded-For 还原真实 IP
+      FORWARDED_ALLOW_IPS: "*"
+    volumes:
+      # 运行时配置：从 docker/config_example.yaml 复制后修改。
+      # create_host_path: false —— 文件缺失时直接报错，避免 Docker 建出同名目录
+      - type: bind
+        source: ./config.yaml
+        target: /orange/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      # 运行期数据（日志/迁移/本地静态文件）统一放一个卷
+      - data:/orange/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/api/monitor/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    image: "${ORANGE_WEB_IMAGE:-orange-web:nightly}"
+    restart: unless-stopped
+    ports:
+      # 宿主机只暴露这一个端口；postgres / redis / rustfs 仅在容器网络内
+      - "${WEB_PORT:-8000}:8000"
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  data:

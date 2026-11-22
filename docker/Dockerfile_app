@@ -18,7 +18,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 RUN pip install --no-cache-dir -i "${PIP_INDEX_URL}" uv
 
-WORKDIR /app
+WORKDIR /orange
 
 # 依赖清单先入层，最大化缓存；锁文件已包含 workspace 成员（app/<module>）
 COPY pyproject.toml uv.lock README.md ./
@@ -30,22 +30,22 @@ FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app/.venv/bin:${PATH}"
+    PATH="/orange/.venv/bin:${PATH}"
 
 # python-magic 运行时依赖系统 libmagic
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /orange
 
-COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/app ./app
+COPY --from=builder /orange/.venv /orange/.venv
+COPY --from=builder /orange/app ./app
 # pyproject.toml 供 settings 读 app_version；run.py 是入口
 COPY pyproject.toml run.py ./
 
-# 启动期迁移会写 migrations/，日志写 logs/；部署时用卷持久化
-RUN mkdir -p logs migrations
+# 运行期数据统一在 /orange/data；命名卷首次挂载时用这里的目录初始化
+RUN mkdir -p /orange/data/logs /orange/data/migrations /orange/data/static
 
 EXPOSE 8100
 CMD ["python", "run.py"]

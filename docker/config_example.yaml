@@ -1,0 +1,87 @@
+
+# 容器部署模板：复制为 docker/config.yaml 后使用。
+# 基础设施主机名用 compose 服务名（postgres / redis / rustfs），不要写 127.0.0.1。
+
+core:
+  app_name: orange
+  app_version: example
+  debug: false
+  # 服务监听地址（容器内需改为 0.0.0.0）
+  host: 0.0.0.0
+  port: 8100
+  # 运行期数据统一放数据卷（容器 WORKDIR=/orange，./data 即 /orange/data）
+  logs_dir: ./data/logs
+  migrations_dir: ./data/migrations
+  # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{orm}.{backend}.models 汇总模型）
+  # iam 是平台底座，monitor 依赖它，顺序保持在 iam 之后
+  modules:
+    - iam
+    - monitor
+  # 持久化（数据库）配置
+  persistence:
+    # 全局 ORM 框架（模型注册表/迁移/事务只有一份，一个进程只能有一个 ORM）
+    orm: tortoise
+    # 启动时是否自动迁移；关闭则改为手动运行 migrate.py
+    auto_migrate: true
+    use_tz: true
+    timezone: Asia/Shanghai
+    # 命名连接：{连接名: {backend, credentials}}
+    # backend 是连接的引擎/方言（对应 persistence/{orm}/{backend}/），engine 由方言层补；
+    # 连接名是 dev 与 ops 的契约，模块只引用名字（模块 __init__.py 的 DB_CONNECTION）
+    connections:
+      default:
+        backend: postgres
+        credentials:
+          host: postgres
+          port: 5432
+          user: orange
+          password: orange-postgres
+          database: orange
+  # 缓存配置（可选；不配则 core 不启动缓存）
+  cache:
+    # 命名连接：{连接名: {backend, ...}}；参数原样透传给该 backend
+    connections:
+      default:
+        backend: redis
+        host: redis
+        port: 6379
+        password: orange-redis
+        db: 0
+  # 对象存储配置（可选；不配则 core 不启动对象存储）
+  object_storage:
+    # 命名连接：{连接名: {backend, provider, ...}}
+    # backend 是客户端实现（对应 object_storage/{backend}/）；provider 供业务 adapter 选择
+    connections:
+      default:
+        backend: s3
+        provider: rustfs
+        endpoint_url: http://rustfs:9000
+        access_key: orange
+        secret_key: orange-rustfs
+        region: us-east-1
+        path_style: true
+  # 事件 relay（可选；缺省用代码默认值）
+  events:
+    relay_poll_interval_seconds: 0.5
+    relay_batch_size: 100
+    relay_max_attempts: 10
+    relay_lock_timeout_seconds: 60
+    relay_retry_base_seconds: 5.0
+    relay_retry_max_seconds: 300.0
+
+iam:
+  jwt_config:
+    # 留空则启动时生成临时密钥：重启后所有会话失效；生产必须显式配置
+    secret_key:
+    algorithm: HS256
+    # 访问令牌有效期（分钟）；决定「多久需要重新登录」
+    expire_minutes: 30
+  # 当前用户快照缓存（Redis）配置——与令牌无关：
+  # 快照过期会静默重解析回填，不触发重新登录；它只决定「权限/数据范围变更的陈旧窗口」
+  current_user_config:
+    # 快照 TTL（秒）；不配则缺省 = 令牌期（jwt_config.expire_minutes × 60，此处 30×60=1800）
+    snapshot_ttl_seconds: 1800
+  # 头像存储（可选；未配置则个人中心不启用头像）
+  avatar_storage:
+    # 引用 core.object_storage.connections 里的连接名；桶名由 adapter 代码拥有
+    connection: default
