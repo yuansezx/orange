@@ -12,6 +12,19 @@ core:
   # 运行期数据统一放数据卷（容器 WORKDIR=/orange，./data 即 /orange/data）
   logs_dir: ./data/logs
   migrations_dir: ./data/migrations
+  # 日志轮转/保留与冷归档（可选）
+  logs:
+    # 实例标识（进归档 key 顶层）；缺省取 hostname
+    # instance: orange-main
+    rotation: 20 MB
+    retention: 7 days
+    # 冷日志归档（可选；不配或 enabled=false 不启动；需要对象存储）
+    # archive:
+    #   enabled: true
+    #   backend: object_storage
+    #   interval_seconds: 60
+    #   cold_after_seconds: 30
+    #   connection: default
   # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{orm}.{backend}.models 汇总模型）
   # iam 是平台底座，monitor 依赖它，顺序保持在 iam 之后
   modules:

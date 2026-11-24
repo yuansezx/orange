@@ -29,7 +29,7 @@
 app/                               # 后端（本文件详述）；仓库根另含 web/（前端）、run.py、scripts/、pyproject.toml、config_example.yaml、CLAUDE.md
 ├── __init__.py                    # FastAPI 应用工厂 create_app() + lifespan（按 core.modules 动态挂载各模块 router）
 ├── core/                          # 全局共享基础设施（无业务语义）
-│   ├── __init__.py                #   init_logger() / get_event_bus() / start()（含模块 bootstrap 编排）/ stop()
+│   ├── __init__.py                #   init_logger() / get_event_bus() / get_log_archive_controller() / start()（含模块 bootstrap 编排）/ stop()
 │   ├── domain/                    #   DDD 领域抽象
 │   │   ├── entities.py            #     AuditableEntity[IdType]（含软删除字段）
 │   │   ├── events.py              #     BaseEvent / EventDeliveryEnum
@@ -41,9 +41,11 @@ app/                               # 后端（本文件详述）；仓库根另�
 │   ├── application/               #   core 的应用层数据
 │   │   └── dto.py                 #     RequestMeta（请求级技术元数据：request_id / ip / user_agent）
 │   ├── infrastructure/
-│   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS（含 persistence / cache / events 段）
+│   │   ├── settings.py            #     AppBaseSettings / CoreSettings / CORE_SETTINGS（含 persistence / cache / events / logs 段）
 │   │   ├── event_bus_impl.py      #     EventBusImpl（best-effort 派发 + outbox 路由）
 │   │   ├── event_relay.py         #     EventRelay / LocalEventTransport（outbox → transport）
+│   │   ├── background.py          #     进程内后台任务门面（register / start_all / stop_all）
+│   │   ├── log_archive/           #     日志冷归档（LogSinkPort / worker / keys / object_storage sink）
 │   │   ├── persistence/           #     持久化（后端中立门面 + 具体后端）
 │   │   │   ├── __init__.py        #       start/stop_persistence、run_persistence_migrations、get_in_transaction
 │   │   │   └── tortoise/          #     ORM 后端
@@ -116,7 +118,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **层依赖方向**：`interface → application → domain`；`infrastructure → domain`。`core` 不依赖任何业务模块。
 - **配置分层**：配置在边缘加载、值流入内层；**`domain` / `application` 不 import settings**，组合根（`interface/dependences.py`）是唯一读取配置单例并完成装配的地方。落点：基础设施配置（连接串 / 密钥 / 桶名）留 infrastructure；应用策略（TTL / 上传上限 / 分页上限）由组合根注入标量，或放 `application/common/config.py` 的 frozen 配置模型；领域可配置规则（如密码长度）在 domain 定义 frozen 策略 / 值对象，由组合根映射后注入。真正的领域不变式仍硬编码在实体，不把配置当万能开关。
 - **配置**：分节 YAML（`core` / `iam`）+ `.env`；优先级 **`init > env > dotenv > yaml > secret`**（env 高于文件，容器里可用环境变量覆盖）。
-  - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、**`modules`**（启用模块清单）、`persistence` / `cache` / `object_storage`
+  - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、`logs`（轮转/保留/冷归档）、**`modules`**（启用模块清单）、`persistence` / `cache` / `object_storage`
   - **连接配置（平台规约）**：三种基础设施统一为 `connections: {连接名: {backend, ...}}`——连接名是 dev 与 ops 的契约（**名字跨环境不变，backend 与凭据/参数随环境变**）。
     - `persistence` 另有一个**全局** `orm`（ORM 框架）：模型注册表 / aerich 迁移账本 / 事务上下文都只有一份，**一个进程只能有一个 ORM**；连接只声明各自的引擎 `backend`（原 `dialect`）。
     - `cache` / `object_storage` 没有全局 backend——**每个连接自带 backend**，同一部署内不同连接可用不同实现（前提是消费模块为该 backend 提供了 adapter；provider 缺省等于 backend）。
@@ -142,6 +144,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - 应用服务接 DTO（`CreateUserIn` 等）并调用领域服务完成业务逻辑。
 - **事务**：`TransactionContext` + `InTransactionType`（DI）；实现由持久化后端提供，经 `core.infrastructure.persistence.get_in_transaction(模块)` 取用——**组合根按模块绑定 `DB_CONNECTION`**（多连接时事务与 outbox 落在同一连接）；应用层 `async with in_transaction():`（tortoise 事务连接按 task ContextVar 自动绑定）。
 - **领域事件**：`EventBus` / `EventHandler` / `EventTransport` 抽象，`BaseEvent` 在 `core/domain/events.py`。事件按**投递保证**分两类：`best_effort`（默认、可丢，进程内后台派发，如 `UserChanged` 清快照）与 `at_least_once`（不可丢，写生产模块的 `*_event_outbox`，由 `EventRelay` 轮询取事件、经 transport 投递，如 `UserHardDeleted`）。**事件类按聚合归属放各子域 `domain/*/events.py`**；**订阅者（副作用）放应用层**。可靠事件的 outbox 必须与业务写在**同一事务**内；模块在 `bootstrap` 用 `persistence.get_event_outbox_store(<模块模型>)` 登记，表模型继承 core 的 `EventOutboxModel`（表随模块迁移）。Relay 现在只挂 `LocalEventTransport`；webhook / broker 作为新的 `EventTransport` 加入即可，生产/消费代码不变。**一条 outbox 行会投递给所有 transport；部分失败重试会对已成功的 transport 重复投递，因此消费方必须幂等（按 `event.id` 去重）**。`LISTEN/NOTIFY` 只能当唤醒信号，轮询是底线。资源/权限的状态、软删、恢复、硬删都会改变有效权限，故发 `ResourceChanged` 清快照。**跨模块订阅**：由生产方在 `interface/python` 暴露注册钩子（如 iam 的 `register_user_hard_deleted_listener`，回调收裸 UUID），消费方在 `bootstrap` 订阅——事件类型与值对象不跨模块；`UserHardDeleted` 只在物理删除时发（软删/恢复只发 `UserChanged`），供其他模块清理属于该用户的数据。
+- **后台任务（自主驱动 × 同进程）**：core 提供 `core.infrastructure.background` 门面（`register` / `start_all` / `stop_all`，任务契约 `start()` / `stop()`）；模块在 `bootstrap` 注册，core 在模块钩子之后统一启动、关闭时逆序停止（在释放对象存储之前）。只放**没有事件可等、自己按时间/状态轮询、轻量 IO、幂等可自愈**的常驻任务（如日志冷归档）；有事件等待走事件总线，重任务/需持久化/需扩缩容走独立 worker——门面不提供消息消费、队列、持久化、cron。多 worker/多副本会各跑一份，需幂等或锁。**手动触发**是命令不是事件：唤醒任务的 `trigger()`（如 `asyncio.Event`），不发事件。
 - **持久化（后端中立）**：只有 `infrastructure/persistence/` 内允许 import 具体 ORM；core 只通过门面访问。
   - 抽象层：`core/infrastructure/persistence/__init__.py`（`start/stop_persistence`、`get_in_transaction`）
   - 具体后端：`core/infrastructure/persistence/{orm}/{orm}_backend.py`

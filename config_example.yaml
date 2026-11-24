@@ -8,6 +8,19 @@ core:
   port: 8100
   # 日志存放位置，默认是项目根目录下的logs目录
   logs_dir: ./logs
+  # 日志轮转/保留与冷归档（可选）
+  logs:
+    # 实例标识（进归档 key 顶层）；缺省取 hostname
+    # instance: orange-main
+    rotation: 20 MB
+    retention: 7 days
+    # 冷日志归档（可选；不配或 enabled=false 不启动）
+    # archive:
+    #   enabled: true
+    #   backend: object_storage
+    #   interval_seconds: 60
+    #   cold_after_seconds: 30
+    #   connection: default
   # aerich 迁移脚本目录（容器部署由 docker/config_example.yaml 指到数据卷）
   migrations_dir: ./migrations
   # 启用的业务模块（core 按约定 app.{模块}.infrastructure.persistence.{orm}.{backend}.models 汇总模型）

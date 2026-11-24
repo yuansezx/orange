@@ -1,5 +1,6 @@
 # 全局配置,包括数据库配置,jwt配置
 # import secrets
+import socket
 import tomllib
 from pathlib import Path
 
@@ -98,6 +99,34 @@ class ObjectStorageConfig(BaseModel):
     connections: dict = {}
 
 
+class LogArchiveConfig(BaseModel):
+    """日志冷归档配置（core 段内的嵌套 schema）。
+
+    enabled：是否启用；未配置 `core.logs.archive` 或 enabled=false 则不启动归档任务。
+    backend：目的地实现。当前只实现 object_storage；未知/未实现的 backend 启动即失败。
+    connection：对象存储连接名（引用 core.object_storage.connections）；桶名由代码拥有。
+    interval_seconds / cold_after_seconds：轮询间隔与冷文件冷却阈值（秒）。
+    """
+    enabled: bool = False
+    backend: str = 'object_storage'
+    interval_seconds: float = 60.0
+    cold_after_seconds: int = 30
+    connection: str = 'default'
+
+
+class LogsConfig(BaseModel):
+    """日志配置（core 段内的嵌套 schema）。
+
+    instance：实例标识，进归档 key；缺省取 hostname。
+    rotation / retention：loguru 轮转与保留（大小/时间）。
+    archive：冷日志归档；可选。
+    """
+    instance: str = Field(default_factory=socket.gethostname)
+    rotation: str = '20 MB'
+    retention: str = '7 days'
+    archive: LogArchiveConfig | None = None
+
+
 class CoreSettings(AppBaseSettings):
     model_config = SettingsConfigDict(
         yaml_file=['config_dev.yaml', 'config.yaml', 'config_prod.yaml'],
@@ -132,6 +161,8 @@ class CoreSettings(AppBaseSettings):
     #
     # log文件位置
     logs_dir: Path = Path('./logs')
+    # 日志轮转/保留与冷归档（可选）
+    logs: LogsConfig = Field(default_factory=LogsConfig)
     # aerich 迁移脚本目录（容器里指向数据卷，如 /orange/data/migrations）
     migrations_dir: Path = Path('./migrations')
 
