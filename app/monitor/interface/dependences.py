@@ -44,7 +44,7 @@ def get_app_log_store() -> AppLogStoreAdapter:
 
 
 def get_app_log_tail() -> AppLogTailAdapter:
-    return AppLogTailAdapter(logs_dir=CORE_SETTINGS.logs_dir)
+    return AppLogTailAdapter(logs_dir=CORE_SETTINGS.logs.dir)
 
 
 def get_app_log_trigger() -> AppLogTriggerAdapter:

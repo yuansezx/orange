@@ -27,8 +27,12 @@ class AppLogTailAdapter(AppLogTailPort):
 
     async def _stream(self, file: str) -> AsyncIterator[str]:
         path = self._logs_dir / _FILES[file]
-        for line in await asyncio.to_thread(self._initial_lines, path):
-            yield _data(line)
+        # 立即发一个注释心跳：让浏览器/代理马上拿到首块数据，避免“连上了但在等”
+        yield ': connected\n\n'
+        # 初始快照合成一个 SSE 事件，前端一次渲染整块
+        snapshot = await asyncio.to_thread(self._initial_lines, path)
+        if snapshot:
+            yield ''.join(f'data: {line}\n' for line in snapshot) + '\n'
         offset = await asyncio.to_thread(self._size, path)
         decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
         buffer = ''

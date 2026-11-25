@@ -25,14 +25,14 @@ ACTIVE_LOG_FILES = (APP_LOG, ERROR_LOG)
 
 # 初始化loguru
 def init_logger():
-    CORE_SETTINGS.logs_dir.mkdir(parents=True, exist_ok=True)
+    CORE_SETTINGS.logs.dir.mkdir(parents=True, exist_ok=True)
     # 移除原生控制台输出
     logger.remove()
     # 添加控制台输出
     logger.add(sys.stderr, colorize=True, level="INFO",
                format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}  - {message}")
     # 所有模块的log写入app.log
-    logger.add(CORE_SETTINGS.logs_dir / APP_LOG,
+    logger.add(CORE_SETTINGS.logs.dir / APP_LOG,
                level='INFO',
                format='{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}  - {message}',
                encoding='utf-8',
@@ -41,7 +41,7 @@ def init_logger():
                enqueue=True  # 异步
                )
     # error级别log单独写入error.log
-    logger.add(CORE_SETTINGS.logs_dir / ERROR_LOG,
+    logger.add(CORE_SETTINGS.logs.dir / ERROR_LOG,
                level='ERROR',
                format='{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}  - {message}',
                encoding='utf-8',

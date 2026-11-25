@@ -28,6 +28,7 @@ export {
   IconRestore,
   IconShieldLock,
   IconSitemap,
+  IconTerminal2,
   IconTrash,
   IconTrashX,
   IconUserCircle,

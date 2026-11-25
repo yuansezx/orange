@@ -6,19 +6,23 @@ core:
   # 服务监听地址（容器内需改为 0.0.0.0）
   host: 0.0.0.0
   port: 8100
-  # 日志存放位置，默认是项目根目录下的logs目录
-  logs_dir: ./logs
-  # 日志轮转/保留与冷归档（可选）
+  # 日志：目录 / 轮转保留 / 冷归档（可选）
   logs:
+    # 日志存放位置（默认项目根目录下的 logs）
+    dir: ./logs
     # 实例标识（进归档 key 顶层）；缺省取 hostname
-    # instance: orange-main
+    # instance: orange
+    # loguru 轮转：按大小（如 20 MB）或时间（如 00:00 每天）；轮转出的文件才进入归档
     rotation: 20 MB
+    # 本地保留：按时间（如 7 days）或份数；归档成功会删本地，这里主要兜底失败/未上传的情况
     retention: 7 days
     # 冷日志归档（可选；不配或 enabled=false 不启动）
     # archive:
     #   enabled: true
     #   backend: object_storage
+    #   归档任务轮询间隔（秒）；手动触发不受此限制
     #   interval_seconds: 60
+    #   冷文件冷却阈值（秒）：轮转后至少等这么久再归档，避免仍在落盘
     #   cold_after_seconds: 30
     #   connection: default
   # aerich 迁移脚本目录（容器部署由 docker/config_example.yaml 指到数据卷）

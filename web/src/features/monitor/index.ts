@@ -1,8 +1,9 @@
 import { createElement, lazy } from 'react'
 
 import type { FeatureModule } from '@shared/navigation'
-import { IconFileText, IconInfoCircle } from '@shared/ui'
+import { IconFileText, IconInfoCircle, IconTerminal2 } from '@shared/ui'
 
+const AppLogPage = lazy(() => import('./appLog/AppLogPage'))
 const AuditLogPage = lazy(() => import('./auditLog/AuditLogPage'))
 const SystemInfoPage = lazy(() => import('./system/SystemInfoPage'))
 
@@ -25,6 +26,14 @@ export const feature: FeatureModule = {
           permission: 'monitor:audit_log:read',
           icon: createElement(IconFileText, { size: 16 }),
           element: createElement(AuditLogPage),
+        },
+        {
+          key: 'monitor-app-log',
+          label: '应用日志',
+          path: 'app-logs',
+          permission: 'monitor:app_log:read',
+          icon: createElement(IconTerminal2, { size: 16 }),
+          element: createElement(AppLogPage),
         },
         {
           key: 'monitor-system',

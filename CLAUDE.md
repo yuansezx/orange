@@ -119,7 +119,7 @@ app/                               # 后端（本文件详述）；仓库根另�
 - **层依赖方向**：`interface → application → domain`；`infrastructure → application（仅 ports / queries 及端口契约类型：DTO / 枚举 / 异常）/ domain`——基础设施实现应用层/领域层定义的端口与查询接口（依赖倒置），应用层/领域层不反向依赖基础设施。`core` 不依赖任何业务模块；**模块依赖 core 时同样遵循这个方向**（只能依赖同层或更内层的 core，不能越层；`app.core` 顶层是基础设施门面，只有模块 `infrastructure` / `bootstrap` 可 import）。
 - **配置分层**：配置在边缘加载、值流入内层；**`domain` / `application` 不 import settings**，组合根（`interface/dependences.py`）是唯一读取配置单例并完成装配的地方。落点：基础设施配置（连接串 / 密钥 / 桶名）留 infrastructure；应用策略（TTL / 上传上限 / 分页上限）由组合根注入标量，或放 `application/common/config.py` 的 frozen 配置模型；领域可配置规则（如密码长度）在 domain 定义 frozen 策略 / 值对象，由组合根映射后注入。真正的领域不变式仍硬编码在实体，不把配置当万能开关。
 - **配置**：分节 YAML（`core` / `iam`）+ `.env`；优先级 **`init > env > dotenv > yaml > secret`**（env 高于文件，容器里可用环境变量覆盖）。
-  - `core` 段：`app_name`、`debug`、`host`/`port`、`logs_dir`、`logs`（轮转/保留/冷归档）、**`modules`**（启用模块清单）、`persistence` / `cache` / `object_storage`
+  - `core` 段：`app_name`、`debug`、`host`/`port`、`logs`（目录 / 轮转 / 保留 / 冷归档）、**`modules`**（启用模块清单）、`persistence` / `cache` / `object_storage`
   - **连接配置（平台规约）**：三种基础设施统一为 `connections: {连接名: {backend, ...}}`——连接名是 dev 与 ops 的契约（**名字跨环境不变，backend 与凭据/参数随环境变**）。
     - `persistence` 另有一个**全局** `orm`（ORM 框架）：模型注册表 / aerich 迁移账本 / 事务上下文都只有一份，**一个进程只能有一个 ORM**；连接只声明各自的引擎 `backend`（原 `dialect`）。
     - `cache` / `object_storage` 没有全局 backend——**每个连接自带 backend**，同一部署内不同连接可用不同实现（前提是消费模块为该 backend 提供了 adapter；provider 缺省等于 backend）。

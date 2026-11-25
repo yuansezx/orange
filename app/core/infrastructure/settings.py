@@ -117,10 +117,12 @@ class LogArchiveConfig(BaseModel):
 class LogsConfig(BaseModel):
     """日志配置（core 段内的嵌套 schema）。
 
+    dir：日志目录。
     instance：实例标识，进归档 key；缺省取 hostname。
     rotation / retention：loguru 轮转与保留（大小/时间）。
     archive：冷日志归档；可选。
     """
+    dir: Path = Path('./logs')
     instance: str = Field(default_factory=socket.gethostname)
     rotation: str = '20 MB'
     retention: str = '7 days'
@@ -159,9 +161,7 @@ class CoreSettings(AppBaseSettings):
     # # 是否需要初始化数据库
     # need_init_db: bool = True
     #
-    # log文件位置
-    logs_dir: Path = Path('./logs')
-    # 日志轮转/保留与冷归档（可选）
+    # 日志目录 / 轮转保留 / 冷归档（可选）
     logs: LogsConfig = Field(default_factory=LogsConfig)
     # aerich 迁移脚本目录（容器里指向数据卷，如 /orange/data/migrations）
     migrations_dir: Path = Path('./migrations')

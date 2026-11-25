@@ -23,7 +23,7 @@ def build_log_archive(active_files: tuple[str, ...]) -> LogArchiveWorker | None:
     if archive is None or not archive.enabled:
         return None
     _worker = LogArchiveWorker(
-        logs_dir=CORE_SETTINGS.logs_dir,
+        logs_dir=CORE_SETTINGS.logs.dir,
         active_files=active_files,
         instance=CORE_SETTINGS.logs.instance,
         sink=_build_sink(archive),
