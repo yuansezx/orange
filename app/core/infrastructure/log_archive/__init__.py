@@ -36,3 +36,12 @@ def build_log_archive(active_files: tuple[str, ...]) -> LogArchiveWorker | None:
 def get_log_archive_controller() -> LogArchiveWorker | None:
     """供手动触发（monitor）；未启用时为 None。"""
     return _worker
+
+
+def trigger_log_archive() -> bool:
+    """手动触发一次归档（命令不是事件）；未启用返回 False。"""
+    controller = get_log_archive_controller()
+    if controller is None:
+        return False
+    controller.trigger()
+    return True

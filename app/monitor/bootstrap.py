@@ -22,6 +22,15 @@ MONITOR_RESOURCE_DECLARATIONS: list[RegisterResourceReq] = [
         name='系统信息',
         permissions=[RegisterPermissionReq(action='read', name='查看系统信息')],
     ),
+    RegisterResourceReq(
+        module=MONITOR_MODULE,
+        code='app_log',
+        name='应用日志',
+        permissions=[
+            RegisterPermissionReq(action='read', name='查看应用日志'),
+            RegisterPermissionReq(action='archive', name='触发日志归档'),
+        ],
+    ),
 ]
 
 

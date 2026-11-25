@@ -6,7 +6,11 @@ from loguru import logger
 from app.core.infrastructure import background
 from app.core.infrastructure.event_bus_impl import EventBusImpl
 from app.core.infrastructure.event_relay import EventRelay, LocalEventTransport
-from app.core.infrastructure.log_archive import build_log_archive, get_log_archive_controller
+from app.core.infrastructure.log_archive import (
+    build_log_archive,
+    get_log_archive_controller,
+    trigger_log_archive,
+)
 from app.core.infrastructure.cache import start_cache, stop_cache
 from app.core.infrastructure.object_storage import start_object_storage, stop_object_storage
 from app.core.infrastructure.persistence import start_persistence, stop_persistence

@@ -1,6 +1,7 @@
 """monitor 的 HTTP 路由汇总——对外唯一挂载单元。"""
 from fastapi import APIRouter
 
+from app.monitor.interface.http.app_log.api import app_log_router
 from app.monitor.interface.http.audit_log.api import audit_log_router
 from app.monitor.interface.http.health.api import health_router
 from app.monitor.interface.http.system.api import system_router
@@ -9,3 +10,4 @@ router = APIRouter()
 router.include_router(health_router)
 router.include_router(audit_log_router)
 router.include_router(system_router)
+router.include_router(app_log_router)
